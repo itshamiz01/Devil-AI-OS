@@ -271,6 +271,7 @@ Scale in this order: improve queues and model routing; measure SQLite and worker
 
 - P-01 proves local startup/shutdown, authentication, migrations, durable tasks and minimum policy/audit controls on Windows.
 - P-02 proves a bounded mission with authorized tool proposals and verified results.
+- P-03 proves the opportunity pipeline end to end **under absence of sources**: discovery, screening, refusal-first acquisition, evidence epistemics, commercial feasibility, risk and governance, scoring, the validation ladder, and nine-section reporting. It does **not** prove live source acquisition — no market source is reachable from the build environment, so `default_source_catalog()` ships empty and the egress allowlist defaults to deny-all. See [ADR-0018](../decisions/ADR-0018-NO-INVENTED-MARKET-DATA.md) and [OPPORTUNITY_PIPELINE.md](OPPORTUNITY_PIPELINE.md).
 - P-05 proves isolated execution and safe failure behavior.
 - P-07 proves financial reconciliation and restricted transaction authority.
 - P-12 proves restart/retry without duplicate external effects.
