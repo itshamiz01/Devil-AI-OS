@@ -15,6 +15,12 @@ EVENT_TYPES = {
     # security-critical state change, so it must be observable and auditable
     # through the same bus as everything else. See ADR-0013.
     "EmergencyActivated","EmergencyDeactivated",
+    # P-02 Master Intelligence Engine. These are security- and governance-relevant
+    # state changes, so they travel the same auditable bus as everything else
+    # rather than living only in engine memory. See ADR-0015.
+    "MissionCreated","MissionStateChanged","PlanGenerated","PlanRevised","PlanRejected",
+    "TaskDispatched","DecisionRecorded","ModelUnavailable","PromptInjectionDetected",
+    "AutonomyLevelChanged",
 }
 
 

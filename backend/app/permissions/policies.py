@@ -25,6 +25,16 @@ PERMISSIONS: list[tuple[str, str, str]] = [
     ("agents.read", "agents", "Read agent metadata"),
     ("events.read", "events", "Read system events"),
     ("audit.read", "audit", "Read audit events"),
+    # ---- P-02 Master Intelligence Engine ----
+    # OWNER_PERMISSIONS is derived from this list, so the owner receives all four
+    # automatically (and the startup reconciliation added in P-01 grants them to
+    # an owner whose database predates this change). SYSTEM_PERMISSIONS is
+    # enumerated explicitly and includes none of them, so the application can
+    # never reason about, replan or re-authorize itself on its own authority.
+    ("intelligence.use", "intelligence", "Submit requests to the intelligence engine"),
+    ("intelligence.read", "intelligence", "Read missions, plans and intelligence status"),
+    ("intelligence.manage", "intelligence", "Approve, pause, cancel or replan a mission"),
+    ("intelligence.autonomy", "intelligence", "Change the autonomy level (owner only)"),
 ]
 
 OWNER_PERMISSIONS = [code for code, _, _ in PERMISSIONS]

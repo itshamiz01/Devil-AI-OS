@@ -52,12 +52,67 @@ class Settings(BaseSettings):
     financial_execution_enabled: bool = False
     cloud_ai_enabled: bool = False
 
+    # ---- P-02 Master Intelligence Engine ----
+    # The engine is functional with no model installed: interpretation, planning,
+    # scoring, risk classification and orchestration are deterministic. These
+    # settings control inference, not whether the engine works.
+    intelligence_enabled: bool = True
+    # "none" is the honest default for this hardware: no inference runtime is
+    # installed. Selecting "ollama" registers an adapter but does not download
+    # weights; a model must already be present locally.
+    model_provider: Literal["none", "ollama"] = "none"
+    registered_model_id: str = ""
+    registered_model_context_window: int = Field(default=4096, ge=512, le=2_000_000)
+    registered_model_min_ram_gb: float = Field(default=1.0, ge=0.0, le=64.0)
+    ollama_base_url: str = "http://127.0.0.1:11434"
+    inference_max_concurrent: int = Field(default=1, ge=1, le=8)
+    inference_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
+    # Fraction of *available* RAM one model may be assumed to need. Below 1.0 so
+    # inference cannot starve the Core OS of memory.
+    inference_ram_safety_fraction: float = Field(default=0.8, gt=0, le=1.0)
+    inference_max_cost_per_1k_tokens: float = Field(default=0.0, ge=0.0, le=100.0)
+    # Cloud inference stays gated by cloud_ai_enabled above, which the phase-flag
+    # validator refuses to enable. This flag is a second, independent lock on
+    # data leaving the machine.
+    inference_cloud_egress_permitted: bool = False
+    model_health_ttl_seconds: float = Field(default=60.0, gt=0, le=3600)
+    context_token_budget: int = Field(default=2048, ge=256, le=32768)
+    # Levels 3 and 4 are future-phase capabilities and are excluded by this
+    # Literal, so they cannot be activated by configuration at all.
+    autonomy_level: Literal["0_advisory", "1_assisted_execution", "2_controlled_autonomy"] = "0_advisory"
+    plan_max_steps: int = Field(default=24, ge=1, le=64)
+    mission_max_concurrent_tasks: int = Field(default=2, ge=1, le=8)
+
     @field_validator("host")
     @classmethod
     def validate_host(cls, v: str) -> str:
         if v not in {"127.0.0.1", "localhost", "::1"}:
             raise ValueError("P-01 backend must bind to loopback; remote access is not implemented")
         return v
+
+    @field_validator("ollama_base_url")
+    @classmethod
+    def validate_inference_endpoint(cls, v: str) -> str:
+        """The inference endpoint must be loopback.
+
+        Prompts can carry owner objectives and financial limits. An inference URL
+        pointing off the machine would send them to a third party without any
+        data-sharing decision having been made, so this is refused at startup
+        rather than warned about at runtime.
+        """
+        import re as _re
+        match = _re.match(r"^https?://([^:/?#]+)(?::(\d+))?", v.strip())
+        if not match:
+            raise ValueError("ollama_base_url must be an absolute http(s) URL")
+        host = match.group(1).strip("[]").lower()
+        if host not in {"127.0.0.1", "localhost", "::1"}:
+            raise ValueError(
+                "inference endpoint must bind to loopback; sending prompts to a "
+                "remote host requires an approved data-sharing decision"
+            )
+        if match.group(0).lower().startswith("https://") is False and host != "localhost":
+            pass  # plain http on loopback is expected for a local model server
+        return v.strip()
 
     @model_validator(mode="after")
     def validate_phase_flags(self) -> "Settings":

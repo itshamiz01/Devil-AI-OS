@@ -1,13 +1,13 @@
 # Known Limitations and Risk Register
 
-**Phase:** P-00 · **Updated:** 2026-11-03 (re-audited against the current workspace)
+**Phase:** P-00 · **Updated:** 2026-11-03 (re-audited against the current workspace; P-02 limitations appended below)
 
 ## Verified limitations
 
 | ID | Limitation / risk | Severity | Current treatment | Required resolution |
 |---|---|---|---|---|
 | L-01 | Owner Windows PC is inaccessible; no Windows build/runtime evidence | Critical for P-01 | Linux audit clearly scoped; read-only Windows helper supplied | Run audit and target smoke tests |
-| L-02 | No Ollama/model installed; no inference benchmark | High | No local-model performance claim; shared-inference design only | Hardware review, approved model and benchmark |
+| L-02 | No Ollama/model installed; no inference benchmark | High | No local-model performance claim; shared-inference design only. **Confirmed again during P-02 on 2026-11-03:** all six runtimes absent, `ollama.com` and `huggingface.co` unreachable, no GPU, `SwapTotal 0`. P-02 was therefore built deterministic-first (ADR-0017) and every model-dependent acceptance item is reported NOT VERIFIED | Hardware review, approved model and benchmark |
 | L-03 | Approximately 3.85 GiB total / 3.60 GiB available sandbox RAM (re-measured 2026-11-03; previously recorded as ~1.94 GiB), 0 KiB swap, 2 logical CPUs, no exposed GPU | High for local AI | Defer heavyweight inference; no model downloads; 0.5-1B Q4 is the only class with genuine headroom | Use a suitable target or smaller approved experiments |
 | L-04 | **Resolved in this workspace.** Node v22.22.3 with npm 10.9.8 is installed and satisfies the measured engine floors of vite 8.3.5, vitest 5.1.0 and typescript-eslint 8.72.1 | Closed here | Frontend toolchain is installable on the present Node without the proposed Node 24 upgrade | Owner confirmation that Node 22 (not 24) is the build target |
 | L-05 | **Confirmed with exact evidence.** typescript-eslint 8.72.1 peers `typescript >=4.8.4 <6.1.0` while npm `latest` is 7.0.2, so installing both at latest yields an unmet peer dependency | Medium | TypeScript 6.0.x is the highest safe line; must be pinned, never tracked at `latest` | Build/lint/type-check the exact pinned set |
@@ -43,3 +43,16 @@
 The original README and MIT license were inspected before edits. The README is archived and the license is unchanged. No application code was replaced because none existed. No packages/models were installed, no financial accounts connected and no remote push performed.
 
 The final completion report distinguishes structural checks from runtime verification and lists the exact remaining gate.
+
+## P-02 limitations (added 2026-11-03)
+
+| ID | Limitation / risk | Severity | Current treatment | Required resolution |
+|---|---|---|---|---|
+| L-23 | **Local model integration is NOT VERIFIED.** `OllamaProvider` is implemented against the documented HTTP API but has never been exercised against a live server | High | Provider-independent `ModelProvider` protocol, so an adapter can be added or replaced without touching the router; all tests use mocks that exist only in `backend/tests/` | Run the six-step verification in `docs/reports/P02_MODEL_AVAILABILITY_REPORT.md` §6 on a host with a runtime |
+| L-24 | **No performance measurement of any kind exists** for inference — no latency, memory or token throughput figure | High for claims | No figure is reported in any P-02 document; §25 forbids inventing measurements and none were invented | Measure on real hardware before any performance claim is made |
+| L-25 | Prompt-injection **detection** is pattern-based (four regex banks) and will miss novel phrasings | Medium | Acceptable only because the defence is **structural**: `fence_untrusted` neutralises embedded fence markers and `INVARIANTS`/`SYSTEM_PROMPT` are never interpolated with external values, so protection does not depend on detection succeeding. Detection exists to report, not to protect | Add semantic detection in a later phase; do not rely on the regex banks as the control |
+| L-26 | Request interpretation is deterministic and **English-shaped** | Medium | Mis-categorisation errs toward `needs_clarification` and higher risk, never toward execution, so a mis-read request asks a question rather than acting | Multi-language interpretation in a later phase |
+| L-27 | **No rate limiting on the intelligence endpoints.** P-01's login rate limit does not cover them | Low (loopback, owner-only) | All fourteen require owner-only permissions and the server binds loopback only | Add per-principal rate limiting if the API is ever exposed beyond loopback |
+| L-28 | Mission persistence is **per-request, not transactional** with the in-memory state change | Medium | A crash between a state change and the next persist point loses that change. Making it transactional would require the engine's synchronous transitions to become async, changing the P-01-facing API | Owner decision R-5 |
+| L-29 | **Cloud inference routing is implemented and unit-tested but inert** in the running application | Informational | `validate_phase_flags` rejects `cloud_ai_enabled=True`; the P-01 control was **not** weakened. Deleting the code was rejected because it would make the local-first rule untestable | Owner decision R-1 |
+| L-30 | §16.3/§16.4 scenarios remain untested: path traversal, malformed-input fuzzing, database-unavailable, shutdown-during-execution | Medium | Carried forward from P-01; P-02 adds no new coverage for them | Dedicated adversarial test pass |

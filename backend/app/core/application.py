@@ -3,13 +3,14 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from ..api.routes import agents, approvals, auth, events, health, system, tasks
+from ..api.routes import agents, approvals, auth, events, health, intelligence, system, tasks
 from ..database.connection import Database
 from ..database.repositories import AuditRepo, ConfigRepo, PermissionRepo, PrincipalRepo
 from ..events.bus import EventBus
@@ -18,6 +19,7 @@ from ..monitoring.metrics import Metrics
 from ..monitoring.system_monitor import SystemMonitor
 from ..permissions.approvals import ApprovalService
 from ..permissions.engine import PermissionEngine
+from ..intelligence.factory import build_intelligence, initialize as initialize_intelligence
 from ..permissions.policies import OWNER_PERMISSIONS, PERMISSIONS, SYSTEM_PERMISSIONS
 from ..tasks.manager import TaskManager
 from .auth import AuthService
@@ -45,6 +47,9 @@ class Services:
     metrics: Metrics
     lifecycle: Lifecycle
     health: HealthService
+    # None when AUTONOMUS_INTELLIGENCE_ENABLED is false. Optional so the P-01
+    # application still constructs and shuts down cleanly without P-02.
+    intelligence: Any = None
 
 
 async def seed_core_data(db: Database, settings: Settings) -> None:
@@ -105,11 +110,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             emergency_state = await emergency.load()
             task_manager = TaskManager(settings, db, bus, monitor, emergency)
             register_task_approval_subscribers(bus, task_manager)
+            # Built after the task manager because the orchestrator dispatches
+            # through it. Construction performs no I/O and starts no model:
+            # health probing is lazy, so an absent runtime cannot delay startup.
+            intelligence_services = (
+                build_intelligence(settings, db, task_manager)
+                if settings.intelligence_enabled else None
+            )
+            if intelligence_services is not None:
+                # Persists configured model registrations and reloads missions
+                # stored before the last shutdown (§17, §19.5). Recovery restores
+                # visibility only: nothing is re-planned, re-dispatched or
+                # re-authorized, and tasks already dispatched stay the task
+                # manager's responsibility.
+                await initialize_intelligence(intelligence_services)
             services = Services(
                 settings=settings, db=db, bus=bus, permissions=permissions,
                 approvals=approval_service, auth=auth_service, monitor=monitor,
                 emergency=emergency, tasks=task_manager, metrics=metrics,
                 lifecycle=lifecycle, health=None,  # type: ignore[arg-type]
+                intelligence=intelligence_services,
             )
             services.health = HealthService(services)
             app.state.services = services
@@ -177,6 +197,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         logger.exception("Unhandled API error", extra={"component": "api", "correlation_id": getattr(request.state, "correlation_id", None)})
         return JSONResponse(status_code=500, content={"error": {"code": "internal_error", "message": "Internal server error"}, "correlation_id": getattr(request.state, "correlation_id", None)})
 
-    for router in (auth.router, health.router, system.router, tasks.router, agents.router, approvals.router, events.router):
+    for router in (auth.router, health.router, system.router, tasks.router, agents.router, approvals.router, events.router, intelligence.router):
         app.include_router(router, prefix="/api/v1")
     return app

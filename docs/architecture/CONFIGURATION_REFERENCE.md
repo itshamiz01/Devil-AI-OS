@@ -1,4 +1,4 @@
-# P-01 Configuration Reference
+# Configuration Reference (P-01 + P-02)
 
 Configuration is centralized in `backend/app/core/config.py` using Pydantic Settings. Environment variables use the `AUTONOMUS_` prefix. Secrets are not stored in configuration tables or logs.
 
@@ -35,6 +35,45 @@ Configuration is centralized in `backend/app/core/config.py` using Pydantic Sett
 | `AUTONOMUS_CLOUD_AI_ENABLED` | `false` | Must remain false in P-01 |
 
 Invalid critical settings fail startup. Remote binding, remote access and phase-execution flags are rejected by validators.
+
+## P-02 intelligence settings
+
+Added by P-02 (Master Intelligence Engine). All sixteen are validated at configuration load; an invalid value fails startup rather than degrading silently.
+
+| Variable | Default | Meaning |
+|---|---:|---|
+| `AUTONOMUS_INTELLIGENCE_ENABLED` | `true` | Master switch for the intelligence engine. When false, `/api/v1/intelligence` answers `409` rather than pretending to work |
+| `AUTONOMUS_MODEL_PROVIDER` | `none` | `none` or `ollama`. With `none` no runtime is registered, so generation returns an explicit limitation instead of a fabricated answer (§6.4) |
+| `AUTONOMUS_REGISTERED_MODEL_ID` | `*(empty)*` | Identifier of an **already downloaded** local model. Weights are never fetched by the application; an empty value registers no model |
+| `AUTONOMUS_REGISTERED_MODEL_CONTEXT_WINDOW` | `4096` | Declared context window in tokens (512-2000000). A request exceeding it is refused or shortened, never silently truncated (§6.5) |
+| `AUTONOMUS_REGISTERED_MODEL_MIN_RAM_GB` | `1.0` | RAM the model needs, in GiB (0-64). Drives memory-aware admission so inference cannot starve the Core OS (§18) |
+| `AUTONOMUS_OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | Loopback only. A non-loopback value is rejected at startup by `validate_inference_endpoint` |
+| `AUTONOMUS_INFERENCE_MAX_CONCURRENT` | `1` | Simultaneous in-flight generations (1-8) |
+| `AUTONOMUS_INFERENCE_TIMEOUT_SECONDS` | `60` | Per-generation timeout in seconds (>0, <=600). On timeout the router falls back to another *permitted* model or reports the limitation |
+| `AUTONOMUS_INFERENCE_RAM_SAFETY_FRACTION` | `0.8` | Fraction of available RAM inference may commit (>0, <=1). The remainder is headroom reserved for the Core OS |
+| `AUTONOMUS_INFERENCE_MAX_COST_PER_1K_TOKENS` | `0.0` | Cost ceiling per 1k tokens (0-100). `0.0` means local-only: no paid model can satisfy it |
+| `AUTONOMUS_INFERENCE_CLOUD_EGRESS_PERMITTED` | `false` | Must remain false while `AUTONOMUS_CLOUD_AI_ENABLED` is false. Even when true, cloud routing stays inert until the owner enables that phase flag |
+| `AUTONOMUS_MODEL_HEALTH_TTL_SECONDS` | `60` | How long a health probe is cached in seconds (>0, <=3600). Health is probed lazily so startup never blocks on an absent model server (§18) |
+| `AUTONOMUS_CONTEXT_TOKEN_BUDGET` | `2048` | Assembled context budget in tokens (256-32768). Overflow raises `ContextOverflowError` rather than silently dropping a protected financial or security constraint (§12.3) |
+| `AUTONOMUS_AUTONOMY_LEVEL` | `0_advisory` | `0_advisory`, `1_assisted_execution` or `2_controlled_autonomy`. Levels 3 and 4 are not valid values and are refused at configuration load (§15) |
+| `AUTONOMUS_PLAN_MAX_STEPS` | `24` | Maximum steps in one plan (1-64). A larger plan is rejected rather than truncated |
+| `AUTONOMUS_MISSION_MAX_CONCURRENT_TASKS` | `2` | Tasks one mission may have in flight (1-8), so a single mission cannot monopolise the P-01 queue (§18) |
+
+### Inference endpoint validation
+
+`AUTONOMUS_OLLAMA_BASE_URL` is checked by `validate_inference_endpoint` in `backend/app/core/config.py`. Only loopback hosts (`127.0.0.1`, `localhost`, `::1`) are accepted. A LAN address or a public API endpoint is **rejected at startup**, so the engine cannot be pointed at an external inference service by editing configuration alone.
+
+### Autonomy level
+
+`AUTONOMUS_AUTONOMY_LEVEL` sets the *initial* level only. Changing level at runtime requires the owner-only `intelligence.autonomy` permission, is audited, and publishes `AutonomyLevelChanged`. A model can never raise its own level: `AutonomyController.request_change` raises `AutonomyEscalationError` unless `authorized_by_owner` is true, and levels 3 and 4 raise it unconditionally because P-02 does not implement them (§15). The P-01 permission engine remains authoritative at every level.
+
+### Cloud routing is implemented but inert
+
+`ModelRouter` and `InferencePolicy` support cloud candidates and are unit-tested with `cloud_enabled=True`. In the running application that path is unreachable, because `validate_phase_flags` rejects `AUTONOMUS_CLOUD_AI_ENABLED=true`. Enabling cloud inference is an owner decision, not a code change; see `docs/decisions/ADR-0015-INTELLIGENCE-ENGINE-BOUNDARIES.md`.
+
+### No paid fallback
+
+If no permitted model is available the engine reports the limitation (§6.4). It never silently switches to a paid provider: `ModelRouter` excludes cloud candidates during *selection* when they are not permitted, so no fallback path can reach one. `test_model_router.py` asserts the list of models actually tried.
 
 ## Emergency stop
 
