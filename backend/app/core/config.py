@@ -83,6 +83,33 @@ class Settings(BaseSettings):
     plan_max_steps: int = Field(default=24, ge=1, le=64)
     mission_max_concurrent_tasks: int = Field(default=2, ge=1, le=8)
 
+    # ---- P-03 Opportunity Discovery Engine ----
+    # Discovery, research, evidence, analysis, scoring and validation are
+    # deterministic and work with no source reachable at all: an opportunity that
+    # obtains no evidence is reported as insufficient, not guessed at. These
+    # settings govern acquisition, not whether the engine functions.
+    opportunities_enabled: bool = True
+    # Network egress for research is DENY BY DEFAULT and the list starts empty.
+    # Every host must be named explicitly, and NetworkPolicy refuses a host that is
+    # not on it - including a parent domain when only a subdomain is listed. An
+    # empty list therefore means no source can be reached, which the engine reports
+    # as a refusal per source rather than working around.
+    research_permitted_hosts: str = ""
+    research_max_sources_per_sweep: int = Field(default=10, ge=1, le=50)
+    research_timeout_seconds: float = Field(default=15.0, gt=0, le=120)
+    # Retrieved content is untrusted input (§27), so its size is bounded before it
+    # is parsed and nothing retrieved is ever executed.
+    research_max_response_bytes: int = Field(default=1_000_000, ge=1_000, le=20_000_000)
+    research_max_evidence_per_sweep: int = Field(default=200, ge=1, le=5_000)
+    # The level an opportunity must reach before it may be RECOMMENDED. Level 3 is
+    # commercial evidence. Levels 4 and 5 require money to have actually changed
+    # hands, which §26 forbids this phase from arranging, so 5 is unreachable here
+    # by design rather than by configuration.
+    opportunity_minimum_validation_level: int = Field(default=3, ge=0, le=5)
+    opportunity_max_open: int = Field(default=50, ge=1, le=1_000)
+    # Evidence older than this is marked stale and stops counting towards coverage.
+    evidence_stale_after_days: int = Field(default=180, ge=1, le=3_650)
+
     @field_validator("host")
     @classmethod
     def validate_host(cls, v: str) -> str:
@@ -123,6 +150,16 @@ class Settings(BaseSettings):
         if self.retry_max_delay < self.retry_base_delay:
             raise ValueError("retry_max_delay must be >= retry_base_delay")
         return self
+
+    @property
+    def research_host_allowlist(self) -> tuple[str, ...]:
+        """The research egress allowlist, parsed from a comma-separated string.
+
+        Kept as a string in the environment because a JSON list in a .env file is
+        easy to get subtly wrong, and an allowlist that fails to parse must fail
+        closed rather than open.
+        """
+        return tuple(h.strip().lower() for h in self.research_permitted_hosts.split(",") if h.strip())
 
     @property
     def database_path(self) -> Path:

@@ -21,6 +21,16 @@ EVENT_TYPES = {
     "MissionCreated","MissionStateChanged","PlanGenerated","PlanRevised","PlanRejected",
     "TaskDispatched","DecisionRecorded","ModelUnavailable","PromptInjectionDetected",
     "AutonomyLevelChanged",
+    # P-03 Opportunity Discovery Engine. An opportunity being rejected is as
+    # auditable an outcome as one being recommended - arguably more so, since the
+    # phase brief's design goal is that the system must be better at rejecting bad
+    # opportunities than at generating attractive ones. Source refusals and
+    # governance violations travel the same bus for the same reason: an absence of
+    # evidence, and an attempt to exceed authority, are both things the owner needs
+    # to be able to see after the fact.
+    "OpportunityDiscovered","OpportunityOpened","OpportunityStateChanged",
+    "OpportunityRejected","OpportunityRecommended","ResearchSweepCompleted",
+    "SourceRefused","EvidenceRecorded","ComplianceBlocked","GovernanceViolation",
 }
 
 

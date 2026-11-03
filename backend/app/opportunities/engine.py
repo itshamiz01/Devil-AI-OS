@@ -159,6 +159,22 @@ class OpportunityEngine:
         self._records[opportunity.opportunity_id] = record
         return record
 
+    def restore(self, opportunity: Opportunity) -> OpportunityRecord:
+        """Adopt a persisted opportunity after a restart.
+
+        Visibility only.  The state, history and classification come back exactly
+        as they were stored: nothing is re-researched, re-scored or re-recommended,
+        and no sweep is dispatched.  Autonomous scheduling is P-12, so a restart
+        must not silently resume work that was interrupted.
+        """
+        existing = self._records.get(opportunity.opportunity_id)
+        if existing is not None:
+            existing.opportunity = opportunity
+            return existing
+        record = OpportunityRecord(opportunity)
+        self._records[opportunity.opportunity_id] = record
+        return record
+
     def get(self, opportunity_id: str) -> OpportunityRecord:
         try:
             return self._records[opportunity_id]

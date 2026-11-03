@@ -35,6 +35,21 @@ PERMISSIONS: list[tuple[str, str, str]] = [
     ("intelligence.read", "intelligence", "Read missions, plans and intelligence status"),
     ("intelligence.manage", "intelligence", "Approve, pause, cancel or replan a mission"),
     ("intelligence.autonomy", "intelligence", "Change the autonomy level (owner only)"),
+    # ---- P-03 Opportunity Discovery Engine ----
+    # OWNER_PERMISSIONS is derived from this list, so the owner receives all four
+    # automatically; SYSTEM_PERMISSIONS is enumerated explicitly and includes none
+    # of them, so the system can never authorize its own research or change which
+    # hosts it may reach.
+    #
+    # There is deliberately NO permission for spending money. §26 prohibits the
+    # engine from purchasing domains, subscriptions, datasets or advertising, and
+    # from creating any financial obligation, at every autonomy level. A permission
+    # code would imply the capability exists and merely needs granting, which is not
+    # the case: the GovernanceGate refuses those actions outright.
+    ("opportunities.read", "opportunities", "Read opportunities, evidence, scores and reports"),
+    ("opportunities.research", "opportunities", "Run discovery and research for an opportunity"),
+    ("opportunities.manage", "opportunities", "Open, screen, advance, score or reject an opportunity"),
+    ("opportunities.sources", "opportunities", "Register or authorize a research source (owner only)"),
 ]
 
 OWNER_PERMISSIONS = [code for code, _, _ in PERMISSIONS]

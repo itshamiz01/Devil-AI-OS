@@ -10,7 +10,17 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from ..api.routes import agents, approvals, auth, events, health, intelligence, system, tasks
+from ..api.routes import (
+    agents,
+    approvals,
+    auth,
+    events,
+    health,
+    intelligence,
+    opportunities,
+    system,
+    tasks,
+)
 from ..database.connection import Database
 from ..database.repositories import AuditRepo, ConfigRepo, PermissionRepo, PrincipalRepo
 from ..events.bus import EventBus
@@ -20,6 +30,8 @@ from ..monitoring.system_monitor import SystemMonitor
 from ..permissions.approvals import ApprovalService
 from ..permissions.engine import PermissionEngine
 from ..intelligence.factory import build_intelligence, initialize as initialize_intelligence
+from ..opportunities.factory import build_opportunities, initialize as initialize_opportunities
+from ..tasks.handlers import clear_research_backend, set_research_backend
 from ..permissions.policies import OWNER_PERMISSIONS, PERMISSIONS, SYSTEM_PERMISSIONS
 from ..tasks.manager import TaskManager
 from .auth import AuthService
@@ -50,6 +62,8 @@ class Services:
     # None when AUTONOMUS_INTELLIGENCE_ENABLED is false. Optional so the P-01
     # application still constructs and shuts down cleanly without P-02.
     intelligence: Any = None
+    # None when AUTONOMUS_OPPORTUNITIES_ENABLED is false, for the same reason.
+    opportunities: Any = None
 
 
 async def seed_core_data(db: Database, settings: Settings) -> None:
@@ -124,12 +138,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 # re-authorized, and tasks already dispatched stay the task
                 # manager's responsibility.
                 await initialize_intelligence(intelligence_services)
+            # Built after the task manager because research sweeps are submitted
+            # through it (§24). Construction opens no socket: the network allowlist
+            # starts empty, so nothing is contacted until a source is registered.
+            opportunity_services = (
+                build_opportunities(settings, db, task_manager, bus)
+                if settings.opportunities_enabled else None
+            )
+            if opportunity_services is not None:
+                # Restores persisted sources and opportunities for reading, ranking
+                # and reporting. Recovery restores visibility only: nothing is
+                # re-researched, re-scored or re-recommended, and no sweep is
+                # dispatched, because autonomous scheduling is P-12.
+                await initialize_opportunities(opportunity_services)
+                # Binds the engine so `research.sweep` tasks can execute. The
+                # binding is explicit rather than implicit application state, and
+                # the handler fails loudly when it is missing.
+                set_research_backend(opportunity_services)
             services = Services(
                 settings=settings, db=db, bus=bus, permissions=permissions,
                 approvals=approval_service, auth=auth_service, monitor=monitor,
                 emergency=emergency, tasks=task_manager, metrics=metrics,
                 lifecycle=lifecycle, health=None,  # type: ignore[arg-type]
                 intelligence=intelligence_services,
+                opportunities=opportunity_services,
             )
             services.health = HealthService(services)
             app.state.services = services
@@ -161,6 +193,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     await services.bus.drain()
                     await services.bus.stop()
                 finally:
+                    # Unbind before the database goes away, so a late research task
+                    # cannot reach a disposed engine.
+                    clear_research_backend()
                     await services.db.dispose()
                 lifecycle.set(LifecycleState.STOPPED)
 
@@ -197,6 +232,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         logger.exception("Unhandled API error", extra={"component": "api", "correlation_id": getattr(request.state, "correlation_id", None)})
         return JSONResponse(status_code=500, content={"error": {"code": "internal_error", "message": "Internal server error"}, "correlation_id": getattr(request.state, "correlation_id", None)})
 
-    for router in (auth.router, health.router, system.router, tasks.router, agents.router, approvals.router, events.router, intelligence.router):
+    for router in (
+        auth.router, health.router, system.router, tasks.router, agents.router,
+        approvals.router, events.router, intelligence.router, opportunities.router,
+    ):
         app.include_router(router, prefix="/api/v1")
     return app

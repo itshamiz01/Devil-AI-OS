@@ -1,4 +1,4 @@
-# Configuration Reference (P-01 + P-02)
+# Configuration Reference (P-01 + P-02 + P-03)
 
 Configuration is centralized in `backend/app/core/config.py` using Pydantic Settings. Environment variables use the `AUTONOMUS_` prefix. Secrets are not stored in configuration tables or logs.
 
@@ -75,6 +75,36 @@ Added by P-02 (Master Intelligence Engine). All sixteen are validated at configu
 
 If no permitted model is available the engine reports the limitation (§6.4). It never silently switches to a paid provider: `ModelRouter` excludes cloud candidates during *selection* when they are not permitted, so no fallback path can reach one. `test_model_router.py` asserts the list of models actually tried.
 
+## P-03 opportunity discovery settings
+
+Added by P-03 (Opportunity Discovery Engine). All nine are validated at configuration load; an invalid value fails startup rather than degrading silently.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `AUTONOMUS_OPPORTUNITIES_ENABLED` | `true` | Builds the P-03 subsystem at startup. When false, `Services.opportunities` is None and every `/api/v1/opportunities` route returns 409 rather than a half-built engine |
+| `AUTONOMUS_RESEARCH_PERMITTED_HOSTS` | `""` | Comma-separated network egress allowlist for research acquisition. **Deny by default and empty by default**: `NetworkPolicy` refuses any host not named here, and allows a listed subdomain but never its parent. An empty value means no external source can be contacted, and every sweep returns one refusal per source instead of guessing (§27) |
+| `AUTONOMUS_RESEARCH_MAX_SOURCES_PER_SWEEP` | `10` | Sources contacted in one acquisition sweep (1-50). Also used as the per-source per-minute request ceiling, so a sweep cannot exceed the rate limit a descriptor declares (§30) |
+| `AUTONOMUS_RESEARCH_TIMEOUT_SECONDS` | `15.0` | Per-request acquisition timeout in seconds (>0, <=120). A timeout is recorded as a refusal with its reason, never retried silently |
+| `AUTONOMUS_RESEARCH_MAX_RESPONSE_BYTES` | `1000000` | Cap on retrieved content (1000-20000000). Retrieved content is untrusted input, so it is truncated before parsing and is never executed (§27) |
+| `AUTONOMUS_RESEARCH_MAX_EVIDENCE_PER_SWEEP` | `200` | Evidence records one sweep may create (1-5000). Bounds memory and database growth during a large sweep (§30) |
+| `AUTONOMUS_OPPORTUNITY_MINIMUM_VALIDATION_LEVEL` | `3` | Validation level (0-5) an opportunity must reach before it may be classified RECOMMENDED. Level 3 is commercial evidence. Levels 4 and 5 require money to have actually changed hands, which §26 forbids this phase from arranging, so a setting of 5 makes recommendation unreachable by design |
+| `AUTONOMUS_OPPORTUNITY_MAX_OPEN` | `50` | Open opportunities the engine will hold (1-1000). Opening beyond it returns 409 rather than growing without bound (§30) |
+| `AUTONOMUS_EVIDENCE_STALE_AFTER_DAYS` | `180` | Age in days (1-3650) after which evidence is marked OUTDATED and stops counting towards evidence coverage. A stale figure is not a current one, and pricing in particular goes out of date |
+
+### Research egress is deny by default
+
+`AUTONOMUS_RESEARCH_PERMITTED_HOSTS` is the only path by which the engine may contact an external host, and it is empty by default. `NetworkPolicy` refuses a host that is not named, permits a listed subdomain but never its parent domain, and rejects a hostname that merely ends with a permitted suffix. An empty allowlist is therefore a valid and safe configuration: no source can be reached, and each acquisition returns a refusal naming the reason.
+
+This matters because a refusal is a **result**. Section 19 forbids inventing statistics, prices, market sizes or publication dates, and forbids claiming a source was queried when it was not. When no host is permitted, the correct output is "insufficient verified evidence" together with the per-source refusals that explain it - not a plausible-looking market analysis.
+
+### No setting enables spending money
+
+There is deliberately no configuration key that permits purchasing a domain, a subscription, a dataset or advertising, placing an order, registering a business, signing a contract, collecting a payment or creating any financial obligation. Section 26 prohibits all of these at every autonomy level. A setting would imply the capability exists and is merely switched off; it does not exist, and `GovernanceGate` refuses the action outright. `AUTONOMUS_FINANCIAL_EXECUTION_ENABLED` remains refused at startup by `validate_phase_flags`, unchanged from P-01.
+
+### Minimum validation level and what it cannot reach
+
+`AUTONOMUS_OPPORTUNITY_MINIMUM_VALIDATION_LEVEL` gates the RECOMMENDED classification. Setting it to 4 or 5 does not make those levels attainable: level 4 requires evidence that a customer actually paid or committed a refundable deposit, and level 5 requires settled revenue. Neither can be produced by search volume, social views, likes, AI personas, hypothetical surveys, competitor existence, model-generated willingness to pay, a generated invoice, an unpaid order, an unverified screenshot, a forecast or a simulated transaction (§18). Since §26 forbids this phase from arranging a real transaction, a setting of 5 makes recommendation unreachable - which is the honest outcome, and the factory records it as a startup note rather than failing.
+
 ## Emergency stop
 
 The owner's emergency stop is **not** an environment variable. It is durable runtime state, persisted in the `system_configurations` table so that it survives restart and can never be cleared by editing configuration or by any automatic path (ADR-0013). It is controlled only through:
@@ -93,7 +123,7 @@ Both write operations require a non-empty `reason`, which is persisted and audit
 
 ## Coverage check
 
-Every `Settings` field is documented above. Verify with:
+Every `Settings` field is documented above. `scripts/audit_config_docs.py` diffs `Settings.model_fields` against this file and `.env.example`, and fails on any undocumented field. Verify by hand with:
 
 ```
 python -c "import sys;sys.path.insert(0,'backend');from app.core.config import Settings;print(len(Settings.model_fields))"

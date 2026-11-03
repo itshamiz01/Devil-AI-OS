@@ -68,6 +68,11 @@ from app.opportunities.discovery import (
     normalise_title,
 )
 from app.opportunities.engine import OpportunityEngine, OpportunityRecord
+from app.opportunities.factory import (
+    OpportunityServices,
+    build_opportunities,
+    default_source_catalog,
+)
 from app.opportunities.evidence import (
     EvidenceExtractor,
     EvidenceQualityStats,
@@ -132,6 +137,10 @@ __all__ = [
     # engine
     "OpportunityEngine",
     "OpportunityRecord",
+    # factory
+    "OpportunityServices",
+    "build_opportunities",
+    "default_source_catalog",
     # discovery
     "DiscoveryContext",
     "DiscoveryEngine",
