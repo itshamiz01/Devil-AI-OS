@@ -25,7 +25,8 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
-from typing import Any
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
@@ -420,3 +421,121 @@ class EvidenceStore:
                 for e in (self.for_opportunity(opportunity_id) if opportunity_id else self.all())
             ],
         }
+
+
+class EvidenceExtractor:
+    """Turns retrieved content into :class:`SourceEvidence` (§20 extraction stage).
+
+    Three rules keep this honest:
+
+    * **Only what is in the payload becomes evidence.**  A row count becomes a
+      count; a price becomes a price.  Nothing is inferred, extrapolated or
+      filled in, and an empty payload produces no records at all rather than a
+      record saying the market is quiet.
+    * **The classification ceiling is SUPPORTING.**  Retrieved content is
+      untrusted by construction, so extraction can never produce VERIFIED or
+      CORROBORATED evidence.  Those require confirmation or a second independent
+      source, which happen later and elsewhere.
+    * **Mock content stays visibly mock.**  When the source is a mock adapter the
+      claim is prefixed so that fixture data cannot drift into a report
+      unlabelled.
+    """
+
+    #: Fields in a structured row that are treated as a price observation.
+    PRICE_FIELDS: tuple[str, ...] = ("price", "amount", "cost", "list_price", "sale_price")
+    #: Fields treated as a review or rating observation.
+    REVIEW_FIELDS: tuple[str, ...] = ("reviews", "review_count", "rating", "num_reviews")
+
+    def __init__(self, *, mock_claim_prefix: str = "TEST FIXTURE "):
+        self.mock_claim_prefix = mock_claim_prefix
+
+    def _classification_for(self, reliability: EvidenceReliability) -> EvidenceClassification:
+        # Untrusted or model-derived content stays TENTATIVE; anything better
+        # earns SUPPORTING but never more, because extraction is not confirmation.
+        if reliability in {EvidenceReliability.UNTRUSTED, EvidenceReliability.MODEL_GENERATED}:
+            return EvidenceClassification.TENTATIVE
+        return EvidenceClassification.SUPPORTING
+
+    def extract(
+        self,
+        content: "RetrievedContent",
+        *,
+        descriptor: "SourceDescriptor",
+        opportunity_id: str | None = None,
+        max_items: int = 25,
+    ) -> list[SourceEvidence]:
+        from app.opportunities.schemas import EvidenceType, SourceEvidence as _SE
+
+        rows = content.structured.get("rows") if isinstance(content.structured, dict) else None
+        if not isinstance(rows, list):
+            rows = []
+        prefix = self.mock_claim_prefix if descriptor.source_type.value == "mock" else ""
+        classification = self._classification_for(descriptor.reliability)
+        out: list[_SE] = []
+
+        if rows:
+            out.append(
+                _SE(
+                    evidence_type=EvidenceType.MARKETPLACE_LISTING
+                    if descriptor.source_type.value in {"marketplace", "mock"}
+                    else EvidenceType.SEARCH_VOLUME,
+                    classification=classification,
+                    claim=f"{prefix}{len(rows)} result(s) returned by "
+                    f"'{descriptor.name}' for the configured query",
+                    numeric_value=Decimal(len(rows)),
+                    unit="count",
+                    source_id=descriptor.source_id,
+                    source_url=content.url,
+                    collected_at=content.retrieved_at,
+                    reliability=descriptor.reliability,
+                    trust_domain=content.trust_domain,
+                    opportunity_id=opportunity_id,
+                )
+            )
+        for row in rows[:max_items]:
+            if not isinstance(row, dict):
+                continue
+            label = str(row.get("title") or row.get("name") or "unnamed listing")[:120]
+            price = next((row[f] for f in self.PRICE_FIELDS if row.get(f) is not None), None)
+            if price is not None:
+                try:
+                    value = Decimal(str(price))
+                except Exception:  # noqa: BLE001 - a malformed price is skipped
+                    continue
+                out.append(
+                    _SE(
+                        evidence_type=EvidenceType.COMPETITOR_PRICING,
+                        classification=classification,
+                        claim=f"{prefix}{label}",
+                        numeric_value=value,
+                        unit="USD",
+                        source_id=descriptor.source_id,
+                        source_url=content.url,
+                        collected_at=content.retrieved_at,
+                        reliability=descriptor.reliability,
+                        trust_domain=content.trust_domain,
+                        opportunity_id=opportunity_id,
+                    )
+                )
+            review = next((row[f] for f in self.REVIEW_FIELDS if row.get(f) is not None), None)
+            if review is not None:
+                try:
+                    rvalue = Decimal(str(review))
+                except Exception:  # noqa: BLE001
+                    continue
+                out.append(
+                    _SE(
+                        evidence_type=EvidenceType.MARKETPLACE_REVIEW,
+                        classification=classification,
+                        claim=f"{prefix}{label} - review/rating observation",
+                        numeric_value=rvalue,
+                        unit="count" if rvalue > 5 else "rating",
+                        source_id=descriptor.source_id,
+                        source_url=content.url,
+                        collected_at=content.retrieved_at,
+                        reliability=descriptor.reliability,
+                        trust_domain=content.trust_domain,
+                        opportunity_id=opportunity_id,
+                    )
+                )
+        return out
