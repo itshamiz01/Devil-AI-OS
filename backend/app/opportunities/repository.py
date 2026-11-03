@@ -98,6 +98,33 @@ def _list(value: Any) -> list[Any]:
     return [] if value is None else list(value)
 
 
+def _assumptions(value: Any) -> list[dict[str, Any]]:
+    """Serialise ``tuple[Assumption, ...]`` for a JSON column.
+
+    A JSON column stores via ``json.dumps``, which raises ``TypeError`` on a
+    pydantic model.  Assumptions are the only JSON-backed field in these schemas
+    that holds models rather than plain strings or dicts, and three write paths
+    carry them - the opportunity, the commercial assessment and the report.  Two of
+    the three originally passed them straight through, so saving a commercial
+    assessment with any assumption failed at commit time.
+    """
+    if value is None:
+        return []
+    return [
+        item.model_dump(mode="json") if hasattr(item, "model_dump") else dict(item)
+        for item in value
+    ]
+
+
+def _to_assumptions(rows: Any) -> tuple[Any, ...]:
+    """Rebuild ``Assumption`` models from stored dicts."""
+    if not rows:
+        return ()
+    return tuple(
+        Assumption.model_validate(item) if isinstance(item, dict) else item for item in rows
+    )
+
+
 def _dict(value: Any) -> dict[str, Any]:
     return {} if value is None else dict(value)
 
@@ -206,7 +233,7 @@ class OpportunityRepository:
             "evidence_ids": _list(opportunity.evidence_ids),
             "rejection_reasons": _list(opportunity.rejection_reasons),
             # Assumption objects, not strings: a JSON column cannot hold a model.
-            "assumptions": [a.model_dump(mode="json") for a in opportunity.assumptions],
+            "assumptions": _assumptions(opportunity.assumptions),
             "business_model": (
                 opportunity.business_model.model_dump(mode="json")
                 if opportunity.business_model
@@ -262,9 +289,7 @@ class OpportunityRepository:
             risks=tuple(risks),
             score=score,
             validation=ValidationAssessment(level=row.validation_level or 0),
-            assumptions=tuple(
-                Assumption.model_validate(a) for a in (row.assumptions or ())
-            ),
+            assumptions=_to_assumptions(row.assumptions),
             evidence_ids=tuple(row.evidence_ids or ()),
             rejection_reasons=tuple(row.rejection_reasons or ()),
             final_classification=(
@@ -759,6 +784,13 @@ class OpportunityRepository:
     async def save_competitor_assessment(
         self, opportunity_id: str, assessment: CompetitorAssessment
     ) -> None:
+        # The summary is written first, so an assessment with no competitors still
+        # records its verdict, saturation and gaps instead of persisting nothing.
+        await self._set_opportunity_summary(
+            opportunity_id,
+            "competitor_assessment",
+            assessment.model_dump(mode="json", exclude={"competitors"}),
+        )
         async with self.db.session_factory() as session:
             for c in assessment.competitors:
                 row = (
@@ -811,11 +843,18 @@ class OpportunityRepository:
             "unpriced_cost_items": _list(assessment.unpriced_cost_items),
             "budget_was_modified": bool(assessment.budget_was_modified),
             "reasons": _list(assessment.reasons),
-            "assumptions": _list(assessment.assumptions),
+            "assumptions": _assumptions(assessment.assumptions),
         }
         await self._upsert(CommercialAnalysis, "opportunity_id", opportunity_id, values)
 
     async def save_risk_assessment(self, opportunity_id: str, assessment: RiskAssessment) -> None:
+        # Zero findings is a real result ("nothing was blocked"), not an absence of
+        # a result, so the verdict is stored independently of the child rows.
+        await self._set_opportunity_summary(
+            opportunity_id,
+            "risk_assessment",
+            assessment.model_dump(mode="json", exclude={"findings"}),
+        )
         async with self.db.session_factory() as session:
             for f in assessment.findings:
                 row = (
@@ -898,7 +937,7 @@ class OpportunityRepository:
             "headline_metrics": _dict(report.headline_metrics),
             "evidence_index": [e.model_dump(mode="json") for e in report.evidence_index],
             "refusals": _list(report.refusals),
-            "assumptions": _list(report.assumptions),
+            "assumptions": _assumptions(report.assumptions),
             "score_snapshot": report.score.model_dump(mode="json") if report.score else {},
             "validation_snapshot": (
                 report.validation.model_dump(mode="json") if report.validation else {}
@@ -929,13 +968,35 @@ class OpportunityRepository:
                 "headline_metrics": dict(row.headline_metrics or {}),
                 "evidence_index": list(row.evidence_index or ()),
                 "refusals": list(row.refusals or ()),
-                "assumptions": list(row.assumptions or ()),
+                "assumptions": _to_assumptions(row.assumptions),
                 "score_snapshot": dict(row.score_snapshot or {}),
                 "validation_snapshot": dict(row.validation_snapshot or {}),
                 "is_test_data": bool(row.is_test_data),
                 "test_data_notice": row.test_data_notice,
                 "generated_at": row.generated_at,
             }
+
+    async def _set_opportunity_summary(
+        self, opportunity_id: str, column: str, value: dict[str, Any]
+    ) -> None:
+        """Store an assessment-level summary on the opportunity row.
+
+        Refuses an unknown opportunity rather than silently doing nothing: a
+        summary written against a row that does not exist is a lost result, and
+        losing it quietly is worse than raising.
+        """
+        async with self.db.session_factory() as session:
+            row = (
+                await session.execute(
+                    select(Opportunity).where(Opportunity.opportunity_id == opportunity_id)
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                raise ValueError(
+                    f"cannot store a {column} summary for unknown opportunity '{opportunity_id}'"
+                )
+            setattr(row, column, value)
+            await session.commit()
 
     async def _upsert(
         self,

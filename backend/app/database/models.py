@@ -415,7 +415,6 @@ class Opportunity(TimestampMixin, Base):
     discovery_method: Mapped[str] = mapped_column(String(32), nullable=False)
     state: Mapped[str] = mapped_column(String(32), default="discovered", nullable=False, index=True)
     final_classification: Mapped[str | None] = mapped_column(String(48), index=True)
-    recommendable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # Money and quantities as exact decimal text - see the note above.
     budget_available_capital: Mapped[str | None] = mapped_column(String(32))
     budget_currency: Mapped[str | None] = mapped_column(String(3))
@@ -434,6 +433,14 @@ class Opportunity(TimestampMixin, Base):
     # storing them there would have left them unwritten and silently lost.
     business_model: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     distribution: Mapped[list[Any]] = mapped_column(JSON, default=list, nullable=False)
+    # Assessment-level summaries.  The child rows (competitor_records, risk_findings)
+    # are normalised in their own tables, but the verdict, saturation, price range
+    # and gaps belong to the assessment as a whole.  A competitor assessment with no
+    # competitors and a risk assessment with no findings are real results - "the
+    # market is unknown", "nothing was blocked" - not an absence of a result, so
+    # storing only the children would have lost exactly the cases that matter most.
+    competitor_assessment: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    risk_assessment: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     # Derived from final_classification rather than stored independently: two
     # columns that can disagree about whether to recommend is worse than one.
     recommendable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
