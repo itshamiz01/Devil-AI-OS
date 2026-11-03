@@ -22,7 +22,7 @@ P-01 was conditionally authorized after P-00 ended partially complete. The imple
 - Internal event bus, persisted system events and audit records.
 - Deny-by-default permission engine and approval framework.
 - Lightweight resource monitoring and nonessential task admission control.
-- 43 passing backend tests and a loopback live smoke test.
+- 67 passing backend tests and a loopback live smoke test.
 
 Explicitly not implemented: frontend dashboard, Tauri desktop shell, AI models/Ollama, autonomous agent creation, browser/desktop automation, business execution, wallets/payments, remote access, Windows certification.
 
@@ -101,7 +101,7 @@ Locked preferences (Constitution §12), with current verification status:
 
 | Layer | Choice | Status in this workspace |
 |---|---|---|
-| Backend | Python + FastAPI | Implemented and tested (43 tests) |
+| Backend | Python + FastAPI | Implemented and tested (67 tests) |
 | Database | SQLite + SQLAlchemy 2.x + Alembic | Implemented; PostgreSQL-ready schema |
 | Testing | Pytest | Implemented |
 | Frontend | React + TypeScript | Not started; Node 22 available here |

@@ -19,6 +19,9 @@ def settings(tmp_path: Path) -> Settings:
         environment="test",
         data_dir=tmp_path / "data",
         log_dir=tmp_path / "logs",
+        # Pin backups into tmp_path: the production default is the repository
+        # root, and tests must not write artifacts into the checkout.
+        backup_dir=tmp_path / "backups",
         task_queue_capacity=5,
         task_max_concurrency=1,
         task_default_timeout=2,

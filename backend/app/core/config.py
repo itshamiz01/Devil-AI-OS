@@ -19,6 +19,10 @@ class Settings(BaseSettings):
 
     data_dir: Path = BASE_DIR / "data"
     log_dir: Path = BASE_DIR / "logs"
+    backup_dir: Path = BASE_DIR / "backups"
+    # Number of most-recent database backups retained before pruning. Bounded so
+    # backups cannot silently consume the disk the monitor is watching.
+    backup_retention_count: int = Field(default=7, ge=1, le=100)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_max_bytes: int = Field(default=1_048_576, ge=1024)
     log_backup_count: int = Field(default=3, ge=0)

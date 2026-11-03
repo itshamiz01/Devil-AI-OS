@@ -19,6 +19,9 @@ Success: `{ "data": ..., "meta": ... }`. Error: `{ "error": { "code", "message",
 | GET | `/health` | `system.read` | Detailed health |
 | GET | `/system/status` | `system.read` | Lifecycle, queue, diagnostics, metrics |
 | GET | `/system/resources` | `system.read` | CPU/memory/disk snapshot |
+| GET | `/system/emergency` | `system.read` | Emergency stop state |
+| POST | `/system/emergency/activate` | `system.emergency` | Owner-only global halt; requires `reason` |
+| POST | `/system/emergency/clear` | `system.emergency` | Owner-only release; requires `reason` |
 | POST | `/tasks` | `tasks.submit` | Submit safe internal task |
 | GET | `/tasks` | `tasks.read` | List/filter tasks |
 | GET | `/tasks/{id}` | `tasks.read` | Task detail |
@@ -35,5 +38,9 @@ Success: `{ "data": ..., "meta": ... }`. Error: `{ "error": { "code", "message",
 | POST | `/approvals/{id}/decision` | `approvals.decide` | Approve/reject |
 | GET | `/events` | `events.read` | Persisted system events |
 | GET | `/audit` | `audit.read` | Audit events |
+
+Emergency control is owner-only: `system.emergency` is granted to the owner and deliberately withheld from the system principal, so the application can never halt or un-halt itself (Constitution §12). While active, non-essential task submission returns `503` with error code `emergency_stop_active`; essential handlers remain admissible.
+
+Backup and restore are **not** HTTP endpoints. Restore is destructive and CLI-only by design (ADR-0014): `autonomus backup`, `autonomus list-backups`, `autonomus restore --from <path>`.
 
 Pagination uses `limit` and `offset`. Task submission supports only `system.noop`, `system.echo`, and `system.wait`; arbitrary commands are rejected.

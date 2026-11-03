@@ -11,6 +11,10 @@ EVENT_TYPES = {
     "TaskCreated","TaskQueued","TaskStarted","TaskProgressUpdated","TaskCompleted","TaskFailed","TaskCancelled",
     "ApprovalRequested","ApprovalGranted","ApprovalRejected","PermissionDenied","SystemWarning","SystemError",
     "DatabaseUnavailable","ResourceThresholdExceeded",
+    # P-01 extension beyond the §8 initial list: the emergency stop is a
+    # security-critical state change, so it must be observable and auditable
+    # through the same bus as everything else. See ADR-0013.
+    "EmergencyActivated","EmergencyDeactivated",
 }
 
 

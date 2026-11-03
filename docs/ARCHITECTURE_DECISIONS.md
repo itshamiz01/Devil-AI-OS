@@ -15,6 +15,9 @@
 | [0009](decisions/ADR-0009-CONDITIONAL-P01-BACKEND.md) | Conditional backend-only P-01 while Windows/full gate remains pending | Accepted for conditional implementation |
 | [0010](decisions/ADR-0010-OWNER-SESSION-AUTH.md) | Owner password hash and opaque bearer sessions | Implemented for P-01 backend |
 | [0011](decisions/ADR-0011-SAFE-TASK-HANDLERS.md) | Registered safe internal task handlers only | Implemented for P-01 backend |
+| [0012](decisions/ADR-0012-SECRET-STORE-DESIGN-ONLY.md) | Secret store delivered as design only; no `keyring` dependency added | Implemented as DESIGN for P-01; implementation deferred to P-05/P-07 |
+| [0013](decisions/ADR-0013-EMERGENCY-STOP-FOUNDATION.md) | Durable owner-only emergency stop; in-flight work paused, not killed | Implemented for P-01 backend |
+| [0014](decisions/ADR-0014-BACKUP-RESTORE-CLI-ONLY.md) | Verified SQLite online-backup snapshots; restore is CLI-only, never HTTP | Implemented for P-01 backend |
 
 ## Change protocol
 
