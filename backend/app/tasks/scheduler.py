@@ -19,6 +19,7 @@ class RetryScheduler:
         while self.manager.accepting:
             try:
                 await self.manager.promote_due_retries()
+                await self.manager.expire_stale_approvals()
             except Exception:
                 logger.exception("Retry scheduler tick failed", extra={"component": "tasks"})
             await asyncio.sleep(self.poll_interval)

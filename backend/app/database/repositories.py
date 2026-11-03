@@ -69,6 +69,10 @@ class ApprovalRepo:
     async def create(self, **kwargs: Any) -> Approval:
         a = Approval(**kwargs); self.session.add(a); await self.session.flush(); return a
     async def get(self, approval_id: str) -> Approval | None: return await self.session.get(Approval, approval_id)
+    async def by_resource(self, action: str, resource: str) -> Approval | None:
+        """Most recent approval gating a given resource, newest first."""
+        q = select(Approval).where(Approval.action == action, Approval.resource == resource).order_by(Approval.created_at.desc()).limit(1)
+        return (await self.session.execute(q)).scalar_one_or_none()
     async def list(self, status: str | None, limit: int, offset: int) -> Sequence[Approval]:
         q = select(Approval).order_by(Approval.created_at.desc()).limit(limit).offset(offset)
         if status: q = q.where(Approval.status == status)

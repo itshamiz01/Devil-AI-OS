@@ -22,7 +22,7 @@ P-01 was conditionally authorized after P-00 ended partially complete. The imple
 - Internal event bus, persisted system events and audit records.
 - Deny-by-default permission engine and approval framework.
 - Lightweight resource monitoring and nonessential task admission control.
-- 32 passing backend tests and a loopback live smoke test.
+- 43 passing backend tests and a loopback live smoke test.
 
 Explicitly not implemented: frontend dashboard, Tauri desktop shell, AI models/Ollama, autonomous agent creation, browser/desktop automation, business execution, wallets/payments, remote access, Windows certification.
 

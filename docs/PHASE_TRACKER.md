@@ -9,7 +9,7 @@ Status vocabulary: PLANNED, IN PROGRESS, PARTIALLY COMPLETE, IMPLEMENTED, VERIFI
 | Prompt | Phase | Status | Evidence / remaining gate |
 |---|---|---|---|
 | P-00 | Foundation and initialization | **PARTIALLY COMPLETE — REVIEW** | Architecture and available-environment work delivered; Windows audit and independent external approval pending |
-| P-01 | Core Operating System | **PARTIALLY COMPLETE — CONDITIONAL BACKEND** | Backend implemented and 32 tests passed in Linux; Windows/frontend/desktop/independent audit pending |
+| P-01 | Core Operating System | **PARTIALLY COMPLETE — CONDITIONAL BACKEND** | Backend implemented and 43 tests passed in Linux; approval-gated task release wired 2026-11-03; Windows/frontend/desktop/independent audit pending |
 | P-02 | Master Intelligence | PLANNED | Requires P-01 and model/provider policy |
 | P-03 | Opportunity Discovery | PLANNED | Requires P-02 and authorized sources |
 | P-04 | Agent Factory | PLANNED | Requires identity, quotas and resource controls |

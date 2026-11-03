@@ -13,7 +13,7 @@ from ..api.routes import agents, approvals, auth, events, health, system, tasks
 from ..database.connection import Database
 from ..database.repositories import ConfigRepo, PermissionRepo, PrincipalRepo
 from ..events.bus import EventBus
-from ..events.subscribers import register_default_subscribers
+from ..events.subscribers import register_default_subscribers, register_task_approval_subscribers
 from ..monitoring.metrics import Metrics
 from ..monitoring.system_monitor import SystemMonitor
 from ..permissions.approvals import ApprovalService
@@ -80,6 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             approval_service = ApprovalService(db, bus)
             metrics = Metrics()
             task_manager = TaskManager(settings, db, bus, monitor)
+            register_task_approval_subscribers(bus, task_manager)
             services = Services(settings, db, bus, permissions, approval_service, auth_service, monitor, task_manager, metrics, lifecycle, None)  # type: ignore[arg-type]
             services.health = HealthService(services)
             app.state.services = services

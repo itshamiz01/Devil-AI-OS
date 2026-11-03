@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     session_ttl_minutes: int = Field(default=60, ge=1, le=1440)
     login_rate_limit: int = Field(default=5, ge=1, le=100)
     docs_enabled: bool = True
+    # Lifetime of the approval that gates an approval_required task. Bounded so a
+    # gated task can never wait on an immortal approval: on expiry the task is
+    # cancelled by the scheduler sweep rather than left in WAITING_FOR_APPROVAL.
+    task_approval_ttl_seconds: int = Field(default=3600, ge=60, le=86400)
 
     external_execution_enabled: bool = False
     financial_execution_enabled: bool = False
