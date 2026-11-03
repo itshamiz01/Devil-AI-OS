@@ -1,0 +1,114 @@
+# P-01 Approval Gate Fix — Report
+
+**Date:** 2026-11-03
+**Scope:** P-01 defect fix within the already-authorized conditional backend. No new phase, no new capability, no external side effects.
+**Owner approval:** Granted in conversation for "C-2 option (a): wire approvals to task release".
+**Status:** IMPLEMENTED and VERIFIED in the Arena Linux sandbox. Not Windows-verified; not independently audited.
+
+## 1. The defect
+
+`TaskSubmitRequest.approval_required` was published in the OpenAPI contract and
+accepted by `POST /api/v1/tasks`, but it produced an unrunnable task:
+
+- `TaskManager.submit` transitioned the task to `WAITING_FOR_APPROVAL` and never
+  created an `Approval` row, so there was nothing to decide.
+- `register_default_subscribers` subscribed only to `SystemWarning` and
+  `ResourceThresholdExceeded`, so nothing consumed `ApprovalGranted`.
+- `pause`, `resume` and `retry` each reject that state with `409`.
+
+Verified live before the fix: submitting `approval_required=true` returned
+`201 Created`; creating a matching approval by hand and approving it left the
+task in `WAITING_FOR_APPROVAL`; `cancel` was the only exit. No test covered the
+field.
+
+Three documents disclosed the non-release (`TASK_MANAGEMENT.md`,
+`P01_SECURITY_REPORT.md`, `P01_CRITICAL_REVIEW.md`), so this was not concealed.
+What was not disclosed is that no approval object was ever created, that
+cancellation was the only exit, and that the field had no test coverage.
+Returning `201` for a task that could never run is in tension with the project
+rule against silent failures.
+
+## 2. The fix
+
+| Change | File |
+|---|---|
+| Gate created in the same transaction as the task | `backend/app/tasks/manager.py` |
+| Hash-bound release/reject/expiry reconciliation, shared by the event path and the sweep | `backend/app/tasks/manager.py` |
+| `ApprovalGranted` / `ApprovalRejected` subscribers | `backend/app/events/subscribers.py`, `backend/app/core/application.py` |
+| Periodic sweep on the existing scheduler tick | `backend/app/tasks/scheduler.py` |
+| Startup reconciliation of gated tasks | `backend/app/tasks/manager.py` |
+| Lookup of a gate from either side (`action` + `resource`) | `backend/app/database/repositories.py` |
+| Bounded gate TTL `AUTONOMUS_TASK_APPROVAL_TTL_SECONDS` (60–86400, default 3600) | `backend/app/core/config.py`, `.env.example` |
+
+Outcomes now recorded in `error_details` and in the audit trail: released,
+`APPROVAL_REJECTED`, `APPROVAL_EXPIRED`, `APPROVAL_MISSING`,
+`APPROVAL_BINDING_MISMATCH`, `APPROVAL_UNUSABLE`.
+
+### Security-relevant decisions
+
+- **Closed gates end in `CANCELLED`, never `FAILED`.** `FAILED -> QUEUED` is a
+  legal transition, so a rejected or expired gate parked in `FAILED` could be
+  retried straight into execution with no approval. `CANCELLED` is terminal.
+- **Binding is checked before any decision is honoured.** A gate whose canonical
+  hash no longer matches the task's handler, name and payload refuses to release
+  it, regardless of having been approved. Reuses the existing
+  `ApprovalService.verify_binding` rather than duplicating hash logic.
+- **Gate risk is `medium`, not `high`/`critical`.** `ApprovalService.decide`
+  forbids a requester from approving their own high/critical action, and in P-01
+  the owner is both submitter and the only holder of `approvals.decide`. A higher
+  band would make every gate undecidable and reintroduce this exact dead end. A
+  test pins this so it cannot regress silently.
+- **The sweep is idempotent** and a task that is legitimately waiting is left
+  untouched, so it is safe to run every tick and at startup.
+- **Pre-existing stranded rows self-heal.** Tasks left in `WAITING_FOR_APPROVAL`
+  with no approval (created before this fix) are cancelled with
+  `APPROVAL_MISSING` on the next sweep or startup instead of staying stuck.
+
+## 3. Verification
+
+Environment: Arena Linux sandbox, **Python 3.11.2**. The P-01 reports record
+Python 3.13.16; no 3.13 interpreter exists in this sandbox, so this is a
+different interpreter than the original evidence, not a like-for-like
+reproduction.
+
+```
+43 passed, 1 warning in 46.53s
+```
+
+- 32 pre-existing tests pass **unchanged**. No assertion was weakened, edited or
+  removed, and no existing test file was modified.
+- 11 new tests in `backend/tests/test_approval_task_release.py`: gate creation
+  and binding, non-execution before approval, owner self-approval still works,
+  approval releases and the task completes, rejection cancels without executing,
+  a closed gate cannot be retried or resumed into execution, expiry cancels, a
+  tampered hash refuses release, a decision recorded with its event lost is still
+  applied by the sweep, idempotent resubmission does not duplicate the gate,
+  startup reconciles a gate that expired offline, and ungated tasks are
+  unaffected.
+- Evidence: `docs/reports/P01_APPROVAL_GATE_TEST_RESULTS.xml` (`tests="43"`,
+  `failures="0"`, `errors="0"`), generated by the run above.
+- **Public API surface unchanged:** the regenerated OpenAPI document is
+  identical to the committed `shared/openapi-p01.json` (22 paths). No request or
+  response schema changed, so that artifact needed no regeneration.
+- **Schema unchanged:** no migration added. The gate uses existing `approvals`
+  columns and the existing `WAITING_FOR_APPROVAL -> {QUEUED, CANCELLED}`
+  transitions already present in `ALLOWED_TRANSITIONS`.
+
+## 4. Not claimed
+
+- Not verified on Windows. The `.ps1`/`.cmd` scripts remain unexecuted on
+  Windows, and their line endings are still an open question.
+- Not an independent security audit; this is same-assistant work plus executable
+  tests.
+- Approvals still authorize nothing external. No external, financial or cloud AI
+  execution exists, and all three remain rejected at startup by configuration
+  validation.
+- The other findings raised at handoff review are untouched and still open:
+  the P-01 minimum security gates in `SECURITY_FOUNDATION.md` §11
+  (emergency-state foundation, backup/restore tests, secret-store design), the
+  `PHASE_TRACKER.md` P-11 "basic UI begins in P-01" contradiction, the
+  `requires-python >= 3.13` floor being unenforced, and the absence of
+  `.gitattributes`.
+- `docs/reports/P01_TEST_REPORT.md` and `docs/reports/P01_TEST_RESULTS.xml` are
+  left at 32 tests on purpose: they are the point-in-time record of the original
+  P-01 run. This report and its XML are the record of the current one.

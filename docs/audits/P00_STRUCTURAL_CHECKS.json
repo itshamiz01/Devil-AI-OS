@@ -1,0 +1,237 @@
+{
+  "checked_utc": "2026-11-03T05:35:57.737154+00:00",
+  "scope": "P-00 structural, configuration and preservation checks only; not runtime/security certification",
+  "passed": 40,
+  "total": 40,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "required_file:docs/AUTONOMUS_MASTER_CONSTITUTION.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/AUTONOMUS_DEVELOPMENT_PROMPT_PACK.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/prompts/P-00_EXECUTION_CONTRACT.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/reports/ENVIRONMENT_AUDIT.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/reports/AI_HARDWARE_FEASIBILITY.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/reports/TECHNOLOGY_VALIDATION.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/reports/DEVELOPMENT_ROADMAP.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/reports/P00_COMPLETION_REPORT.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/architecture/SYSTEM_ARCHITECTURE.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/architecture/DATABASE_ARCHITECTURE.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/architecture/AGENT_GOVERNANCE.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/architecture/SECURITY_FOUNDATION.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/ARCHITECTURE_DECISIONS.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/PHASE_TRACKER.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/OPEN_DECISIONS.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/KNOWN_LIMITATIONS.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/audits/P00_CRITICAL_REVIEW.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/reports/ENVIRONMENT_EVIDENCE.json",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/reports/TECHNOLOGY_EVIDENCE.json",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/audits/P00_BASELINE.json",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:docs/archive/INITIAL_README.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:README.md",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:.gitignore",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:.env.example",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:config/autonomus.example.json",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "required_file:scripts/audit_windows.ps1",
+      "passed": true,
+      "detail": "Present and non-empty"
+    },
+    {
+      "name": "license_preserved",
+      "passed": true,
+      "detail": "bff21496185bfc6e379a44fc322729bfb6e9b1e992f430733a97d02aebd2f65b"
+    },
+    {
+      "name": "original_readme_preserved",
+      "passed": true,
+      "detail": "eea5eb502b1d071840781b7d30426f1b03eb5d049bf10b93d7a100e4dca4cfbf"
+    },
+    {
+      "name": "license_no_tracked_diff",
+      "passed": true,
+      "detail": "LICENSE matches the initial commit"
+    },
+    {
+      "name": "local_markdown_links",
+      "passed": true,
+      "detail": "All checked local links resolve"
+    },
+    {
+      "name": "adr_count_and_fields",
+      "passed": true,
+      "detail": "8 ADRs; incomplete: []"
+    },
+    {
+      "name": "configuration_fail_closed",
+      "passed": true,
+      "detail": "Example is inert, simulation-only, with external/financial/cloud execution disabled"
+    },
+    {
+      "name": "env_example_no_secret_values",
+      "passed": true,
+      "detail": "Non-empty secret-like fields: []"
+    },
+    {
+      "name": "env_example_disabled_capabilities",
+      "passed": true,
+      "detail": "Environment example does not enable external, financial or cloud execution"
+    },
+    {
+      "name": "git_sensitive_exclusions",
+      "passed": true,
+      "detail": "Unignored paths: []"
+    },
+    {
+      "name": "safe_examples_not_ignored",
+      "passed": true,
+      "detail": "Ignored examples: []"
+    },
+    {
+      "name": "no_premature_application_modules",
+      "passed": true,
+      "detail": "No backend/frontend/desktop implementation created"
+    },
+    {
+      "name": "windows_helper_read_only_patterns",
+      "passed": true,
+      "detail": "Forbidden operations: []; static check only, not a Windows execution test"
+    },
+    {
+      "name": "environment_scope_explicit",
+      "passed": true,
+      "detail": "Arena Linux sandbox only; not the owner Windows PC"
+    },
+    {
+      "name": "all_prompt_ids_in_roadmap",
+      "passed": true,
+      "detail": "P-00 through P-16 present"
+    }
+  ],
+  "document_sha256": {
+    "docs/AUTONOMUS_MASTER_CONSTITUTION.md": "0e2a16b2d3c09066287ff420a46a8ffeffbf772a6cb6864f25f6a5d234aff006",
+    "docs/AUTONOMUS_DEVELOPMENT_PROMPT_PACK.md": "4d54c7edf5acd244d38bd0cc0c7e9406ffbdaa2e0b506f97e56f68184a48036c",
+    "docs/prompts/P-00_EXECUTION_CONTRACT.md": "b1b9aea6aeb78d1ab23193ebddd6c6d32dd89dd78ba7e77620c888ffd7143517",
+    "docs/reports/ENVIRONMENT_AUDIT.md": "1c4821bd61f671765a28e82458176108bfa8b355c6c0f2940a3cdabb4761e8f9",
+    "docs/reports/AI_HARDWARE_FEASIBILITY.md": "27154101fbc7d79aec3c67cb60bff1c8f97623771d5ba08be97a5b2537db7933",
+    "docs/reports/TECHNOLOGY_VALIDATION.md": "d884190a2f5c751b705ea91a0e4c124c475be414267db31bdc15efa6f75f31f8",
+    "docs/reports/DEVELOPMENT_ROADMAP.md": "efadf0cc08b50003d061831921bb1fc2f98ad0cdca01e8ebd38191d17def0509",
+    "docs/reports/P00_COMPLETION_REPORT.md": "3ad640c3606f48946df4ed6dda9557cd555ddb3bc7600cae0f0d619d39129a56",
+    "docs/architecture/SYSTEM_ARCHITECTURE.md": "89537250d8ce05bcf7e5753e348ac70641abb9fb43dd6ce601709e77f43f9704",
+    "docs/architecture/DATABASE_ARCHITECTURE.md": "a8b42748365232e2a8586b36d13e1461b37035cf5eafb2c6a2c2aaa9b805776b",
+    "docs/architecture/AGENT_GOVERNANCE.md": "b852b96b40be11b9acbf7de05e13419833962190eb6680ba597aaf69bda7e3dc",
+    "docs/architecture/SECURITY_FOUNDATION.md": "fcd5a15f1b5c602fb70898047a006f16664c10240bdf0e477c1b1bfe4db9d454",
+    "docs/ARCHITECTURE_DECISIONS.md": "8b1adbfeab67ccc4ffb5093d3884495c7846746023bb98bc3ca075ebb8fe95ac",
+    "docs/PHASE_TRACKER.md": "10d5a9d0da0fbd86322bce5e2420bb3da48a8075c047b31078cd9b21b8a06e33",
+    "docs/OPEN_DECISIONS.md": "68f18df31c1de4ac60f7fcdaaabd932f8ba801276a4f0ed4ac6cce49d751361c",
+    "docs/KNOWN_LIMITATIONS.md": "71fb5398ae10909aeb5742038b821cf77fbebddd0e1d1cc5ce091057bbc698f5",
+    "docs/audits/P00_CRITICAL_REVIEW.md": "f681928af43f7bbe090d62af81d96796e870b19e1c9e3dc2246fe4e9380ba741",
+    "docs/reports/ENVIRONMENT_EVIDENCE.json": "b6ee6444ce5adf47213c750e8bbd9df90443b361cf570577a4acab6fba663a51",
+    "docs/reports/TECHNOLOGY_EVIDENCE.json": "023d064ee019eabfeec78db8587cd8617fee941658c179a05c2d8abdd4ac90b2",
+    "docs/audits/P00_BASELINE.json": "76fdbc6f3706d65ae7e4715a5cd3448477c3cf81f7b1dbb3bde90f7bc78db7c5",
+    "docs/archive/INITIAL_README.md": "eea5eb502b1d071840781b7d30426f1b03eb5d049bf10b93d7a100e4dca4cfbf",
+    "README.md": "2f0c3a81978d393497728b33d3b36fbf6e52862e8d95dadc6ebfcf638dfc8eed",
+    ".gitignore": "9688341fc77205fbaaaa30976fd12bbc23c8d0799d9a9b16d449dcf1fffc075d",
+    ".env.example": "74faa1fb8eef666e5b6141820823f6335c70826f581f486c01d4a67e0d176703",
+    "config/autonomus.example.json": "1ee33788d7cd4b37efe730c6c2b2aa5588b83a37827aa83451016a66d80c3e5a",
+    "scripts/audit_windows.ps1": "de31272a8f00cccd21e4604b741d92c3a6a49b5f61b1b901eb9942de1e44a7af"
+  }
+}

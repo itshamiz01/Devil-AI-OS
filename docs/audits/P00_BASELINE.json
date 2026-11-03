@@ -1,0 +1,21 @@
+{
+  "captured_utc": "2026-11-03T05:16:19.343593+00:00",
+  "commit": "7fd754762744a988a4d8e7c87b62dc9f040b1c11",
+  "initial_files": [
+    "LICENSE",
+    "README.md"
+  ],
+  "status": "## main\n?? docs/",
+  "remote_check": {
+    "args": [
+      "remote",
+      "-v"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "original_readme_sha256": "eea5eb502b1d071840781b7d30426f1b03eb5d049bf10b93d7a100e4dca4cfbf",
+  "license_sha256": "bff21496185bfc6e379a44fc322729bfb6e9b1e992f430733a97d02aebd2f65b",
+  "note": "Baseline before P-00 documentation edits. Remote configuration, if present, is not a GitHub account connection."
+}

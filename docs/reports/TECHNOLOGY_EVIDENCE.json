@@ -1,0 +1,74 @@
+{
+  "observed_date": "2026-11-03",
+  "observation_window_utc": "05:14-05:18",
+  "scope": "Official registry/release metadata and documentation; not installed or target-hardware verified",
+  "python_releases": {
+    "source": "https://www.python.org/downloads/windows/",
+    "listed_windows_release": "3.13.17",
+    "sandbox_version": "3.13.16",
+    "note": "Official listing states these 3.13 releases cannot be used on Windows 7 or earlier."
+  },
+  "pypi": {
+    "fastapi": {"version": "0.162.0", "requires_python": ">=3.10", "license_expression": "MIT"},
+    "uvicorn": {"version": "0.54.0", "requires_python": ">=3.10", "license_expression": "BSD-3-Clause"},
+    "pydantic": {"version": "2.14.2", "requires_python": ">=3.10", "license_expression": "MIT"},
+    "sqlalchemy": {"version": "2.1.6", "requires_python": ">=3.11", "license_expression": "MIT"},
+    "alembic": {"version": "1.20.1", "requires_python": ">=3.10", "license_expression": "MIT"},
+    "pytest": {"version": "9.2.0", "requires_python": ">=3.10", "license_expression": "MIT"},
+    "playwright": {"version": "1.64.1", "requires_python": ">=3.10", "license_expression": "Apache-2.0"},
+    "chromadb": {"version": "1.5.9", "requires_python": ">=3.9", "license_expression": null, "upstream_license_checked": "Apache-2.0"},
+    "keyring": {"version": "25.7.0", "requires_python": ">=3.9", "license_expression": "MIT"},
+    "source_pattern": "https://pypi.org/pypi/<package>/json"
+  },
+  "npm": {
+    "react": {"version": "19.3.1", "license": "MIT"},
+    "react-dom": {"version": "19.3.1", "license": "MIT"},
+    "typescript_latest": {"version": "7.0.2", "license": "Apache-2.0", "engines": {"node": ">=16.20.0"}},
+    "typescript_compatible_line_candidate": "6.0.3",
+    "vite": {"version": "8.3.5", "license": "MIT", "engines": {"node": "^20.19.0 || >=22.12.0"}},
+    "vitest": {"version": "5.1.0", "license": "MIT", "engines": {"node": "^22.12.0 || ^24.0.0 || >=26.0.0"}},
+    "@tauri-apps/cli": {"version": "2.12.4", "license": "Apache-2.0 OR MIT"},
+    "typescript-eslint": {"version": "8.72.1", "peerDependencies": {"eslint": "^8.57.0 || ^9.0.0 || ^10.0.0", "typescript": ">=4.8.4 <6.1.0"}},
+    "@vitejs/plugin-react": {"version": "6.2.1", "engines": {"node": "^20.19.0 || >=22.12.0"}, "peerDependencies": {"vite": "^8.0.0", "oxc-transform-react": ">=0.152.0 <0.157.0", "@rolldown/plugin-babel": "^0.1.7 || ^0.2.0 || ^0.3.0", "babel-plugin-react-compiler": "^1.0.0"}},
+    "source_pattern": "https://registry.npmjs.org/<package>/latest"
+  },
+  "tauri": {
+    "rust_crate_max_stable": "2.12.5",
+    "tauri_cli_max_stable": "2.12.4",
+    "source": "https://crates.io/api/v1/crates/tauri",
+    "cli_source": "https://crates.io/api/v1/crates/tauri-cli",
+    "windows_prerequisites": "Microsoft C++ Build Tools, WebView2, Rust; see official prerequisites",
+    "documentation": "https://v2.tauri.app/start/prerequisites/"
+  },
+  "ollama": {
+    "latest_stable_tag": "v0.40.13",
+    "published_at": "2026-10-28T19:55:04Z",
+    "prerelease": false,
+    "source": "https://api.github.com/repos/ollama/ollama/releases/latest",
+    "windows_requirements": "Windows 10 22H2 or newer; GPU-specific driver requirements; at least 4 GB for binary install before models",
+    "documentation": "https://docs.ollama.com/windows",
+    "upstream_license_checked": "MIT"
+  },
+  "node": {
+    "sandbox": "20.20.2",
+    "candidate_lts": "24.22.2",
+    "newer_published_lts": "26.13.0",
+    "v20_support_end": "2026-04-30",
+    "v24_support_end": "2028-04-30",
+    "v26_support_end": "2029-04-30",
+    "sources": ["https://nodejs.org/dist/index.json", "https://raw.githubusercontent.com/nodejs/Release/main/schedule.json"]
+  },
+  "playwright": {
+    "windows_client_requirement": "Windows 11+",
+    "source": "https://playwright.dev/python/docs/intro"
+  },
+  "sqlite": {
+    "wal_constraint": "All processes using a WAL database must be on the same host; not a network-filesystem database",
+    "source": "https://www.sqlite.org/wal.html"
+  },
+  "failed_or_deferred_checks": [
+    "Initial Rust channel URL returned 404; do not infer a Rust version from that failed request.",
+    "Chroma overview documentation fetch failed; upstream LICENSE was checked directly, runtime compatibility remains deferred.",
+    "No Windows build, package resolution, model download or inference benchmark performed."
+  ]
+}
