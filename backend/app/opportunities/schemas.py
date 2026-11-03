@@ -184,7 +184,15 @@ class BudgetConstraint(BaseModel):
 
     @model_validator(mode="after")
     def _classify_band(self) -> "BudgetConstraint":
-        if self.band is not BudgetBand.CUSTOM:
+        """Derive a band from the amount, but only when the owner did not choose one.
+
+        ``band`` defaults to CUSTOM, so the default and a deliberate choice of
+        CUSTOM are indistinguishable by value alone.  ``model_fields_set``
+        resolves that: if the caller set ``band`` explicitly it is respected,
+        because CUSTOM means "use my exact figure, do not bucket me" and
+        silently re-bucketing it would discard an owner decision.
+        """
+        if "band" in self.model_fields_set:
             return self
         amount = self.available_capital
         for band in (
