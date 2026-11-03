@@ -1,5 +1,15 @@
 # P-00 AI Hardware Feasibility Report
 
+
+> **Sandbox measurements superseded (2026-11-03 re-audit).** §1 and §3 describe
+> ~1.94 GiB total / ~1.46 GiB available RAM; the current workspace has ~3.85 GiB
+> total / ~3.60 GiB available, plus a newly identified AVX2/FMA-capable CPU. The
+> sizing method (§2), the Windows envelope table and the conclusion that verified
+> inference capacity is zero all still hold. Read
+> [P00_REAUDIT_AI_FEASIBILITY.md](P00_REAUDIT_AI_FEASIBILITY.md). Retained
+> unmodified as the historical record.
+
+
 **Date:** 2026-11-03  
 **Status:** Sandbox assessed; Windows feasibility pending; no inference benchmark performed  
 **Decision:** Shared inference, bounded concurrency and local-first routing are architecturally feasible. Actual model capacity on the owner's PC is not yet established.

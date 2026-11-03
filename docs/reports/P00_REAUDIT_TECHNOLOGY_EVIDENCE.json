@@ -1,0 +1,217 @@
+{
+  "observed_utc": "2026-11-03T09:03:09.272244+00:00",
+  "auditor": "scripts/audit_technology.py",
+  "scope": "Official registry metadata only; not installed, not built, not target-hardware verified",
+  "read_only": true,
+  "pypi": {
+    "fastapi": {
+      "rationale": "Backend API framework (Constitution §12)",
+      "reachable": true,
+      "version": "0.162.0",
+      "requires_python": ">=3.10",
+      "license_expression": "MIT",
+      "yanked": false
+    },
+    "uvicorn": {
+      "rationale": "ASGI server for the local backend",
+      "reachable": true,
+      "version": "0.54.0",
+      "requires_python": ">=3.10",
+      "license_expression": "BSD-3-Clause",
+      "yanked": false
+    },
+    "pydantic": {
+      "rationale": "Validation and typed schemas",
+      "reachable": true,
+      "version": "2.14.2",
+      "requires_python": ">=3.10",
+      "license_expression": "MIT",
+      "yanked": false
+    },
+    "pydantic-settings": {
+      "rationale": "Configuration-driven behavior (§12.1)",
+      "reachable": true,
+      "version": "2.16.2",
+      "requires_python": ">=3.11",
+      "license_expression": "MIT",
+      "yanked": false
+    },
+    "sqlalchemy": {
+      "rationale": "ORM; SQLite now, PostgreSQL-ready schema",
+      "reachable": true,
+      "version": "2.1.6",
+      "requires_python": ">=3.11",
+      "license_expression": "MIT",
+      "yanked": false
+    },
+    "alembic": {
+      "rationale": "Versioned database migrations (§12.1)",
+      "reachable": true,
+      "version": "1.20.1",
+      "requires_python": ">=3.10",
+      "license_expression": "MIT",
+      "yanked": false
+    },
+    "aiosqlite": {
+      "rationale": "Async SQLite driver for the local system of record",
+      "reachable": true,
+      "version": "0.22.1",
+      "requires_python": ">=3.9",
+      "license_expression": null,
+      "yanked": false
+    },
+    "greenlet": {
+      "rationale": "SQLAlchemy async support",
+      "reachable": true,
+      "version": "3.5.6",
+      "requires_python": ">=3.10",
+      "license_expression": "MIT AND PSF-2.0",
+      "yanked": false
+    },
+    "psutil": {
+      "rationale": "Resource monitoring and admission control",
+      "reachable": true,
+      "version": "7.2.2",
+      "requires_python": ">=3.6",
+      "license_expression": "BSD-3-Clause",
+      "yanked": false
+    },
+    "argon2-cffi": {
+      "rationale": "Owner password hashing (Argon2id)",
+      "reachable": true,
+      "version": "25.1.0",
+      "requires_python": ">=3.8",
+      "license_expression": "MIT",
+      "yanked": false
+    },
+    "httpx": {
+      "rationale": "API test client and future provider adapters",
+      "reachable": true,
+      "version": "0.28.1",
+      "requires_python": ">=3.8",
+      "license_expression": "BSD-3-Clause",
+      "yanked": false
+    },
+    "pytest": {
+      "rationale": "Automated testing (§12.1)",
+      "reachable": true,
+      "version": "9.2.0",
+      "requires_python": ">=3.10",
+      "license_expression": "MIT",
+      "yanked": false
+    },
+    "playwright": {
+      "rationale": "Browser automation (P-05)",
+      "reachable": true,
+      "version": "1.64.1",
+      "requires_python": ">=3.10",
+      "license_expression": "Apache-2.0",
+      "yanked": false
+    },
+    "chromadb": {
+      "rationale": "Vector memory candidate (P-09, deferred by ADR-0008)",
+      "reachable": true,
+      "version": "1.5.9",
+      "requires_python": ">=3.9",
+      "license_expression": null,
+      "yanked": false
+    },
+    "keyring": {
+      "rationale": "OS secure secret storage candidate (P-10)",
+      "reachable": true,
+      "version": "25.7.0",
+      "requires_python": ">=3.9",
+      "license_expression": "MIT",
+      "yanked": false
+    },
+    "ollama": {
+      "rationale": "Local inference client candidate (P-02)",
+      "reachable": true,
+      "version": "0.6.3",
+      "requires_python": ">=3.8",
+      "license_expression": "MIT",
+      "yanked": false
+    }
+  },
+  "npm": {
+    "react": {
+      "rationale": "Dashboard UI (Constitution §12, P-11)",
+      "reachable": true,
+      "version": "19.3.1",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "react-dom": {
+      "rationale": "React renderer",
+      "reachable": true,
+      "version": "19.3.1",
+      "license": "MIT",
+      "engines": null
+    },
+    "typescript": {
+      "rationale": "Typed frontend (Constitution §12)",
+      "reachable": true,
+      "version": "7.0.2",
+      "license": "Apache-2.0",
+      "engines": {
+        "node": ">=16.20.0"
+      }
+    },
+    "vite": {
+      "rationale": "Frontend build tooling candidate",
+      "reachable": true,
+      "version": "8.3.5",
+      "license": "MIT",
+      "engines": {
+        "node": "^20.19.0 || >=22.12.0"
+      }
+    },
+    "vitest": {
+      "rationale": "Frontend test runner candidate",
+      "reachable": true,
+      "version": "5.1.0",
+      "license": "MIT",
+      "engines": {
+        "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
+      }
+    },
+    "typescript-eslint": {
+      "rationale": "Lint toolchain; peer range constrains the TS choice (L-05)",
+      "reachable": true,
+      "version": "8.72.1",
+      "license": "MIT",
+      "engines": {
+        "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+      }
+    },
+    "@tauri-apps/cli": {
+      "rationale": "Windows desktop shell build tooling (P-01 desktop)",
+      "reachable": true,
+      "version": "2.12.4",
+      "license": "Apache-2.0 OR MIT",
+      "engines": {
+        "node": ">= 10"
+      }
+    },
+    "@tauri-apps/api": {
+      "rationale": "Desktop shell bridge",
+      "reachable": true,
+      "version": "2.12.4",
+      "license": "Apache-2.0 OR MIT",
+      "engines": null
+    }
+  },
+  "unreachable": {
+    "pypi": [],
+    "npm": []
+  },
+  "not_performed": [
+    "dependency installation",
+    "lockfile resolution",
+    "build",
+    "target-hardware verification",
+    "inference benchmark"
+  ]
+}

@@ -1,0 +1,389 @@
+{
+  "audited_utc": "2026-11-03T09:06:42.013950+00:00",
+  "auditor": "scripts/audit_p00_deliverables.py",
+  "repository_path": "/home/user/Devil-AI-OS",
+  "read_only": true,
+  "deliverables": {
+    "A_environment_audit": {
+      "path": "docs/reports/ENVIRONMENT_AUDIT.md",
+      "exists": true,
+      "lines": 111,
+      "words": 1160,
+      "markers_found": [
+        "hardware",
+        "tool",
+        "dependenc",
+        "compatibilit",
+        "recommended setup"
+      ],
+      "missing_markers": [
+        "operating system",
+        "missing"
+      ],
+      "coverage": 0.714
+    },
+    "B_ai_hardware_feasibility": {
+      "path": "docs/reports/AI_HARDWARE_FEASIBILITY.md",
+      "exists": true,
+      "lines": 149,
+      "words": 1327,
+      "markers_found": [
+        "model",
+        "quantization",
+        "memory",
+        "inference",
+        "concurrenc",
+        "cloud"
+      ],
+      "missing_markers": [
+        "limitation"
+      ],
+      "coverage": 0.857
+    },
+    "C_technology_validation": {
+      "path": "docs/reports/TECHNOLOGY_VALIDATION.md",
+      "exists": true,
+      "lines": 102,
+      "words": 1720,
+      "markers_found": [
+        "compatibilit",
+        "licens",
+        "alternative",
+        "recommendation",
+        "unresolved"
+      ],
+      "missing_markers": [],
+      "coverage": 1.0
+    },
+    "D_system_architecture": {
+      "path": "docs/architecture/SYSTEM_ARCHITECTURE.md",
+      "exists": true,
+      "lines": 281,
+      "words": 2242,
+      "markers_found": [
+        "responsibilit",
+        "communication",
+        "security boundar",
+        "integration"
+      ],
+      "missing_markers": [
+        "data flow"
+      ],
+      "coverage": 0.8
+    },
+    "E_database_architecture": {
+      "path": "docs/architecture/DATABASE_ARCHITECTURE.md",
+      "exists": true,
+      "lines": 154,
+      "words": 1823,
+      "markers_found": [
+        "entit",
+        "relationship",
+        "lifecycle",
+        "persistence",
+        "postgresql"
+      ],
+      "missing_markers": [],
+      "coverage": 1.0
+    },
+    "F_agent_governance": {
+      "path": "docs/architecture/AGENT_GOVERNANCE.md",
+      "exists": true,
+      "lines": 167,
+      "words": 1386,
+      "markers_found": [
+        "hierarch",
+        "permission",
+        "lifecycle",
+        "resource",
+        "failure",
+        "creation",
+        "terminat"
+      ],
+      "missing_markers": [],
+      "coverage": 1.0
+    },
+    "G_security_foundation": {
+      "path": "docs/architecture/SECURITY_FOUNDATION.md",
+      "exists": true,
+      "lines": 162,
+      "words": 1753,
+      "markers_found": [
+        "permission",
+        "secret",
+        "execution",
+        "financial",
+        "emergency",
+        "threat"
+      ],
+      "missing_markers": [],
+      "coverage": 1.0
+    },
+    "H_development_roadmap": {
+      "path": "docs/reports/DEVELOPMENT_ROADMAP.md",
+      "exists": true,
+      "lines": 85,
+      "words": 1380,
+      "markers_found": [
+        "p-00",
+        "p-16",
+        "dependenc",
+        "milestone",
+        "risk",
+        "completion"
+      ],
+      "missing_markers": [],
+      "coverage": 1.0
+    },
+    "I_readme": {
+      "path": "README.md",
+      "exists": true,
+      "lines": 159,
+      "words": 904,
+      "markers_found": [
+        "autonomus",
+        "mission",
+        "status",
+        "stack",
+        "structure",
+        "roadmap",
+        "security"
+      ],
+      "missing_markers": [],
+      "coverage": 1.0
+    }
+  },
+  "deliverables_all_present": true,
+  "deliverables_full_coverage": false,
+  "deliverables_with_gaps": [
+    "A_environment_audit",
+    "B_ai_hardware_feasibility",
+    "D_system_architecture"
+  ],
+  "governance_documents": {
+    "docs/AUTONOMUS_MASTER_CONSTITUTION.md": {
+      "exists": true,
+      "words": 2420
+    },
+    "docs/AUTONOMUS_DEVELOPMENT_PROMPT_PACK.md": {
+      "exists": true,
+      "words": 2272
+    },
+    "prompt_pack_phase_ids": [
+      "P-00",
+      "P-01",
+      "P-02",
+      "P-03",
+      "P-04",
+      "P-05",
+      "P-06",
+      "P-07",
+      "P-08",
+      "P-09",
+      "P-10",
+      "P-11",
+      "P-12",
+      "P-13",
+      "P-14",
+      "P-15",
+      "P-16"
+    ],
+    "constitution_section_count": 18
+  },
+  "prompt_pack_missing_phase_ids": [],
+  "workspace_structure": {
+    "proposed_dirs_present": {
+      "docs": true,
+      "backend": true,
+      "frontend": false,
+      "desktop": false,
+      "shared": true,
+      "tests": false,
+      "scripts": true,
+      "data": false,
+      "logs": false,
+      "backups": false,
+      "config": true
+    },
+    "proposed_files_present": {
+      ".gitignore": true,
+      ".env.example": true,
+      "README.md": true
+    },
+    "absent_dirs": [
+      "frontend",
+      "desktop",
+      "tests",
+      "data",
+      "logs",
+      "backups"
+    ],
+    "note": "Absent directories are NOT automatically a defect: P-00 section 7 forbids creating placeholder modules or empty directories merely to make the tree look complete. Each absence must be justified by the phase that owns it."
+  },
+  "gitignore": {
+    "exists": true,
+    "categories": {
+      "environment_files_with_secrets": {
+        "satisfied": true,
+        "matched": [
+          ".env"
+        ],
+        "expected_any_of": [
+          ".env"
+        ]
+      },
+      "credentials": {
+        "satisfied": true,
+        "matched": [
+          "credentials/",
+          "secrets/",
+          "*.pem",
+          "*.key"
+        ],
+        "expected_any_of": [
+          "credentials/",
+          "secrets/",
+          "*.pem",
+          "*.key"
+        ]
+      },
+      "browser_sessions": {
+        "satisfied": true,
+        "matched": [
+          "browser-profiles/",
+          "browser_sessions/",
+          "playwright/.auth/"
+        ],
+        "expected_any_of": [
+          "browser-profiles/",
+          "browser_sessions/",
+          "playwright/.auth/"
+        ]
+      },
+      "virtual_environments": {
+        "satisfied": true,
+        "matched": [
+          ".venv/",
+          "venv/"
+        ],
+        "expected_any_of": [
+          ".venv/",
+          "venv/"
+        ]
+      },
+      "build_outputs": {
+        "satisfied": true,
+        "matched": [
+          "dist/",
+          "build/",
+          "node_modules/"
+        ],
+        "expected_any_of": [
+          "dist/",
+          "build/",
+          "node_modules/"
+        ]
+      },
+      "temporary_files": {
+        "satisfied": true,
+        "matched": [
+          "*.tmp",
+          "*.bak",
+          "*.log"
+        ],
+        "expected_any_of": [
+          "*.tmp",
+          "*.bak",
+          "*.log"
+        ]
+      },
+      "local_databases": {
+        "satisfied": true,
+        "matched": [
+          "*.db",
+          "*.sqlite",
+          "data/"
+        ],
+        "expected_any_of": [
+          "*.db",
+          "*.sqlite",
+          "data/"
+        ]
+      },
+      "model_weights": {
+        "satisfied": true,
+        "matched": [
+          "*.gguf",
+          "*.safetensors",
+          "*.ckpt",
+          "models/"
+        ],
+        "expected_any_of": [
+          "*.gguf",
+          "*.safetensors",
+          "*.ckpt",
+          "models/"
+        ]
+      }
+    },
+    "all_satisfied": true
+  },
+  "architecture_decision_records": {
+    "exists": true,
+    "count": 11,
+    "files": {
+      "ADR-0001-HYBRID-LOCAL-FIRST.md": {
+        "missing_required_fields": [],
+        "complete": true
+      },
+      "ADR-0002-CONTROLLED-AUTONOMY.md": {
+        "missing_required_fields": [],
+        "complete": true
+      },
+      "ADR-0003-WINDOWS-FIRST.md": {
+        "missing_required_fields": [],
+        "complete": true
+      },
+      "ADR-0004-GOVERNANCE-SOURCE.md": {
+        "missing_required_fields": [],
+        "complete": true
+      },
+      "ADR-0005-MODULAR-LOCAL-CORE.md": {
+        "missing_required_fields": [],
+        "complete": true
+      },
+      "ADR-0006-FINANCIAL-AUTHORITY.md": {
+        "missing_required_fields": [],
+        "complete": true
+      },
+      "ADR-0007-CANDIDATE-TOOLCHAIN.md": {
+        "missing_required_fields": [],
+        "complete": true
+      },
+      "ADR-0008-DEFER-VECTOR-STORE.md": {
+        "missing_required_fields": [],
+        "complete": true
+      },
+      "ADR-0009-CONDITIONAL-P01-BACKEND.md": {
+        "missing_required_fields": [],
+        "complete": true
+      },
+      "ADR-0010-OWNER-SESSION-AUTH.md": {
+        "missing_required_fields": [],
+        "complete": true
+      },
+      "ADR-0011-SAFE-TASK-HANDLERS.md": {
+        "missing_required_fields": [],
+        "complete": true
+      }
+    },
+    "all_complete": true
+  },
+  "implementation_context": {
+    "backend_python_files": 57,
+    "backend_test_files": 9,
+    "frontend_present": false,
+    "desktop_present": false,
+    "note": "Recorded as context. P-01 backend was conditionally authorized (ADR-0009) and merged."
+  }
+}
