@@ -1,0 +1,84 @@
+# Secrets and private configuration — never commit credentials or wallet keys
+.env
+.env.*
+!.env.example
+secrets/
+credentials/
+*.pem
+*.key
+*.p12
+*.pfx
+config/*
+!config/*.example.json
+!config/README.md
+
+# Local runtime data, databases, logs and backups
+data/
+logs/
+backups/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.log
+*.tmp
+*.bak
+
+# Browser sessions and authenticated automation state
+browser-profiles/
+browser_profiles/
+browser-sessions/
+browser_sessions/
+playwright/.auth/
+**/playwright/.auth/
+user-data/
+
+# Local models, embeddings and large datasets
+models/
+*.gguf
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
+datasets/private/
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+htmlcov/
+
+# Frontend and desktop dependencies/build outputs
+node_modules/
+dist/
+build/
+out/
+coverage/
+.vite/
+.next/
+.turbo/
+target/
+desktop/src-tauri/target/
+
+# Owner-run hardware reports: review explicitly before choosing to commit
+docs/reports/WINDOWS_HOST_AUDIT*.json
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

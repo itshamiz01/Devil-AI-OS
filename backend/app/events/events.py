@@ -1,0 +1,25 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+from uuid import uuid4
+
+from pydantic import BaseModel, Field
+
+EVENT_TYPES = {
+    "ApplicationStarted","ApplicationReady","ApplicationStopping","ApplicationStopped",
+    "TaskCreated","TaskQueued","TaskStarted","TaskProgressUpdated","TaskCompleted","TaskFailed","TaskCancelled",
+    "ApprovalRequested","ApprovalGranted","ApprovalRejected","PermissionDenied","SystemWarning","SystemError",
+    "DatabaseUnavailable","ResourceThresholdExceeded",
+}
+
+
+class Event(BaseModel):
+    event_id: str = Field(default_factory=lambda: str(uuid4()))
+    event_type: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    source: str
+    correlation_id: str | None = None
+    task_id: str | None = None
+    severity: str = "info"
+    payload: dict[str, Any] = Field(default_factory=dict)

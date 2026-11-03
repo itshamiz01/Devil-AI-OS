@@ -1,0 +1,61 @@
+{
+  "captured_utc": "2026-11-03T05:16:19.354651+00:00",
+  "scope": "Arena Linux sandbox only; not the owner Windows PC",
+  "os": {
+    "system": "Linux",
+    "release": "6.1.158+",
+    "machine": "x86_64",
+    "libc": "glibc 2.41 (observed platform string)"
+  },
+  "cpu": {
+    "visible_logical": 2,
+    "affinity_count": 2,
+    "physical_model": "Not established by this audit"
+  },
+  "memory": {
+    "MemTotal_KiB": 2030404,
+    "MemAvailable_KiB": 1535412,
+    "SwapTotal_KiB": 0
+  },
+  "cgroup": {},
+  "tools": {
+    "python3": "Python 3.13.16",
+    "node": "v20.20.2",
+    "npm": "10.8.2",
+    "git": "git version 2.47.3",
+    "pwsh": null,
+    "powershell": null,
+    "cargo": null,
+    "rustc": null,
+    "ollama": null,
+    "nvidia-smi": null
+  },
+  "python_distributions": {
+    "pydantic": "2.14.1",
+    "pytest": "9.0.3",
+    "httpx": "0.28.1"
+  },
+  "gpu": "No /dev/nvidia* or /dev/dri/* interfaces exposed; host GPU existence is not established.",
+  "storage": {
+    "path": "/home/user",
+    "filesystem_totals_bytes": {
+      "total": 26168356864,
+      "used": 4320874496,
+      "free": 21520740352
+    },
+    "physical_media_type": "Not established"
+  },
+  "windows_path_visibility": {
+    "/mnt/c/AUTONOMUS": false,
+    "/c/AUTONOMUS": false
+  },
+  "not_performed": [
+    "Windows hardware audit",
+    "Windows application build",
+    "model download",
+    "inference benchmark",
+    "dependency installation",
+    "financial integration",
+    "external business action"
+  ]
+}

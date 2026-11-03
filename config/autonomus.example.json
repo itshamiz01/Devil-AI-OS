@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "status": "inert_p00_example_not_loaded_by_application",
+  "operating_mode": "simulation",
+  "external_execution_enabled": false,
+  "financial_execution_enabled": false,
+  "cloud_ai_enabled": false,
+  "local_ai": {
+    "provider_preference": "ollama",
+    "base_url": "http://127.0.0.1:11434",
+    "model": "",
+    "max_concurrent_inferences": 1,
+    "max_loaded_generation_models": 1,
+    "automatic_cloud_fallback": false
+  },
+  "security": {
+    "owner_approval_required_for_policy_changes": true,
+    "live_capabilities_require_separate_approval": true,
+    "secret_storage_backend": "not_selected"
+  },
+  "notes": [
+    "No wallet balance, credential, real customer or verified revenue is represented here.",
+    "Numeric inference limits are conservative proposals, not benchmarked hardware guarantees.",
+    "P-01 must define validated configuration loading and authority boundaries."
+  ]
+}
