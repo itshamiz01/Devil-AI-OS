@@ -7,6 +7,10 @@ from typing import Any
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy import CheckConstraint
 from app.agents.lifecycle import STATES as _AGENT_STATES
+from app.agents.schemas import (
+    CREATION_APPROVAL_STATUSES as _CREATION_APPROVAL_STATUSES,
+    CREATION_DECISIONS as _CREATION_DECISIONS,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -839,15 +843,40 @@ class AgentConfigurationHistory(TimestampMixin, Base):
 
 class AgentCreationRequest(TimestampMixin, Base):
     __tablename__ = "agent_creation_requests"
+    # Named, because an unnamed unique constraint autogenerates into
+    # `drop_constraint(None, ...)` in the downgrade, which cannot run (ADR-0024).
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_agent_creation_requests_idempotency_key"),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    #: Optional caller-supplied key, unique, following the `tasks.idempotency_key`
+    #: precedent. A retried creation must not produce a second agent: the second
+    #: call returns the first request's outcome.
+    idempotency_key: Mapped[str | None] = mapped_column(String(64))
     requested_role: Mapped[str] = mapped_column(String(128), nullable=False)
     requested_template_id: Mapped[str | None] = mapped_column(ForeignKey("agent_templates.id"), index=True)
     business_id: Mapped[str | None] = mapped_column(String(36), index=True)
     justification: Mapped[str] = mapped_column(Text, nullable=False)
     requested_capabilities: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     resource_estimate: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
-    decision: Mapped[str | None] = mapped_column(String(32), index=True)
+    decision: Mapped[str | None] = mapped_column(
+        String(32),
+        CheckConstraint(
+            "decision IS NULL OR decision IN ("
+            + ", ".join(f"'{d}'" for d in _CREATION_DECISIONS) + ")",
+            name="ck_agent_creation_requests_decision",
+        ),
+        index=True,
+    )
     decision_reason: Mapped[str | None] = mapped_column(Text)
-    approval_status: Mapped[str] = mapped_column(String(32), default="not_required", nullable=False, index=True)
+    approval_status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint(
+            "approval_status IN ("
+            + ", ".join(f"'{s}'" for s in _CREATION_APPROVAL_STATUSES) + ")",
+            name="ck_agent_creation_requests_approval_status",
+        ),
+        default="not_required", server_default="not_required", nullable=False, index=True,
+    )
     approval_id: Mapped[str | None] = mapped_column(ForeignKey("approvals.id"))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

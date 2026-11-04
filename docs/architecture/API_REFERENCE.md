@@ -146,14 +146,37 @@ Four behaviours are deliberate and differ from the obvious implementation:
 
 An illegal template transition returns `409` with code `invalid_template_transition`, naming the permitted targets. An unknown template or version returns `404`. A configuration that does not parse returns `422` with code `template_configuration_invalid` and every issue listed; nothing is stored. A duplicate template name returns `409`.
 
-No endpoint in this group can create an agent, grant a capability, assign work or execute anything. Those are Stages 4 to 8, and `GET /agents/status` says so: it reports the subsystem with `templates: true` and `factory`, `capabilities`, `assignments`, `resources` and `monitoring` all `false`, plus notes naming the stages that own them, rather than implying they exist.
+No endpoint in this group can create an agent, grant a capability, assign work or execute anything. Creation is Stage 4 and lives in its own group below; capability governance, assignment, resources and monitoring are Stages 5 to 8, and `GET /agents/status` reports each of them as `false` with a note naming the stage that owns it, rather than implying they exist.
 
 | Method | Path | Permission | Purpose |
 |---|---|---|---|
 | GET | `/agents/status` | `agents.read` | What the P-04 subsystem has assembled, and what it has not |
 
-It is declared **before** `/agents/{agent_id}`, so the literal path is never captured as an identifier — the same ordering rule the opportunity routes depend on. `GET /agents` and `GET /agents/{id}` are otherwise unchanged, and still return an empty list: nothing can create an agent row before Stage 4.
+It is declared **before** `/agents/{agent_id}`, so the literal path is never captured as an identifier — the same ordering rule the opportunity routes depend on. As of Stage 4 it reports `templates: true` and `factory: true`, with `capabilities`, `assignments`, `resources` and `monitoring` still `false`.
 
-Architecture: [AGENT_TEMPLATES.md](AGENT_TEMPLATES.md) · [ADR-0024](../decisions/ADR-0024-EXTEND-AGENTS-NOT-A-SECOND-REGISTRY.md)
+### Agent factory endpoints (P-04 Stage 4)
 
-The live surface after Stage 3 is **64 paths and 71 operations** (53 and 58 at the end of P-03). A `shared/openapi-p04.json` snapshot is written when the phase completes at Stage 10; the P-01, P-02 and P-03 snapshots are retained unchanged as historical evidence.
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| POST | `/agent-factory/evaluate` | `agents.factory.read` | Preview a decision. Runs the same checks as `/create`, writes nothing, returns `recorded: false` |
+| POST | `/agent-factory/create` | `agents.factory.admin` | Evaluate, record the decision and carry it out (`201`) |
+| GET | `/agent-factory/requests` | `agents.factory.read` | The creation ledger, newest first; `decision` and `approval_status` filters, `total` in `meta` |
+| GET | `/agent-factory/requests/{id}` | `agents.factory.read` | One recorded decision, including the reason for it |
+| POST | `/agent-factory/queue/drain` | `agents.factory.admin` | Re-evaluate queued requests, oldest first; owner-invoked, never scheduled |
+| GET | `/agent-factory/status` | `agents.factory.read` | Registry and queue counts against the configured ceilings |
+
+Both codes derive into `OWNER_PERMISSIONS` and neither is in `SYSTEM_PERMISSIONS`. Splitting read from admin means a principal can be given the ability to *ask* what a creation would decide without the ability to make one happen. There is deliberately **no** `agents.factory.approve`: a gated creation is decided through the central `POST /approvals/{id}/decision` under the pre-existing `approvals.decide`, so the owner has one approval surface rather than a second one only agents know about.
+
+`GET /agents` and `GET /agents/{id}` are unchanged and still guarded by `agents.read`; as of Stage 4 they can return rows, because `/agent-factory/create` writes them. All three groups — `/agents`, `/agent-templates` and `/agent-factory` — answer **`409` naming `AUTONOMUS_AGENTS_ENABLED`** when the subsystem is not assembled, rather than a `500` from a half-built engine. `GET /agents/status` is the one exemption: it is the endpoint that reports the phase is disabled, so it must keep answering.
+
+Five behaviours are deliberate and differ from the obvious implementation:
+
+* **No model is consulted.** Every decision is the output of an ordered list of checks against the database, the configured ceilings and the resource monitor. A recommendation from a model would be an opinion; a decision that mints an identity has to be reproducible.
+* **A `REJECT`, a `QUEUE` and a `REQUEST_OWNER_APPROVAL` are all `201`.** The resource created is the *recorded decision*, and those three are outcomes rather than failures. Reporting a refusal as an error would train a caller to treat a decision as a bug.
+* **The request is recorded before it is executed**, so a decision that fails halfway is still on the ledger instead of having silently not happened.
+* **A repeated `idempotency_key` replays the recorded outcome** (`replayed: true`) rather than deciding twice. Requests without a key never collide: the unique constraint allows any number of NULLs.
+* **The response states what it did not check.** `capability_catalog_checked: false` until Stage 5 populates the catalog, and `assignment_supported: false` because `ASSIGN_EXISTING` is declared in the vocabulary but never emitted — assignment validation is Stage 6.
+
+Architecture: [AGENT_TEMPLATES.md](AGENT_TEMPLATES.md) · [AGENT_FACTORY.md](AGENT_FACTORY.md) · [ADR-0024](../decisions/ADR-0024-EXTEND-AGENTS-NOT-A-SECOND-REGISTRY.md)
+
+The live surface after Stage 4 is **70 paths and 77 operations** (64 and 71 after Stage 3; 53 and 58 at the end of P-03). A `shared/openapi-p04.json` snapshot is written when the phase completes at Stage 10; the P-01, P-02 and P-03 snapshots are retained unchanged as historical evidence.

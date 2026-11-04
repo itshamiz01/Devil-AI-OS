@@ -67,6 +67,16 @@ PERMISSIONS: list[tuple[str, str, str]] = [
     # the catalog never advertises an authority nothing implements.
     ("agents.templates.read", "agents", "Read agent templates and their versions"),
     ("agents.templates.write", "agents", "Create, revise, validate, publish, deprecate, restore or clone agent templates"),
+    # ---- P-04 Dynamic Agent Factory, Stage 4 ----
+    # Two codes, and both are enforced by a route in this stage. No
+    # `agents.factory.approve` is added: a gated creation is decided through the
+    # central approval endpoints under the existing `approvals.decide`, so the
+    # owner uses one approval surface for every gated action in the system
+    # instead of a second one that only agents know about. Splitting read from
+    # admin means an agent can be given the ability to *ask* what a creation
+    # would decide without the ability to make one happen.
+    ("agents.factory.read", "agents", "Evaluate creation requests and read the creation ledger"),
+    ("agents.factory.admin", "agents", "Create agents, drain the creation queue"),
 ]
 
 OWNER_PERMISSIONS = [code for code, _, _ in PERMISSIONS]

@@ -7,12 +7,44 @@ never reach a repository - and therefore can never produce an active agent.
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 SecurityClassification = Literal["internal", "confidential", "restricted"]
 MeasurementType = Literal["measured", "estimated", "unavailable"]
+
+class CreationDecision(str, Enum):
+    """The six decisions the creation engine may return.
+
+    Closed set, and the database CHECK agrees with it: a decision outside this
+    enum is a bug, not a judgement call. ``ASSIGN_EXISTING`` is declared now but
+    not produced until Stage 6 implements assignment, so a caller can rely on the
+    vocabulary without the engine silently inventing an execution path.
+    """
+
+    CREATE_AGENT = "CREATE_AGENT"
+    REUSE_EXISTING = "REUSE_EXISTING"
+    ASSIGN_EXISTING = "ASSIGN_EXISTING"
+    QUEUE = "QUEUE"
+    REQUEST_OWNER_APPROVAL = "REQUEST_OWNER_APPROVAL"
+    REJECT = "REJECT"
+
+
+#: Derived from the enum, never retyped, so the CHECK constraint and the code
+#: cannot drift apart.
+CREATION_DECISIONS = tuple(d.value for d in CreationDecision)
+
+#: Approval state of a creation request. ``not_required`` is the default, so an
+#: ungated creation is distinguishable from one still waiting on its owner.
+CREATION_APPROVAL_STATUSES = (
+    "not_required",
+    "pending",
+    "granted",
+    "rejected",
+    "expired",
+)
 
 
 #: Every payload in this module refuses unknown keys rather than dropping them.
@@ -166,12 +198,26 @@ class AgentCreationRequestView(BaseModel):
     justification: str
     requested_capabilities: list[str]
     resource_estimate: dict[str, Any]
+    idempotency_key: str | None = None
     decision: str | None
     decision_reason: str | None
     approval_status: str
     approval_id: str | None
     created_at: datetime
     completed_at: datetime | None
+
+    @classmethod
+    def from_row(cls, row: Any) -> "AgentCreationRequestView":
+        return cls(
+            id=row.id, requested_role=row.requested_role,
+            requested_template_id=row.requested_template_id,
+            business_id=row.business_id, justification=row.justification,
+            requested_capabilities=list(row.requested_capabilities or []),
+            resource_estimate=dict(row.resource_estimate or {}),
+            idempotency_key=row.idempotency_key, decision=row.decision,
+            decision_reason=row.decision_reason,
+            approval_status=row.approval_status, approval_id=row.approval_id,
+            created_at=row.created_at, completed_at=row.completed_at)
 
 
 class AgentRecordView(BaseModel):
@@ -189,3 +235,59 @@ class AgentRecordView(BaseModel):
     retired_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class CreationRequestInput(BaseModel):
+    """What a caller asks the factory for.
+
+    ``essential`` is the only field that can widen what the engine will do under
+    resource pressure, and it is recorded with the decision, so a claim of
+    essentiality is visible afterwards rather than being a way to skip a queue
+    quietly.
+    """
+
+    model_config = _STRICT
+
+    requested_role: str = Field(min_length=1, max_length=128)
+    justification: str = Field(min_length=1, max_length=4000)
+    requested_capabilities: list[str] = Field(default_factory=list, max_length=64)
+    template_id: str | None = None
+    business_id: str | None = None
+    parent_agent_id: str | None = None
+    agent_name: str | None = Field(default=None, min_length=1, max_length=128)
+    essential: bool = False
+    allow_reuse: bool = True
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=64)
+    resource_estimate: dict[str, Any] = Field(default_factory=dict)
+
+
+class CreationCheckView(BaseModel):
+    """One deterministic check, with the detail that made it pass or fail."""
+
+    name: str
+    passed: bool
+    detail: str = ""
+
+
+class CreationEvaluationView(BaseModel):
+    """A decision and everything needed to audit it.
+
+    ``checks`` is returned in evaluation order and evaluation stops at the first
+    check that forces a decision, so a short list means an early decision, not a
+    missing one. ``recorded`` distinguishes a dry-run evaluation (nothing
+    written) from a creation request that was persisted.
+    """
+
+    decision: CreationDecision
+    reason: str
+    checks: list[CreationCheckView]
+    template_id: str | None = None
+    template_version: int | None = None
+    reuse_agent_id: str | None = None
+    agent_id: str | None = None
+    request_id: str | None = None
+    approval_id: str | None = None
+    approval_required: bool = False
+    replayed: bool = False
+    recorded: bool = False
+    limits: dict[str, Any] = Field(default_factory=dict)

@@ -124,6 +124,24 @@ class Settings(BaseSettings):
     # Evidence older than this is marked stale and stops counting towards coverage.
     evidence_stale_after_days: int = Field(default=180, ge=1, le=3_650)
 
+    # ---- P-04 Dynamic Agent Factory ----
+    # An agent is a configuration, not a process: creating one starts no model and
+    # opens no socket, and every agent shares the single ModelRouter from P-02.
+    # The limits below bound the registry anyway, because an unbounded number of
+    # logical agents eventually means unbounded concurrent work against a shared
+    # inference semaphore on a 16 GB, four-core machine.
+    agents_enabled: bool = True
+    # Ceiling on live (non-retired) agents. Reaching it queues a non-essential
+    # creation request rather than rejecting it outright.
+    agent_max_total: int = Field(default=12, ge=1, le=64)
+    # Ceiling per template, so one template cannot occupy the whole registry.
+    agent_max_per_template: int = Field(default=4, ge=1, le=32)
+    # Ceiling on creation requests held in QUEUE. A full queue rejects, because
+    # queuing without bound is just refusing slowly and without telling anyone.
+    agent_max_creation_queue: int = Field(default=20, ge=1, le=200)
+    # How deep parent_agent_id chains may go. 0 means no agent may have a parent.
+    agent_max_delegation_depth: int = Field(default=2, ge=0, le=4)
+
     @field_validator("host")
     @classmethod
     def validate_host(cls, v: str) -> str:

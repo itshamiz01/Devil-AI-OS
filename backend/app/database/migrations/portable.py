@@ -42,6 +42,13 @@ class _PortableTable:
         else:
             op.create_index(name, self._table, columns, schema=self._schema, **kw)
 
+    def create_unique_constraint(self, name, columns, **kw):
+        if self._batch is not None:
+            self._batch.create_unique_constraint(name, columns, **kw)
+        else:
+            self._reject_schema("create_unique_constraint")
+            op.create_unique_constraint(name, self._table, columns, **kw)
+
     def create_check_constraint(self, name, condition=None, **kw):
         if self._batch is not None:
             self._batch.create_check_constraint(name, condition=condition, **kw)

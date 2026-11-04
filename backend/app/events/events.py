@@ -38,6 +38,15 @@ EVENT_TYPES = {
     # exactly the record an owner needs after the fact.
     "AgentTemplateCreated","AgentTemplateRevised","AgentTemplateValidated",
     "AgentTemplatePublished","AgentTemplateDeprecated","AgentTemplateRestored",
+    # P-04 Dynamic Agent Factory, Stage 4. Creating an agent mints an identity,
+    # so the request, the decision and its outcome are all published. A rejection
+    # and a queued request are published for the same reason a refused approval
+    # is: the record of what the system decided *not* to do is what an owner
+    # audits afterwards. REUSE_EXISTING emits only AgentCreationRequested -
+    # reusing an agent creates nothing, and a creation event for it would inflate
+    # every downstream count of agents that were made.
+    "AgentCreationRequested","AgentCreated","AgentCreationQueued",
+    "AgentCreationApprovalRequested","AgentCreationRejected",
 }
 
 

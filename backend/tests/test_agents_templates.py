@@ -484,15 +484,39 @@ def test_a_principal_without_agent_permissions_is_refused(client, settings, meth
 
 
 def test_the_subsystem_reports_what_is_not_built_yet(client, settings):
-    """A status that claimed a creation engine exists would be a false claim."""
+    """A status that claimed a capability catalog or a scheduler exists would be
+    a false claim about work that has not happened."""
     from app.agents.subsystem import build_agents
 
     services = build_agents(settings, Database(settings), None)
     status = services.status()
     assert status["templates"] is True
-    assert status["factory"] is False
+    # Stage 4 built the creation engine, so it is now reported as present.
+    assert status["factory"] is True
     assert status["capabilities"] is False
-    assert any("Stage 4" in n for n in status["notes"])
+    assert status["assignments"] is False
+    assert status["resources"] is False
+    assert status["monitoring"] is False
+    assert any("Stage 5" in n for n in status["notes"])
+    assert any("Stage 6" in n for n in status["notes"])
+    assert any("Stage 8" in n for n in status["notes"])
+
+
+def test_the_subsystem_assembles_without_its_optional_collaborators(client, settings):
+    """A degraded assembly must still be a safe one.
+
+    Built with no approval service, no monitor and no emergency controller, the
+    subsystem still constructs: a gated creation is refused by the executor
+    rather than performed ungated, which is what makes the optional arguments
+    safe to omit in tests and in a partial deployment.
+    """
+    from app.agents.subsystem import build_agents
+
+    services = build_agents(settings, Database(settings), None)
+    assert services.creation.approvals is None
+    assert services.creation.bus is None
+    assert services.factory.monitor is None
+    assert services.factory.emergency is None
 
 
 def test_the_subsystem_status_endpoint_reports_what_is_not_built(client):
@@ -502,18 +526,24 @@ def test_the_subsystem_status_endpoint_reports_what_is_not_built(client):
     data = resp.json()["data"]
     assert data["enabled"] is True
     assert data["templates"] is True
-    assert data["factory"] is False
+    # Stage 4 built the creation engine, so it is reported as present; the four
+    # that are still owed must keep being reported as absent.
+    assert data["factory"] is True
     assert data["capabilities"] is False
     assert data["assignments"] is False
     assert data["resources"] is False
     assert data["monitoring"] is False
-    assert any("Stage 4" in n for n in data["notes"])
+    # The stage this build is at, and the stages that own what is still absent.
+    assert "Stage 4" in data["stage"]
+    assert any("Stage 5" in n for n in data["notes"])
+    assert any("Stage 6" in n for n in data["notes"])
+    assert any("Stage 8" in n for n in data["notes"])
 
 
 def test_the_registry_payload_carries_the_stage_2_columns(client):
     resp = client.get("/api/v1/agents")
     assert resp.status_code == 200, resp.text
-    assert resp.json()["data"] == [], "no agent can be created before Stage 4"
+    assert resp.json()["data"] == [], "a fresh registry holds no agents until one is created"
 
     from app.api.schemas.common import AgentView
 

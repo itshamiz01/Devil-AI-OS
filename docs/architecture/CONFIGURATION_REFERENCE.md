@@ -1,4 +1,4 @@
-# Configuration Reference (P-01 + P-02 + P-03)
+# Configuration Reference (P-01 + P-02 + P-03 + P-04)
 
 Configuration is centralized in `backend/app/core/config.py` using Pydantic Settings. Environment variables use the `AUTONOMUS_` prefix. Secrets are not stored in configuration tables or logs.
 
@@ -107,6 +107,26 @@ There is deliberately no configuration key that permits purchasing a domain, a s
 ### Minimum validation level and what it cannot reach
 
 `AUTONOMUS_OPPORTUNITY_MINIMUM_VALIDATION_LEVEL` gates the RECOMMENDED classification. Setting it to 4 or 5 does not make those levels attainable: level 4 requires evidence that a customer actually paid or committed a refundable deposit, and level 5 requires settled revenue. Neither can be produced by search volume, social views, likes, AI personas, hypothetical surveys, competitor existence, model-generated willingness to pay, a generated invoice, an unpaid order, an unverified screenshot, a forecast or a simulated transaction (§18). Since §26 forbids this phase from arranging a real transaction, a setting of 5 makes recommendation unreachable - which is the honest outcome, and the factory records it as a startup note rather than failing.
+
+## P-04 agent factory settings
+
+Added by P-04 (Dynamic Agent Factory), Stage 4. All five are validated at configuration load; an invalid value fails startup rather than degrading silently.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `AUTONOMUS_AGENTS_ENABLED` | `true` | Builds the P-04 subsystem at startup. When false, `Services.agents` is None and every `/api/v1/agents`, `/api/v1/agent-templates` and `/api/v1/agent-factory` route returns 409 naming this setting, rather than a 500 from a half-built engine. `GET /api/v1/agents/status` is exempt: it is the endpoint that reports the phase is disabled |
+| `AUTONOMUS_AGENT_MAX_TOTAL` | `12` | Live agents the registry will hold (1-64). Everything except `RETIRED` counts, because a suspended or failed agent still exists and still holds its identity and permissions. A creation request at the ceiling is queued, not refused, unless the queue is also full |
+| `AUTONOMUS_AGENT_MAX_PER_TEMPLATE` | `4` | Live agents from one template (1-32). Stops a single template filling the registry, which would make every agent in the system fail the same way at the same time |
+| `AUTONOMUS_AGENT_MAX_CREATION_QUEUE` | `20` | Queued creation requests the engine will hold (1-200). Queuing without a bound is refusing slowly and without telling anyone, so a full queue produces `REJECT` with the queue depth in the reason |
+| `AUTONOMUS_AGENT_MAX_DELEGATION_DEPTH` | `2` | How deep an agent may delegate to a sub-agent it caused to be created (0-4). `0` forbids a parent entirely; a request naming a parent whose chain would exceed the ceiling is rejected. The parent chain is also walked for cycles, so a corrupt chain is refused rather than followed forever |
+
+### The ceilings bound creation, they do not schedule it
+
+None of these settings starts work. A queued creation request stays queued until an owner calls `POST /api/v1/agent-factory/queue/drain`, because autonomous scheduling is P-12. Raising `AUTONOMUS_AGENT_MAX_CREATION_QUEUE` therefore changes how many requests are *held*, not how many are *acted on*.
+
+### No setting permits an agent to authorize its own creation
+
+There is deliberately no key that lowers the approval requirement for creating an agent. A template whose `approval_requirements` lists `agent_creation`, or whose `security_classification` is `restricted`, always opens an approval at risk `high` — which engages the existing self-approval block in `ApprovalService`, so the principal that asked for an agent cannot be the principal that authorizes it. That is a property of the approval service, not a configurable threshold, and a setting that could switch it off would defeat the point.
 
 ## Emergency stop
 

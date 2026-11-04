@@ -11,6 +11,10 @@ Both are derived into ``OWNER_PERMISSIONS`` and deliberately absent from
 ``SYSTEM_PERMISSIONS``, so the application can never define, validate or
 publish the template that governs its own agents.
 
+Every operation also answers 409 — not 500 — when ``AUTONOMUS_AGENTS_ENABLED``
+is false, naming the setting to change. A disabled phase reports that it is
+disabled.
+
 Three disclosure rules shape every response.
 
 * **A refusal carries its reasons.** Publishing an unvalidated version returns
@@ -34,10 +38,28 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from ...agents.schemas import AgentTemplateVersionView, AgentTemplateView
+from ...core.exceptions import ConflictError
 from ..dependencies import get_services, require_permission
 from ..schemas.common import envelope
 
 router = APIRouter(prefix="/agent-templates", tags=["agents"])
+
+
+def _templates(request: Request) -> Any:
+    """The template service, or a 409 that names the setting to change.
+
+    ``AUTONOMUS_AGENTS_ENABLED=false`` leaves ``services.agents`` unassigned.
+    Without this guard every operation here would raise an AttributeError and
+    reach the caller as a 500, reporting a server fault for what is a
+    configuration choice the owner made deliberately.
+    """
+    services = get_services(request)
+    if getattr(services, "agents", None) is None:
+        raise ConflictError(
+            "the agent subsystem is not enabled",
+            details={"hint": "set AUTONOMUS_AGENTS_ENABLED=true"},
+        )
+    return services.agents.templates
 
 
 # --------------------------------------------------------------------------- #
@@ -90,8 +112,8 @@ async def list_templates(
     offset: int = Query(0, ge=0),
     principal=Depends(require_permission("agents.templates.read")),
 ):
-    services = get_services(request)
-    rows, total = await services.agents.templates.list_templates(
+    templates = _templates(request)
+    rows, total = await templates.list_templates(
         status=status, category=category, limit=limit, offset=offset)
     return envelope(
         [AgentTemplateView.from_row(r).model_dump(mode="json") for r in rows],
@@ -102,16 +124,16 @@ async def list_templates(
 @router.get("/{template_id}")
 async def get_template(template_id: str, request: Request,
                        principal=Depends(require_permission("agents.templates.read"))):
-    services = get_services(request)
-    row = await services.agents.templates.get_template(template_id)
+    templates = _templates(request)
+    row = await templates.get_template(template_id)
     return envelope(AgentTemplateView.from_row(row).model_dump(mode="json"))
 
 
 @router.get("/{template_id}/versions")
 async def list_template_versions(template_id: str, request: Request,
                                  principal=Depends(require_permission("agents.templates.read"))):
-    services = get_services(request)
-    rows = await services.agents.templates.list_versions(template_id)
+    templates = _templates(request)
+    rows = await templates.list_versions(template_id)
     return envelope([AgentTemplateVersionView.from_row(r).model_dump(mode="json")
                      for r in rows], count=len(rows))
 
@@ -119,8 +141,8 @@ async def list_template_versions(template_id: str, request: Request,
 @router.get("/{template_id}/versions/{version}")
 async def get_template_version(template_id: str, version: int, request: Request,
                                principal=Depends(require_permission("agents.templates.read"))):
-    services = get_services(request)
-    row = await services.agents.templates.get_version(template_id, version)
+    templates = _templates(request)
+    row = await templates.get_version(template_id, version)
     return envelope(AgentTemplateVersionView.from_row(row).model_dump(mode="json"))
 
 
@@ -133,8 +155,8 @@ async def compare_template_versions(
     principal=Depends(require_permission("agents.templates.read")),
 ):
     """Deterministic field diff of two versions. No model is involved."""
-    services = get_services(request)
-    return envelope(await services.agents.templates.compare(template_id, left, right))
+    templates = _templates(request)
+    return envelope(await templates.compare(template_id, left, right))
 
 
 # --------------------------------------------------------------------------- #
@@ -143,8 +165,8 @@ async def compare_template_versions(
 @router.post("", status_code=201)
 async def create_template(payload: TemplateCreateRequest, request: Request,
                           principal=Depends(require_permission("agents.templates.write"))):
-    services = get_services(request)
-    result = await services.agents.templates.create_template(
+    templates = _templates(request)
+    result = await templates.create_template(
         name=payload.name, category=payload.category, description=payload.description,
         configuration=payload.configuration, created_by=principal.id)
     return envelope({
@@ -156,8 +178,8 @@ async def create_template(payload: TemplateCreateRequest, request: Request,
 @router.post("/{template_id}/versions", status_code=201)
 async def revise_template(template_id: str, payload: TemplateReviseRequest, request: Request,
                           principal=Depends(require_permission("agents.templates.write"))):
-    services = get_services(request)
-    row = await services.agents.templates.revise(
+    templates = _templates(request)
+    row = await templates.revise(
         template_id, configuration=payload.configuration,
         created_by=principal.id, reason=payload.reason)
     return envelope(AgentTemplateVersionView.from_row(row).model_dump(mode="json"))
@@ -167,15 +189,15 @@ async def revise_template(template_id: str, payload: TemplateReviseRequest, requ
 async def validate_template_version(template_id: str, payload: TemplateVersionRequest,
                                     request: Request,
                                     principal=Depends(require_permission("agents.templates.write"))):
-    services = get_services(request)
-    return envelope(await services.agents.templates.validate(template_id, payload.version))
+    templates = _templates(request)
+    return envelope(await templates.validate(template_id, payload.version))
 
 
 @router.post("/{template_id}/publish")
 async def publish_template(template_id: str, payload: TemplateVersionRequest, request: Request,
                            principal=Depends(require_permission("agents.templates.write"))):
-    services = get_services(request)
-    row = await services.agents.templates.publish(template_id, payload.version)
+    templates = _templates(request)
+    row = await templates.publish(template_id, payload.version)
     return envelope(AgentTemplateView.from_row(row).model_dump(mode="json"))
 
 
@@ -183,24 +205,24 @@ async def publish_template(template_id: str, payload: TemplateVersionRequest, re
 async def deprecate_template(template_id: str, payload: TemplateDeprecateRequest,
                              request: Request,
                              principal=Depends(require_permission("agents.templates.write"))):
-    services = get_services(request)
-    row = await services.agents.templates.deprecate(template_id, reason=payload.reason)
+    templates = _templates(request)
+    row = await templates.deprecate(template_id, reason=payload.reason)
     return envelope(AgentTemplateView.from_row(row).model_dump(mode="json"))
 
 
 @router.post("/{template_id}/restore")
 async def restore_template(template_id: str, request: Request,
                            principal=Depends(require_permission("agents.templates.write"))):
-    services = get_services(request)
-    row = await services.agents.templates.restore(template_id)
+    templates = _templates(request)
+    row = await templates.restore(template_id)
     return envelope(AgentTemplateView.from_row(row).model_dump(mode="json"))
 
 
 @router.post("/{template_id}/clone", status_code=201)
 async def clone_template(template_id: str, payload: TemplateCloneRequest, request: Request,
                          principal=Depends(require_permission("agents.templates.write"))):
-    services = get_services(request)
-    result = await services.agents.templates.clone(
+    templates = _templates(request)
+    result = await templates.clone(
         template_id, new_name=payload.name, version=payload.version, created_by=principal.id)
     return envelope({
         "template": AgentTemplateView.from_row(result["template"]).model_dump(mode="json"),

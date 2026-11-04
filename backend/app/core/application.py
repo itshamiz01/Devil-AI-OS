@@ -11,6 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from ..api.routes import (
+    agent_factory,
     agent_templates,
     agents,
     approvals,
@@ -163,11 +164,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 # binding is explicit rather than implicit application state, and
                 # the handler fails loudly when it is missing.
                 set_research_backend(opportunity_services)
-            # Built last. Construction performs no I/O, and recovery only
-            # reports what the registry already holds: nothing is re-validated,
-            # re-published or re-created on startup.
-            agent_services = build_agents(settings, db, bus)
-            await initialize_agents(agent_services)
+            # Built last, and only when enabled. Construction performs no I/O,
+            # and recovery only reports what the registry already holds: nothing
+            # is re-validated, re-published, re-created or re-approved on
+            # startup, and a queued creation request stays queued until an owner
+            # drains it.
+            #
+            # The approval service, monitor and emergency controller are passed
+            # in so a creation decision can see the same facts the rest of the
+            # system acts on: an emergency stop must refuse a creation, resource
+            # pressure must queue one, and a gated creation must open a real
+            # approval rather than a private one.
+            agent_services = (
+                build_agents(settings, db, bus, approvals=approval_service,
+                             monitor=monitor, emergency=emergency,
+                             permissions=permissions)
+                if settings.agents_enabled else None
+            )
+            if agent_services is not None:
+                await initialize_agents(agent_services)
             services = Services(
                 settings=settings, db=db, bus=bus, permissions=permissions,
                 approvals=approval_service, auth=auth_service, monitor=monitor,
@@ -248,8 +263,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for router in (
         auth.router, health.router, system.router, tasks.router, agents.router,
-        agent_templates.router, approvals.router, events.router,
-        intelligence.router, opportunities.router,
+        agent_templates.router, agent_factory.router, approvals.router,
+        events.router, intelligence.router, opportunities.router,
     ):
         app.include_router(router, prefix="/api/v1")
     return app

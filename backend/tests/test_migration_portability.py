@@ -74,10 +74,36 @@ def test_batch_mode_is_not_used_on_postgres(postgres_sql):
     assert "DROP TABLE agents" not in postgres_sql
 
 
-def test_the_chain_is_six_revisions_deep(postgres_sql):
-    """One INSERT for the base revision, one UPDATE per revision after it."""
+def test_the_chain_is_seven_revisions_deep(postgres_sql):
+    """One INSERT for the base revision, one UPDATE per revision after it.
+
+    This count is deliberately brittle: it is the one assertion that notices a
+    revision was added without its DDL being reviewed.
+    """
     assert postgres_sql.count("INSERT INTO alembic_version") == 1
-    assert postgres_sql.count("UPDATE alembic_version") == 5
+    assert postgres_sql.count("UPDATE alembic_version") == 6
+
+
+def test_the_shim_implements_every_batch_method_the_chain_uses():
+    """A revision calling a method the shim lacks fails at migration time.
+
+    Found the hard way: Stage 4 called ``create_unique_constraint``, which the
+    batch proxy did not implement, so ``upgrade head`` raised ``AttributeError``
+    partway through the revision - on SQLite *after* the preceding ADD COLUMN
+    had already been applied, because SQLite DDL is non-transactional. Scanning
+    the revisions for ``batch_op.<method>(`` catches that before it can run.
+    """
+    import re
+
+    from app.database.migrations.portable import _PortableTable
+
+    versions = BACKEND / "app/database/migrations/versions"
+    used: set[str] = set()
+    for revision in sorted(versions.glob("*.py")):
+        used.update(re.findall(r"batch_op\.([a-zA-Z_]+)\(", revision.read_text()))
+    assert used, "no batch_op calls found - is the scan pattern still correct?"
+    missing = sorted(m for m in used if not hasattr(_PortableTable, m))
+    assert not missing, f"portable shim is missing: {missing}"
 
 
 def test_the_stage_3_template_changes_render_for_postgres(postgres_sql):
@@ -89,3 +115,13 @@ def test_the_stage_3_template_changes_render_for_postgres(postgres_sql):
     # The server defaults the models declare, which Stage 2's revision omitted.
     assert "ALTER TABLE agents ALTER COLUMN status SET DEFAULT" in postgres_sql
     assert "ALTER COLUMN validation_status SET DEFAULT" in postgres_sql
+
+
+def test_the_stage_4_creation_request_changes_render_for_postgres(postgres_sql):
+    assert ("ALTER TABLE agent_creation_requests ADD COLUMN "
+            "idempotency_key") in postgres_sql
+    assert "ADD CONSTRAINT uq_agent_creation_requests_idempotency_key UNIQUE" in postgres_sql
+    assert "ADD CONSTRAINT ck_agent_creation_requests_decision CHECK" in postgres_sql
+    assert ("ADD CONSTRAINT ck_agent_creation_requests_approval_status "
+            "CHECK") in postgres_sql
+    assert "ALTER COLUMN approval_status SET DEFAULT" in postgres_sql

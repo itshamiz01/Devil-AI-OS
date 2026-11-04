@@ -10,7 +10,8 @@ which turns a requirement into a deterministic CREATE / REUSE / ASSIGN / QUEUE /
 REQUEST_OWNER_APPROVAL / REJECT decision. Two different things called "factory"
 in one package is how a reader ends up wiring the wrong one.
 
-Stage 3 assembles one component, the template service. Later stages append
+Stage 3 assembles one component, the template service. Stage 4 adds the
+decision engine and the executor that acts on its decisions. Later stages append
 theirs here rather than growing a second assembly point, so ``Services.agents``
 stays the single place the rest of the application reaches P-04 through.
 """
@@ -21,8 +22,10 @@ from typing import Any
 
 from ..core.config import Settings
 from ..database.connection import Database
-from ..database.repositories import AgentTemplateRepo
+from ..database.repositories import AgentRepo, AgentTemplateRepo
 from ..events.bus import EventBus
+from .creation import CreationEngine, register_factory_approval_subscribers
+from .factory import LIVE_STATUSES, AgentFactory
 from .templates import TemplateService
 
 __all__ = ["AgentServices", "build_agents", "initialize"]
@@ -32,11 +35,14 @@ class AgentServices:
     """The P-04 subsystem as the rest of the application sees it."""
 
     def __init__(self, *, settings: Settings, db: Database, bus: EventBus | None,
-                 templates: TemplateService, notes: tuple[str, ...] = ()) -> None:
+                 templates: TemplateService, factory: AgentFactory,
+                 creation: CreationEngine, notes: tuple[str, ...] = ()) -> None:
         self.settings = settings
         self.db = db
         self.bus = bus
         self.templates = templates
+        self.factory = factory
+        self.creation = creation
         self.notes = list(notes)
 
     def status(self) -> dict[str, Any]:
@@ -48,9 +54,9 @@ class AgentServices:
         """
         return {
             "enabled": True,
-            "stage": "P-04 Stage 3 (registry and templates)",
+            "stage": "P-04 Stage 4 (registry, templates and creation)",
             "templates": True,
-            "factory": False,
+            "factory": True,
             "capabilities": False,
             "assignments": False,
             "resources": False,
@@ -59,21 +65,43 @@ class AgentServices:
         }
 
 
-def build_agents(settings: Settings, db: Database,
-                 bus: EventBus | None = None) -> AgentServices:
-    """Assemble the subsystem. Construction performs no I/O and opens no socket."""
+def build_agents(settings: Settings, db: Database, bus: EventBus | None = None,
+                 *, approvals: Any = None, monitor: Any = None,
+                 emergency: Any = None, permissions: Any = None) -> AgentServices:
+    """Assemble the subsystem. Construction performs no I/O and opens no socket.
+
+    The keyword collaborators are optional on purpose. A creation engine
+    built without an approval service still evaluates correctly and refuses a
+    gated creation rather than performing it ungated, and one built without the
+    permission engine keeps every gated creation gated, because the authority
+    check that can shorten a gate is the thing that is missing. So the subsystem
+    can be assembled in tests and in degraded deployments without silently
+    losing a gate.
+    """
+    factory = AgentFactory(db, settings, monitor=monitor, emergency=emergency)
+    creation = CreationEngine(db, factory, settings, approvals=approvals, bus=bus,
+                              permissions=permissions)
+    if bus is not None:
+        register_factory_approval_subscribers(bus, creation)
     notes = [
         "the capability catalog is empty until P-04 Stage 5, so template "
         "validation checks structure and intent but cannot yet cross-check a "
-        "capability key against it",
-        "no agent can be created through this subsystem yet: the creation "
-        "engine is P-04 Stage 4",
+        "capability key against it, and a creation decision checks requested "
+        "capabilities against the template's allowed set only",
+        "creation decisions are deterministic: no model is consulted, and "
+        "ASSIGN_EXISTING is never emitted because assignment validation is "
+        "P-04 Stage 6",
+        "bringing a new agent to ACTIVE means its principal, registry row and "
+        "configuration snapshot exist; no health observation has taken place "
+        "yet, which is P-04 Stage 8",
     ]
     return AgentServices(
         settings=settings,
         db=db,
         bus=bus,
         templates=TemplateService(db, settings, bus),
+        factory=factory,
+        creation=creation,
         notes=tuple(notes),
     )
 
@@ -81,13 +109,18 @@ def build_agents(settings: Settings, db: Database,
 async def initialize(services: AgentServices) -> dict[str, int]:
     """Report what the registry already holds. Recovery changes nothing.
 
-    Templates are read straight from the database on demand, so there is no
-    in-memory state to rebuild; counting them is enough to say the registry
-    survived the restart, and nothing is re-validated or re-published here.
+    Templates and agents are read straight from the database on demand, so there
+    is no in-memory state to rebuild; counting them is enough to say the registry
+    survived the restart. Nothing is re-validated, re-published, re-created or
+    re-approved here, and a queued creation request stays queued until an owner
+    drains it: restarting the process must not resume work nobody asked to
+    resume.
     """
     async with services.db.session_factory() as session:
-        repo = AgentTemplateRepo(session)
+        templates = AgentTemplateRepo(session)
+        agents = AgentRepo(session)
         return {
-            "templates": await repo.count(),
-            "published_templates": await repo.count(status="published"),
+            "templates": await templates.count(),
+            "published_templates": await templates.count(status="published"),
+            "live_agents": await agents.count(statuses=LIVE_STATUSES),
         }

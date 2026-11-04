@@ -7,9 +7,9 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import (
-    Agent, AgentTemplate, AgentTemplateVersion, Approval, AuditEvent, AuthSession,
-    OwnerCredential, Permission, PermissionAssignment, Principal, SystemConfiguration,
-    SystemEvent, Task, TaskExecution, utcnow,
+    Agent, AgentCreationRequest, AgentTemplate, AgentTemplateVersion, Approval,
+    AuditEvent, AuthSession, OwnerCredential, Permission, PermissionAssignment,
+    Principal, SystemConfiguration, SystemEvent, Task, TaskExecution, utcnow,
 )
 
 
@@ -139,6 +139,127 @@ class AgentRepo:
     async def list(self, limit: int, offset: int) -> Sequence[Agent]:
         return (await self.session.execute(select(Agent).order_by(Agent.created_at.desc()).limit(limit).offset(offset))).scalars().all()
     async def get(self, agent_id: str) -> Agent | None: return await self.session.get(Agent, agent_id)
+
+    # ---- P-04 Stage 4: the registry becomes writable ------------------------
+    async def create(self, *, principal_id: str, name: str, role: str, status: str,
+                     metadata_json: dict | None = None, template_id: str | None = None,
+                     template_version: int | None = None,
+                     configuration_version: int = 1,
+                     parent_agent_id: str | None = None,
+                     business_id: str | None = None) -> Agent:
+        agent = Agent(
+            principal_id=principal_id, name=name, role=role, status=status,
+            metadata_json=metadata_json or {}, template_id=template_id,
+            template_version=template_version, configuration_version=configuration_version,
+            parent_agent_id=parent_agent_id, business_id=business_id,
+        )
+        self.session.add(agent)
+        await self.session.flush()
+        return agent
+
+    async def by_principal(self, principal_id: str) -> Agent | None:
+        q = select(Agent).where(Agent.principal_id == principal_id)
+        return (await self.session.execute(q)).scalars().first()
+
+    async def by_template(self, template_id: str) -> Sequence[Agent]:
+        q = select(Agent).where(Agent.template_id == template_id)
+        return (await self.session.execute(q)).scalars().all()
+
+    async def by_status(self, statuses: Sequence[str]) -> Sequence[Agent]:
+        q = select(Agent).where(Agent.status.in_(list(statuses)))
+        return (await self.session.execute(q)).scalars().all()
+
+    async def count(self, statuses: Sequence[str] | None = None,
+                    template_id: str | None = None) -> int:
+        q = select(func.count()).select_from(Agent)
+        if statuses is not None: q = q.where(Agent.status.in_(list(statuses)))
+        if template_id is not None: q = q.where(Agent.template_id == template_id)
+        return int((await self.session.execute(q)).scalar_one())
+
+    async def set_status(self, agent_id: str, status: str,
+                         retired_at: datetime | None = None) -> None:
+        values: dict[str, Any] = {"status": status, "updated_at": utcnow()}
+        if retired_at is not None: values["retired_at"] = retired_at
+        await self.session.execute(update(Agent).where(Agent.id == agent_id).values(**values))
+        await self.session.flush()
+
+
+class AgentCreationRequestRepo:
+    """The creation-request ledger (P-04 Stage 4).
+
+    Every request is recorded with its decision and the reason for it, whether
+    or not an agent resulted. A decision that exists only in an HTTP response
+    cannot be audited after the fact.
+    """
+
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, *, requested_role: str, justification: str,
+                     requested_capabilities: list[str] | None = None,
+                     resource_estimate: dict | None = None,
+                     requested_template_id: str | None = None,
+                     business_id: str | None = None,
+                     idempotency_key: str | None = None) -> AgentCreationRequest:
+        row = AgentCreationRequest(
+            requested_role=requested_role, justification=justification,
+            requested_capabilities=list(requested_capabilities or []),
+            resource_estimate=dict(resource_estimate or {}),
+            requested_template_id=requested_template_id, business_id=business_id,
+            idempotency_key=idempotency_key, approval_status="not_required",
+        )
+        self.session.add(row)
+        await self.session.flush()
+        return row
+
+    async def get(self, request_id: str) -> AgentCreationRequest | None:
+        return await self.session.get(AgentCreationRequest, request_id)
+
+    async def by_idempotency_key(self, key: str) -> AgentCreationRequest | None:
+        q = select(AgentCreationRequest).where(AgentCreationRequest.idempotency_key == key)
+        return (await self.session.execute(q)).scalars().first()
+
+    def _filtered(self, decision: str | None, approval_status: str | None):
+        q = select(AgentCreationRequest)
+        if decision: q = q.where(AgentCreationRequest.decision == decision)
+        if approval_status: q = q.where(AgentCreationRequest.approval_status == approval_status)
+        return q
+
+    async def list(self, limit: int, offset: int, decision: str | None = None,
+                   approval_status: str | None = None) -> Sequence[AgentCreationRequest]:
+        q = self._filtered(decision, approval_status).order_by(
+            AgentCreationRequest.created_at.desc()).limit(limit).offset(offset)
+        return (await self.session.execute(q)).scalars().all()
+
+    async def count(self, decision: str | None = None,
+                    approval_status: str | None = None) -> int:
+        base = self._filtered(decision, approval_status).subquery()
+        return int((await self.session.execute(select(func.count()).select_from(base))).scalar_one())
+
+    async def queued(self, limit: int = 50) -> Sequence[AgentCreationRequest]:
+        """Queued requests, oldest first: a queue is drained FIFO or not fairly."""
+        q = select(AgentCreationRequest).where(
+            AgentCreationRequest.decision == "QUEUE",
+            AgentCreationRequest.completed_at.is_(None),
+        ).order_by(AgentCreationRequest.created_at.asc()).limit(limit)
+        return (await self.session.execute(q)).scalars().all()
+
+    async def by_approval(self, approval_id: str) -> AgentCreationRequest | None:
+        q = select(AgentCreationRequest).where(AgentCreationRequest.approval_id == approval_id)
+        return (await self.session.execute(q)).scalars().first()
+
+    async def set_decision(self, request_id: str, *, decision: str, reason: str,
+                           approval_status: str | None = None,
+                           approval_id: str | None = None,
+                           completed: bool = False) -> None:
+        values: dict[str, Any] = {"decision": decision, "decision_reason": reason,
+                                  "updated_at": utcnow()}
+        if approval_status is not None: values["approval_status"] = approval_status
+        if approval_id is not None: values["approval_id"] = approval_id
+        if completed: values["completed_at"] = utcnow()
+        await self.session.execute(
+            update(AgentCreationRequest).where(AgentCreationRequest.id == request_id)
+            .values(**values))
+        await self.session.flush()
 
 
 class ConfigRepo:
