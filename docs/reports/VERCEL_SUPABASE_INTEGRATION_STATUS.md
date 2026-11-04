@@ -46,3 +46,29 @@ Functions run in **iad1** (Washington D.C.); the database is in **ap-southeast-1
 Commit `9d9e375` added the `psycopg[binary]==3.3.7` pin to `backend/pyproject.toml` and triggered deployment `dpl_2pUr6uyKzqGXEBr7owrRAEv98ovr`. It reached **READY in 20 s** with a clean log — `Installing required dependencies from pyproject.toml...` → `Compiling Python bytecode...` → `Build Completed in /vercel/output [9s]`, no warnings or errors. The build cache grew from **14.63 MB to 20.13 MB**, consistent with the driver and its binary wheel being newly installed.
 
 So the driver resolves on **Python 3.14** under uv 0.13.5. What is still *not* proven is that the application imports and serves: the lambda has never been invoked, because the deployment is protected and no request has reached it (L-48).
+
+## Update: PR #2 merged, production redeployed (2026-11-04 05:41 UTC)
+
+Blockers 1 and 3 above are now cleared or changed. Verified facts:
+
+| Event | Detail |
+|---|---|
+| PR #2 | **MERGED** at `2026-11-04T05:41:00Z`, merge commit `b90402e` |
+| Production deployment | `dpl_ExMJEMtJgxTmUoKuNYTvv3D4fAes` from `main@b90402e`, created 05:41:04, **READY 05:41:37** (33 s build), substate `PROMOTED`, rollback candidate |
+| Production URL | `backend-4yziuwmt3-hamidansari1795-9853s-projects.vercel.app` |
+| Second database variable | `AUTONOMUS_DATABASE_URL_direct`, id `hP7YY7tabn0omgja`, sensitive, `target: ["production"]`, created 05:28:08 UTC |
+
+**Requesting `/api/v1/health` on the production URL still returns Vercel's "Protected Deployment" SSO login page.** No HTTP request has reached the lambda in any deployment, so nothing about runtime behaviour — import, connection, migration — has been observed. Deployment Protection is team-wide (`all_except_custom_domains`).
+
+**A manual redeploy at 05:28:51 rebuilt the *old* commit.** Deployment `dpl_8Yu8xP5TGJkSZq8wrFxr91cv8Y2u` has `source: "redeploy"` and `action: redeploy` of `dpl_WuBJJgUMKFAjUYBzr8RNRviNX3Jn`, and still carries `main@6dd3359`. Redeploying re-runs the build for the commit already attached; it does not pull new code. Only a push to `main` does.
+
+### What will happen on the first request
+
+`AUTONOMUS_RUN_MIGRATIONS_ON_STARTUP` is not set, so it defaults to `true`: the first cold start will run `alembic upgrade head` against `AUTONOMUS_DATABASE_URL_direct` (the direct connection, because `migration_database_url` prefers it), then serve. Runtime queries go to `AUTONOMUS_DATABASE_URL`. That first request will therefore be slow — 35 tables and 65 indexes created over a transcontinental link — and it is the first real test of the chain against a live Postgres (L-46). If two cold starts begin simultaneously they can race (L-53).
+
+### Still outstanding
+
+- **The Supabase connector cannot see the project** (`400 Invalid project ref`; `list_projects` returns only *Fit Life Bro*), so no table count can be confirmed from here and nothing has been applied through this toolchain.
+- Both database variables are Production-only, so previews still fall back to SQLite (L-50).
+- Functions in `iad1`, database in `ap-southeast-1` (L-52).
+- Python 3.14 deployed, 3.11.2 tested (L-51).
