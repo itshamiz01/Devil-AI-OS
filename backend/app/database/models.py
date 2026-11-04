@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint
+from app.agents.lifecycle import STATES as _AGENT_STATES
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -59,8 +61,24 @@ class Agent(TimestampMixin, Base):
     principal_id: Mapped[str | None] = mapped_column(ForeignKey("principals.id"), unique=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
     role: Mapped[str] = mapped_column(String(128), nullable=False)
-    status: Mapped[str] = mapped_column(String(32), default="registered", nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        # Defence in depth: the lifecycle module rejects invalid transitions in
+        # Python, and the column refuses values outside the state set entirely.
+        # The migration rewrites any pre-P-04 value ("registered") to ACTIVE
+        # before adding this constraint, so populated databases upgrade cleanly.
+        CheckConstraint("status IN (%s)" % ", ".join("'" + s + "'" for s in _AGENT_STATES), name="ck_agents_status_lifecycle"),
+        default="ACTIVE", nullable=False,
+    )
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    # P-04 additions. All nullable or server-defaulted so existing rows and the
+    # populated-database migration test upgrade without a value to invent.
+    template_id: Mapped[str | None] = mapped_column(ForeignKey("agent_templates.id", name="fk_agents_template_id"), index=True)
+    template_version: Mapped[int | None] = mapped_column(Integer)
+    configuration_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    parent_agent_id: Mapped[str | None] = mapped_column(ForeignKey("agents.id", name="fk_agents_parent_agent_id"), index=True)
+    business_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Permission(TimestampMixin, Base):
@@ -678,3 +696,134 @@ class OpportunityReportRecord(TimestampMixin, Base):
     is_test_data: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     test_data_notice: Mapped[str | None] = mapped_column(Text)
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class AgentTemplate(TimestampMixin, Base):
+    __tablename__ = "agent_templates"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    category: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    current_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False, index=True)
+
+
+class AgentTemplateVersion(TimestampMixin, Base):
+    """Immutable per-version configuration. Publishing never edits a row."""
+
+    __tablename__ = "agent_template_versions"
+    __table_args__ = (UniqueConstraint("template_id", "version"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    template_id: Mapped[str] = mapped_column(ForeignKey("agent_templates.id"), nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    configuration_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    validation_status: Mapped[str] = mapped_column(String(32), default="unvalidated", nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String(36))
+
+
+class AgentCapability(TimestampMixin, Base):
+    __tablename__ = "agent_capabilities"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    capability_key: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    category: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    risk_level: Mapped[str] = mapped_column(String(32), nullable=False)
+    approval_level: Mapped[int] = mapped_column(
+        Integer, CheckConstraint("approval_level BETWEEN 0 AND 3", name="ck_agent_capabilities_approval_level"),
+        default=0, server_default="0", nullable=False,
+    )
+    access_class: Mapped[str] = mapped_column(String(16), default="read", nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class AgentPermission(TimestampMixin, Base):
+    """An explicit capability grant to one agent. Nothing is implicit."""
+
+    __tablename__ = "agent_permissions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False, index=True)
+    capability_id: Mapped[str] = mapped_column(ForeignKey("agent_capabilities.id"), nullable=False, index=True)
+    scope: Mapped[str] = mapped_column(String(256), nullable=False, default="")
+    approval_level: Mapped[int] = mapped_column(
+        Integer, CheckConstraint("approval_level BETWEEN 0 AND 3", name="ck_agent_permissions_approval_level"),
+        default=0, server_default="0", nullable=False,
+    )
+    approval_id: Mapped[str | None] = mapped_column(ForeignKey("approvals.id"))
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False, index=True)
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AgentAssignment(TimestampMixin, Base):
+    """The assignment ledger; tasks.id stays the live pointer on the task."""
+
+    __tablename__ = "agent_assignments"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False, index=True)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="assigned", nullable=False, index=True)
+    priority: Mapped[int] = mapped_column(Integer, default=5, server_default="5", nullable=False)
+    required_capabilities: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    expected_output_schema: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    delegation_depth: Mapped[int] = mapped_column(
+        Integer, CheckConstraint("delegation_depth >= 0", name="ck_agent_assignments_delegation_depth"),
+        default=0, server_default="0", nullable=False,
+    )
+    assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    failure_reason: Mapped[str | None] = mapped_column(Text)
+
+
+class AgentHealth(TimestampMixin, Base):
+    __tablename__ = "agent_health"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), unique=True, nullable=False)
+    health_status: Mapped[str] = mapped_column(String(32), default="HEALTHY", nullable=False)
+    last_check: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+
+
+class AgentMetric(TimestampMixin, Base):
+    """Labelled numbers: an estimate must never be stored as a measurement."""
+
+    __tablename__ = "agent_metrics"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False, index=True)
+    metric_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    metric_value: Mapped[float] = mapped_column(Float, nullable=False)
+    measurement_type: Mapped[str] = mapped_column(
+        String(16),
+        CheckConstraint("measurement_type IN ('measured', 'estimated', 'unavailable')", name="ck_agent_metrics_measurement_type"),
+        default="measured", server_default="measured", nullable=False,
+    )
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class AgentConfigurationHistory(TimestampMixin, Base):
+    __tablename__ = "agent_configuration_history"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False, index=True)
+    configuration_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    configuration_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    change_reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    changed_by: Mapped[str | None] = mapped_column(String(36))
+    approval_id: Mapped[str | None] = mapped_column(ForeignKey("approvals.id"))
+
+
+class AgentCreationRequest(TimestampMixin, Base):
+    __tablename__ = "agent_creation_requests"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    requested_role: Mapped[str] = mapped_column(String(128), nullable=False)
+    requested_template_id: Mapped[str | None] = mapped_column(ForeignKey("agent_templates.id"), index=True)
+    business_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    justification: Mapped[str] = mapped_column(Text, nullable=False)
+    requested_capabilities: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    resource_estimate: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    decision: Mapped[str | None] = mapped_column(String(32), index=True)
+    decision_reason: Mapped[str | None] = mapped_column(Text)
+    approval_status: Mapped[str] = mapped_column(String(32), default="not_required", nullable=False, index=True)
+    approval_id: Mapped[str | None] = mapped_column(ForeignKey("approvals.id"))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

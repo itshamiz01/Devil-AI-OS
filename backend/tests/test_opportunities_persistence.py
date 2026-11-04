@@ -77,6 +77,15 @@ P03_TABLES_REVISION = next(
     .joinpath("app/database/migrations/versions")
     .glob("*_p_03_opportunity_discovery_schema.py")
 ).name.split("_")[0]
+#: The last P-03 revision. This test measures the P-03 delta, so it must stop
+#: there: "head" moves on with every later phase, and pinning it keeps the
+#: assertion about P-03 rather than about whatever the newest revision happens
+#: to add. Derived from the filename, like P03_TABLES_REVISION above.
+P03_HEAD = next(
+    Path(__file__).resolve().parents[1]
+    .joinpath("app/database/migrations/versions")
+    .glob("*_p_03_assessment_summaries*.py")
+).name.split("_")[0]
 P03_TABLES = frozenset(
     {
         "commercial_analyses",
@@ -211,7 +220,7 @@ def test_p03_migration_is_additive_and_reversible(settings):
     command.upgrade(cfg, P02_HEAD)
     before_tables, before_hash = _tables(settings), _schema_hash(settings)
 
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, P03_HEAD)
     after_tables = _tables(settings)
     created = set(after_tables) - set(before_tables)
     assert created == P03_TABLES, f"unexpected table delta: {created ^ P03_TABLES}"
@@ -223,7 +232,7 @@ def test_p03_migration_is_additive_and_reversible(settings):
     assert _tables(settings) == before_tables
     assert _schema_hash(settings) == before_hash, "downgrade did not restore the P-02 schema"
 
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, P03_HEAD)
     assert _schema_hash(settings) == p03_hash, "re-upgrade produced a different schema"
 
 

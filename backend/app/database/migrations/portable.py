@@ -42,6 +42,52 @@ class _PortableTable:
         else:
             op.create_index(name, self._table, columns, schema=self._schema, **kw)
 
+    def create_check_constraint(self, name, condition=None, **kw):
+        if self._batch is not None:
+            self._batch.create_check_constraint(name, condition=condition, **kw)
+        else:
+            self._reject_schema("create_check_constraint")
+            op.create_check_constraint(name, self._table, condition=condition, **kw)
+
+    def drop_constraint(self, name, **kw):
+        if self._batch is not None:
+            self._batch.drop_constraint(name, **kw)
+        else:
+            op.drop_constraint(name, table_name=self._table, schema=self._schema, **kw)
+
+    def alter_column(self, name, **kw):
+        if self._batch is not None:
+            self._batch.alter_column(name, **kw)
+        else:
+            op.alter_column(self._table, name, schema=self._schema, **kw)
+
+    def create_foreign_key(self, name, referent_table, local_cols, remote_cols, **kw):
+        if self._batch is not None:
+            self._batch.create_foreign_key(name, referent_table, local_cols, remote_cols, **kw)
+        else:
+            self._reject_schema("create_foreign_key")
+            op.create_foreign_key(name, self._table, referent_table, local_cols,
+                                  remote_cols, **kw)
+
+    def _reject_schema(self, operation: str) -> None:
+        """Fail loudly rather than emit SQL that cannot run.
+
+        ``Operations.create_check_constraint`` and
+        ``Operations.create_foreign_key`` forward unknown keywords straight to
+        the SQLAlchemy constraint object, which rejects ``schema`` with
+        "Additional arguments should be named <dialectname>_<argument>". Batch
+        mode accepts it, so the SQLite path never exercises this branch; a
+        silent ``schema=None`` here broke the offline Postgres render and would
+        break a real ``upgrade head`` the same way. Nothing in this chain uses
+        schemas, so the honest behaviour is to refuse one.
+        """
+        if self._schema is not None:
+            raise NotImplementedError(
+                f"{operation} on table {self._table!r} cannot carry a schema "
+                f"outside batch mode (got {self._schema!r}); qualify the table "
+                "name instead."
+            )
+
     def f(self, name, **kw):
         # Alembic's batch API exposes ``f`` for explicitly quoted identifiers.
         # Outside batch mode a plain string is already quoted correctly by the
