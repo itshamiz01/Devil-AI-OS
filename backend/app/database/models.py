@@ -698,6 +698,12 @@ class OpportunityReportRecord(TimestampMixin, Base):
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 
+#: Template status vocabulary. Kept lowercase like every other operational
+#: status column; the agent *lifecycle* states are the uppercase exception
+#: documented in ADR-0024.
+TEMPLATE_STATUSES = ("draft", "published", "deprecated")
+
+
 class AgentTemplate(TimestampMixin, Base):
     __tablename__ = "agent_templates"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
@@ -705,7 +711,14 @@ class AgentTemplate(TimestampMixin, Base):
     category: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     current_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
-    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint(
+            "status IN ('draft', 'published', 'deprecated')",
+            name="ck_agent_templates_status",
+        ),
+        default="draft", server_default="draft", nullable=False, index=True,
+    )
 
 
 class AgentTemplateVersion(TimestampMixin, Base):
@@ -717,7 +730,18 @@ class AgentTemplateVersion(TimestampMixin, Base):
     template_id: Mapped[str] = mapped_column(ForeignKey("agent_templates.id"), nullable=False, index=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     configuration_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
-    validation_status: Mapped[str] = mapped_column(String(32), default="unvalidated", nullable=False)
+    validation_status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint(
+            "validation_status IN ('unvalidated', 'valid', 'invalid')",
+            name="ck_agent_template_versions_validation_status",
+        ),
+        default="unvalidated", server_default="unvalidated", nullable=False,
+    )
+    #: Why a version is valid or invalid. Persisted next to the verdict so a
+    #: refusal can be read back later instead of being recomputed or believed.
+    #: The configuration itself stays untouched: a version row is immutable.
+    validation_details_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_by: Mapped[str | None] = mapped_column(String(36))
 
 

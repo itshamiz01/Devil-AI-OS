@@ -31,6 +31,13 @@ EVENT_TYPES = {
     "OpportunityDiscovered","OpportunityOpened","OpportunityStateChanged",
     "OpportunityRejected","OpportunityRecommended","ResearchSweepCompleted",
     "SourceRefused","EvidenceRecorded","ComplianceBlocked","GovernanceViolation",
+    # P-04 Dynamic Agent Factory, Stage 3. A template governs what an agent may
+    # be, so its creation, revision, verdict, publication and withdrawal are all
+    # governance-relevant state changes and travel the same auditable bus. A
+    # negative verdict is published too: "this template was refused, and why" is
+    # exactly the record an owner needs after the fact.
+    "AgentTemplateCreated","AgentTemplateRevised","AgentTemplateValidated",
+    "AgentTemplatePublished","AgentTemplateDeprecated","AgentTemplateRestored",
 }
 
 

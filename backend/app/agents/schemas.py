@@ -9,14 +9,24 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 SecurityClassification = Literal["internal", "confidential", "restricted"]
 MeasurementType = Literal["measured", "estimated", "unavailable"]
 
 
+#: Every payload in this module refuses unknown keys rather than dropping them.
+#: The P-03 API established the convention ("an unexpected body field is a 422,
+#: not a silently ignored hint") and it matters more here: a misspelled
+#: ``allowed_capabilitys`` that was quietly discarded would produce a template
+#: granting nothing, and the operator would read the omission as a decision.
+_STRICT = ConfigDict(extra="forbid")
+
+
 class ResourceBudget(BaseModel):
     """Ceilings for one agent. All are limits, never allocations."""
+
+    model_config = _STRICT
 
     max_concurrent_tasks: int = Field(default=1, ge=1, le=16)
     max_task_seconds: int = Field(default=300, ge=1, le=86400)
@@ -27,6 +37,8 @@ class ResourceBudget(BaseModel):
 
 
 class RetryPolicy(BaseModel):
+    model_config = _STRICT
+
     max_retries: int = Field(default=2, ge=0, le=10)
     base_delay_seconds: float = Field(default=0.1, ge=0.0, le=60.0)
     max_delay_seconds: float = Field(default=5.0, ge=0.0, le=300.0)
@@ -34,6 +46,8 @@ class RetryPolicy(BaseModel):
 
 class TemplateConfiguration(BaseModel):
     """Everything a template says about the agents it produces."""
+
+    model_config = _STRICT
 
     role_definition: str = Field(min_length=1, max_length=4000)
     mission: str = Field(min_length=1, max_length=4000)
@@ -74,15 +88,49 @@ class AgentTemplateView(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    @classmethod
+    def from_row(cls, row: Any) -> "AgentTemplateView":
+        return cls.model_validate(row, from_attributes=True)
+
 
 class AgentTemplateVersionView(BaseModel):
+    """A stored version, exactly as persisted.
+
+    ``configuration`` is the raw stored document, not a parsed
+    :class:`TemplateConfiguration`: a version whose ``validation_status`` is
+    ``invalid`` must still be readable, and parsing it on the way out would
+    turn "this template is invalid" into a 500. ``validation_details`` carries
+    the recorded verdict and its issues.
+    """
+
     id: str
     template_id: str
     version: int
-    configuration: TemplateConfiguration
+    configuration: dict[str, Any]
     validation_status: str
+    validation_details: dict[str, Any] | None = None
     created_by: str | None
     created_at: datetime
+
+    @classmethod
+    def from_row(cls, row: Any) -> "AgentTemplateVersionView":
+        """Build the view from a stored row.
+
+        Explicit rather than ``model_validate``: the columns are named
+        ``configuration_json`` and ``validation_details_json`` while the payload
+        calls them ``configuration`` and ``validation_details``, and a silent
+        rename in a validator is the kind of thing that breaks without failing.
+        """
+        return cls(
+            id=row.id,
+            template_id=row.template_id,
+            version=row.version,
+            configuration=row.configuration_json or {},
+            validation_status=row.validation_status,
+            validation_details=row.validation_details_json,
+            created_by=row.created_by,
+            created_at=row.created_at,
+        )
 
 
 class AgentCapabilityView(BaseModel):

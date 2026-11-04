@@ -50,6 +50,23 @@ PERMISSIONS: list[tuple[str, str, str]] = [
     ("opportunities.research", "opportunities", "Run discovery and research for an opportunity"),
     ("opportunities.manage", "opportunities", "Open, screen, advance, score or reject an opportunity"),
     ("opportunities.sources", "opportunities", "Register or authorize a research source (owner only)"),
+    # ---- P-04 Dynamic Agent Factory ----
+    # Added add-only, one stage at a time, so a code exists exactly when the code
+    # that enforces it does. `agents.read` and `agents.manage` already existed
+    # before P-04 (see the withdrawn audit finding §9.1 and L-60): they are not
+    # re-added here.
+    #
+    # OWNER_PERMISSIONS is derived from this list, so the owner receives both
+    # automatically, and the P-01 startup reconciliation grants them to an owner
+    # whose database predates the change. SYSTEM_PERMISSIONS is enumerated
+    # explicitly and includes neither, so the application can never define,
+    # validate or publish the template that governs its own agents.
+    #
+    # Stage 3 adds the template codes only. The factory, capability, permission,
+    # retirement and metrics codes arrive with the stages that enforce them, so
+    # the catalog never advertises an authority nothing implements.
+    ("agents.templates.read", "agents", "Read agent templates and their versions"),
+    ("agents.templates.write", "agents", "Create, revise, validate, publish, deprecate, restore or clone agent templates"),
 ]
 
 OWNER_PERMISSIONS = [code for code, _, _ in PERMISSIONS]

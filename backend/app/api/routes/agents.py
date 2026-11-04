@@ -18,6 +18,21 @@ async def list_agents(request: Request, limit: int = Query(50, ge=1, le=200), of
     return envelope([AgentView.model_validate(a).model_dump(mode="json") for a in agents], limit=limit, offset=offset)
 
 
+@router.get("/status")
+async def agent_subsystem_status(request: Request, principal=Depends(require_permission("agents.read"))):
+    """What the P-04 subsystem has assembled, and what it has not.
+
+    Declared before ``/{agent_id}`` so the literal path is never captured as an
+    identifier. Reporting the absent parts is the point: a caller that believed
+    agent creation existed would otherwise discover otherwise only by having a
+    request fail.
+    """
+    services = get_services(request)
+    if services.agents is None:
+        return envelope({"enabled": False, "reason": "the agent subsystem is not assembled"})
+    return envelope(services.agents.status())
+
+
 @router.get("/{agent_id}")
 async def get_agent(agent_id: str, request: Request, principal=Depends(require_permission("agents.read"))):
     services = get_services(request)

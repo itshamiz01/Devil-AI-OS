@@ -74,6 +74,18 @@ def test_batch_mode_is_not_used_on_postgres(postgres_sql):
     assert "DROP TABLE agents" not in postgres_sql
 
 
-def test_the_chain_is_five_revisions_deep(postgres_sql):
+def test_the_chain_is_six_revisions_deep(postgres_sql):
+    """One INSERT for the base revision, one UPDATE per revision after it."""
     assert postgres_sql.count("INSERT INTO alembic_version") == 1
-    assert postgres_sql.count("UPDATE alembic_version") == 4
+    assert postgres_sql.count("UPDATE alembic_version") == 5
+
+
+def test_the_stage_3_template_changes_render_for_postgres(postgres_sql):
+    assert ("ALTER TABLE agent_template_versions ADD COLUMN "
+            "validation_details_json") in postgres_sql
+    assert "ADD CONSTRAINT ck_agent_templates_status CHECK" in postgres_sql
+    assert ("ADD CONSTRAINT ck_agent_template_versions_validation_status "
+            "CHECK") in postgres_sql
+    # The server defaults the models declare, which Stage 2's revision omitted.
+    assert "ALTER TABLE agents ALTER COLUMN status SET DEFAULT" in postgres_sql
+    assert "ALTER COLUMN validation_status SET DEFAULT" in postgres_sql

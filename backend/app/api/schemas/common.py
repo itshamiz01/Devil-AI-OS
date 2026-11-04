@@ -25,8 +25,18 @@ class AgentView(BaseModel):
     principal_id: str | None
     name: str
     role: str
+    #: One of the eleven lifecycle states (ADR-0024). Uppercase, unlike every
+    #: other status in this API; the vocabulary is enforced by a CHECK constraint.
     status: str
     metadata_json: dict[str, Any]
+    # Added by P-04 Stage 2. Optional so an agent that predates the extension,
+    # or one not created from a template, still serialises.
+    template_id: str | None = None
+    template_version: int | None = None
+    configuration_version: int | None = None
+    parent_agent_id: str | None = None
+    business_id: str | None = None
+    retired_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

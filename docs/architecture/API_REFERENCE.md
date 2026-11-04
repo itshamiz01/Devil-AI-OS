@@ -1,4 +1,4 @@
-# API Reference (P-01 + P-02 + P-03)
+# API Reference (P-01 + P-02 + P-03 + P-04)
 
 Base URL: `http://127.0.0.1:8000/api/v1` unless configured otherwise. OpenAPI snapshot: `shared/openapi-p01.json`.
 
@@ -117,3 +117,43 @@ No endpoint in this group — or anywhere in the API — can spend money. A test
 OpenAPI snapshot: [`shared/openapi-p03.json`](../../shared/openapi-p03.json) — 53 paths, 58 operations. The P-01 and P-02 snapshots are retained unchanged as historical evidence.
 
 Architecture: [OPPORTUNITY_PIPELINE.md](OPPORTUNITY_PIPELINE.md) · [RESEARCH_SOURCE_ACCESS.md](RESEARCH_SOURCE_ACCESS.md) · [OPPORTUNITY_LIFECYCLE_AND_REPORTING.md](OPPORTUNITY_LIFECYCLE_AND_REPORTING.md) · [OPPORTUNITY_RISK_AND_GOVERNANCE.md](OPPORTUNITY_RISK_AND_GOVERNANCE.md)
+
+### Agent template endpoints (P-04 Stage 3)
+
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| GET | `/agent-templates` | `agents.templates.read` | List templates; `status` and `category` filters, `total` in `meta` |
+| POST | `/agent-templates` | `agents.templates.write` | Create a draft template holding version 1 (`201`) |
+| GET | `/agent-templates/{id}` | `agents.templates.read` | Template detail |
+| GET | `/agent-templates/{id}/versions` | `agents.templates.read` | Versions, newest first |
+| POST | `/agent-templates/{id}/versions` | `agents.templates.write` | Append the next version (`201`); never edits one |
+| GET | `/agent-templates/{id}/versions/{version}` | `agents.templates.read` | One stored version, with its verdict |
+| GET | `/agent-templates/{id}/compare` | `agents.templates.read` | Deterministic field diff; requires `left` and `right` |
+| POST | `/agent-templates/{id}/validate` | `agents.templates.write` | Judge a version and persist the verdict with its evidence |
+| POST | `/agent-templates/{id}/publish` | `agents.templates.write` | Publish at a version whose verdict is `valid` |
+| POST | `/agent-templates/{id}/deprecate` | `agents.templates.write` | Withdraw a template; requires a non-empty `reason` |
+| POST | `/agent-templates/{id}/restore` | `agents.templates.write` | Bring a deprecated template back **as a draft** |
+| POST | `/agent-templates/{id}/clone` | `agents.templates.write` | Copy a version into a new unvalidated draft (`201`) |
+
+Both codes are derived into `OWNER_PERMISSIONS` and absent from `SYSTEM_PERMISSIONS`, so the application can never define, validate or publish the template that governs its own agents. `GET /agents` and `GET /agents/{id}` are unchanged and still guarded by the pre-existing `agents.read`; the agent payload now also carries the registry columns Stage 2 added (`template_id`, `template_version`, `configuration_version`, `parent_agent_id`, `business_id`, `retired_at`), each optional.
+
+Four behaviours are deliberate and differ from the obvious implementation:
+
+* **An unknown field is a `422`, at both levels.** All five request models are `extra="forbid"`, and so is `TemplateConfiguration` with its nested `ResourceBudget` and `RetryPolicy`. A misspelled `allowed_capabilitys` that was quietly dropped would leave a template granting nothing, and the omission would read as a decision. The error names the offending key.
+* **Publishing an unvalidated or invalid version is a `409` that carries the reasons.** The response `details` include the stored `validation_status` and the recorded `issues`. "Rejected" without a reason is not an answer an owner can act on.
+* **A verdict states what it did not check.** Every validation response reports `capability_catalog_checked: false` with a note naming P-04 Stage 5, because the capability catalog is empty until then. A verdict that quietly implied more checking than happened would be a false claim.
+* **`restore` returns a draft, not a published template.** Resuming the authority to govern agent creation takes a deliberate second act — validate, then publish.
+
+An illegal template transition returns `409` with code `invalid_template_transition`, naming the permitted targets. An unknown template or version returns `404`. A configuration that does not parse returns `422` with code `template_configuration_invalid` and every issue listed; nothing is stored. A duplicate template name returns `409`.
+
+No endpoint in this group can create an agent, grant a capability, assign work or execute anything. Those are Stages 4 to 8, and `GET /agents/status` says so: it reports the subsystem with `templates: true` and `factory`, `capabilities`, `assignments`, `resources` and `monitoring` all `false`, plus notes naming the stages that own them, rather than implying they exist.
+
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| GET | `/agents/status` | `agents.read` | What the P-04 subsystem has assembled, and what it has not |
+
+It is declared **before** `/agents/{agent_id}`, so the literal path is never captured as an identifier — the same ordering rule the opportunity routes depend on. `GET /agents` and `GET /agents/{id}` are otherwise unchanged, and still return an empty list: nothing can create an agent row before Stage 4.
+
+Architecture: [AGENT_TEMPLATES.md](AGENT_TEMPLATES.md) · [ADR-0024](../decisions/ADR-0024-EXTEND-AGENTS-NOT-A-SECOND-REGISTRY.md)
+
+The live surface after Stage 3 is **64 paths and 71 operations** (53 and 58 at the end of P-03). A `shared/openapi-p04.json` snapshot is written when the phase completes at Stage 10; the P-01, P-02 and P-03 snapshots are retained unchanged as historical evidence.

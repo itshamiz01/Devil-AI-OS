@@ -7,8 +7,9 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import (
-    Agent, Approval, AuditEvent, AuthSession, OwnerCredential, Permission,
-    PermissionAssignment, Principal, SystemConfiguration, SystemEvent, Task, TaskExecution, utcnow,
+    Agent, AgentTemplate, AgentTemplateVersion, Approval, AuditEvent, AuthSession,
+    OwnerCredential, Permission, PermissionAssignment, Principal, SystemConfiguration,
+    SystemEvent, Task, TaskExecution, utcnow,
 )
 
 
@@ -148,3 +149,96 @@ class ConfigRepo:
         else: self.session.add(SystemConfiguration(key=key, value=value))
         await self.session.flush()
     async def get(self, key: str) -> SystemConfiguration | None: return await self.session.get(SystemConfiguration, key)
+
+
+class AgentTemplateRepo:
+    """Agent templates and their immutable versions (P-04 Stage 3).
+
+    A version row is never updated in place except for its validation verdict:
+    the configuration document is written once and read back unchanged, so an
+    agent created from version 3 can always be explained by version 3.
+    """
+
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, *, name: str, category: str, description: str = "",
+                     status: str = "draft", current_version: int = 0) -> AgentTemplate:
+        row = AgentTemplate(name=name, category=category, description=description,
+                            status=status, current_version=current_version)
+        self.session.add(row)
+        await self.session.flush()
+        return row
+
+    async def get(self, template_id: str) -> AgentTemplate | None:
+        return await self.session.get(AgentTemplate, template_id)
+
+    async def by_name(self, name: str) -> AgentTemplate | None:
+        q = select(AgentTemplate).where(AgentTemplate.name == name)
+        return (await self.session.execute(q)).scalars().first()
+
+    def _filtered(self, status: str | None, category: str | None):
+        q = select(AgentTemplate)
+        if status: q = q.where(AgentTemplate.status == status)
+        if category: q = q.where(AgentTemplate.category == category)
+        return q
+
+    async def list(self, limit: int, offset: int, status: str | None = None,
+                   category: str | None = None) -> Sequence[AgentTemplate]:
+        q = self._filtered(status, category).order_by(
+            AgentTemplate.created_at.desc()).limit(limit).offset(offset)
+        return (await self.session.execute(q)).scalars().all()
+
+    async def count(self, status: str | None = None, category: str | None = None) -> int:
+        base = self._filtered(status, category).subquery()
+        return int((await self.session.execute(select(func.count()).select_from(base))).scalar_one())
+
+    async def add_version(self, *, template_id: str, version: int, configuration: dict,
+                          created_by: str | None = None,
+                          validation_status: str = "unvalidated",
+                          validation_details: dict | None = None) -> AgentTemplateVersion:
+        row = AgentTemplateVersion(
+            template_id=template_id, version=version, configuration_json=configuration,
+            validation_status=validation_status, validation_details_json=validation_details,
+            created_by=created_by,
+        )
+        self.session.add(row)
+        await self.session.flush()
+        return row
+
+    async def get_version(self, template_id: str, version: int) -> AgentTemplateVersion | None:
+        q = select(AgentTemplateVersion).where(
+            AgentTemplateVersion.template_id == template_id,
+            AgentTemplateVersion.version == version)
+        return (await self.session.execute(q)).scalars().first()
+
+    async def latest_version(self, template_id: str) -> int:
+        q = select(func.max(AgentTemplateVersion.version)).where(
+            AgentTemplateVersion.template_id == template_id)
+        return int((await self.session.execute(q)).scalar_one() or 0)
+
+    async def list_versions(self, template_id: str) -> Sequence[AgentTemplateVersion]:
+        q = select(AgentTemplateVersion).where(
+            AgentTemplateVersion.template_id == template_id).order_by(
+            AgentTemplateVersion.version.desc())
+        return (await self.session.execute(q)).scalars().all()
+
+    async def set_validation(self, version_id: str, status: str, details: dict) -> None:
+        await self.session.execute(
+            update(AgentTemplateVersion).where(AgentTemplateVersion.id == version_id)
+            .values(validation_status=status, validation_details_json=details,
+                    updated_at=utcnow()))
+        await self.session.flush()
+
+    async def set_status(self, template_id: str, status: str,
+                         current_version: int | None = None) -> None:
+        values: dict[str, Any] = {"status": status, "updated_at": utcnow()}
+        if current_version is not None: values["current_version"] = current_version
+        await self.session.execute(
+            update(AgentTemplate).where(AgentTemplate.id == template_id).values(**values))
+        await self.session.flush()
+
+    async def set_current_version(self, template_id: str, version: int) -> None:
+        await self.session.execute(
+            update(AgentTemplate).where(AgentTemplate.id == template_id)
+            .values(current_version=version, updated_at=utcnow()))
+        await self.session.flush()

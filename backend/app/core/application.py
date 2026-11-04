@@ -11,6 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from ..api.routes import (
+    agent_templates,
     agents,
     approvals,
     auth,
@@ -31,6 +32,7 @@ from ..permissions.approvals import ApprovalService
 from ..permissions.engine import PermissionEngine
 from ..intelligence.factory import build_intelligence, initialize as initialize_intelligence
 from ..opportunities.factory import build_opportunities, initialize as initialize_opportunities
+from ..agents.subsystem import build_agents, initialize as initialize_agents
 from ..tasks.handlers import clear_research_backend, set_research_backend
 from ..permissions.policies import OWNER_PERMISSIONS, PERMISSIONS, SYSTEM_PERMISSIONS
 from ..tasks.manager import TaskManager
@@ -64,6 +66,12 @@ class Services:
     intelligence: Any = None
     # None when AUTONOMUS_OPPORTUNITIES_ENABLED is false, for the same reason.
     opportunities: Any = None
+    # P-04 agent subsystem. Always assembled, with no phase flag of its own:
+    # Stage 3 stores and validates template definitions, which cannot execute
+    # anything. The creation engine that does change system behaviour (Stage 4)
+    # is what gets a flag, so that a deployment can hold definitions it is not
+    # yet allowed to act on.
+    agents: Any = None
 
 
 async def seed_core_data(db: Database, settings: Settings) -> None:
@@ -155,6 +163,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 # binding is explicit rather than implicit application state, and
                 # the handler fails loudly when it is missing.
                 set_research_backend(opportunity_services)
+            # Built last. Construction performs no I/O, and recovery only
+            # reports what the registry already holds: nothing is re-validated,
+            # re-published or re-created on startup.
+            agent_services = build_agents(settings, db, bus)
+            await initialize_agents(agent_services)
             services = Services(
                 settings=settings, db=db, bus=bus, permissions=permissions,
                 approvals=approval_service, auth=auth_service, monitor=monitor,
@@ -162,6 +175,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 lifecycle=lifecycle, health=None,  # type: ignore[arg-type]
                 intelligence=intelligence_services,
                 opportunities=opportunity_services,
+                agents=agent_services,
             )
             services.health = HealthService(services)
             app.state.services = services
@@ -234,7 +248,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for router in (
         auth.router, health.router, system.router, tasks.router, agents.router,
-        approvals.router, events.router, intelligence.router, opportunities.router,
+        agent_templates.router, approvals.router, events.router,
+        intelligence.router, opportunities.router,
     ):
         app.include_router(router, prefix="/api/v1")
     return app
