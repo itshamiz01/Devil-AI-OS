@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     allow_remote_access: bool = False
 
     data_dir: Path = BASE_DIR / "data"
+    # Optional external database URL, e.g. a Supabase/Postgres connection string.
+    # Unset keeps the local SQLite database, which remains the default and the
+    # only backend the full test suite exercises. When set, both the async and
+    # the sync engine target it with the driver normalised to psycopg3, which
+    # serves SQLAlchemy's sync and async APIs from one package.
+    database_url: str | None = None
     log_dir: Path = BASE_DIR / "logs"
     backup_dir: Path = BASE_DIR / "backups"
     # Number of most-recent database backups retained before pruning. Bounded so
@@ -161,16 +167,49 @@ class Settings(BaseSettings):
         """
         return tuple(h.strip().lower() for h in self.research_permitted_hosts.split(",") if h.strip())
 
+    @field_validator("database_url")
+    @classmethod
+    def _database_url_must_be_postgres(cls, value: str | None) -> str | None:
+        """Fail at construction, not at first query.
+
+        A silently ignored database URL would leave the application writing to
+        SQLite while the operator believes it is writing to Postgres, which is
+        the worst of both worlds. So an unparsable or unsupported value is a
+        startup error.
+        """
+        if value is None or value == "":
+            return None
+        scheme = value.split("://", 1)[0].split("+", 1)[0].lower()
+        if "://" not in value or scheme not in {"postgresql", "postgres"}:
+            raise ValueError(
+                "database_url must be a postgresql:// connection string; got "
+                f"{value.split('://', 1)[0]!r}. Leave it unset to keep SQLite."
+            )
+        return value
+
+    @property
+    def database_is_sqlite(self) -> bool:
+        return not bool(self.database_url)
+
+    def _external_url(self, *, driver: str) -> str:
+        assert self.database_url, "callers must check database_is_sqlite first"
+        rest = self.database_url.split("://", 1)[1]
+        return f"postgresql+{driver}://{rest}"
+
     @property
     def database_path(self) -> Path:
         return self.data_dir / "autonomus.db"
 
     @property
     def async_database_url(self) -> str:
+        if not self.database_is_sqlite:
+            return self._external_url(driver="psycopg")
         return f"sqlite+aiosqlite:///{self.database_path}"
 
     @property
     def sync_database_url(self) -> str:
+        if not self.database_is_sqlite:
+            return self._external_url(driver="psycopg")
         return f"sqlite:///{self.database_path}"
 
 

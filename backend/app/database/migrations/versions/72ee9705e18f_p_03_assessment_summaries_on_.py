@@ -25,6 +25,13 @@ state any real deployment would be in.  ``server_default`` is set to the JSON te
 from alembic import op
 import sqlalchemy as sa
 
+# The migrations directory is not importable by name under every runner,
+# so the shared helper is loaded by explicit path.
+import pathlib as _pathlib
+import sys as _sys
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent.parent))
+from portable import portable_alter_table  # noqa: E402
+
 
 revision = '72ee9705e18f'
 down_revision = '5953caf8f23e'
@@ -36,7 +43,7 @@ EMPTY_JSON = sa.text("'{}'")
 
 
 def upgrade() -> None:
-    with op.batch_alter_table('opportunities', schema=None) as batch_op:
+    with portable_alter_table('opportunities') as batch_op:
         batch_op.add_column(
             sa.Column('competitor_assessment', sa.JSON(), nullable=False, server_default=EMPTY_JSON)
         )
@@ -46,6 +53,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    with op.batch_alter_table('opportunities', schema=None) as batch_op:
+    with portable_alter_table('opportunities') as batch_op:
         batch_op.drop_column('risk_assessment')
         batch_op.drop_column('competitor_assessment')

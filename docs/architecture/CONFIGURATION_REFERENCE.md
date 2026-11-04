@@ -8,6 +8,7 @@ Configuration is centralized in `backend/app/core/config.py` using Pydantic Sett
 | `AUTONOMUS_HOST` | `127.0.0.1` | Loopback only in P-01 |
 | `AUTONOMUS_PORT` | `8000` | Local API port |
 | `AUTONOMUS_ALLOW_REMOTE_ACCESS` | `false` | Must remain false; remote access is not implemented |
+| `AUTONOMUS_DATABASE_URL` | *(empty)* | Optional `postgresql://` connection string (e.g. Supabase). Empty keeps the local SQLite database; an unsupported scheme is a startup error rather than a silent fallback |
 | `AUTONOMUS_DATA_DIR` | `<repo>/data` | SQLite database and runtime files |
 | `AUTONOMUS_LOG_DIR` | `<repo>/logs` | Rotating JSON logs |
 | `AUTONOMUS_LOG_LEVEL` | `INFO` | Log level |

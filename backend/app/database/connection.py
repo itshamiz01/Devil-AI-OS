@@ -16,7 +16,11 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 def run_migrations_sync(settings: Settings) -> None:
-    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    # Only SQLite needs the directory, and creating it unconditionally would
+    # crash startup on a read-only serverless filesystem where the external
+    # database makes the directory pointless.
+    if settings.database_is_sqlite:
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "app/database/migrations"))
     cfg.set_main_option("sqlalchemy.url", settings.sync_database_url)
@@ -26,9 +30,21 @@ def run_migrations_sync(settings: Settings) -> None:
 class Database:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.engine = create_async_engine(settings.async_database_url, echo=False, future=True)
+        is_sqlite = settings.database_is_sqlite
+        self.engine = create_async_engine(
+            settings.async_database_url,
+            echo=False,
+            future=True,
+            # A pooled connection to a serverless Postgres may have been closed
+            # by the pooler between uses; ping before handing it out. SQLite
+            # connections are local files and need no such check.
+            pool_pre_ping=not is_sqlite,
+        )
         self.session_factory = async_sessionmaker(self.engine, expire_on_commit=False, class_=AsyncSession)
-        event.listen(self.engine.sync_engine, "connect", self._set_sqlite_pragma)
+        if is_sqlite:
+            # PRAGMA is SQLite syntax; sending it to Postgres would raise on
+            # every connect, so the listener only exists for SQLite.
+            event.listen(self.engine.sync_engine, "connect", self._set_sqlite_pragma)
 
     @staticmethod
     def _set_sqlite_pragma(dbapi_connection, connection_record) -> None:

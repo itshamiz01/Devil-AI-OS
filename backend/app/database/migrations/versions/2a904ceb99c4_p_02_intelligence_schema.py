@@ -7,6 +7,13 @@ Create Date: 2026-11-03 10:57:16.703956
 from alembic import op
 import sqlalchemy as sa
 
+# The migrations directory is not importable by name under every runner,
+# so the shared helper is loaded by explicit path.
+import pathlib as _pathlib
+import sys as _sys
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent.parent))
+from portable import portable_alter_table  # noqa: E402
+
 
 revision = '2a904ceb99c4'
 down_revision = '03efdae6e24a'
@@ -33,7 +40,7 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('model_usage', schema=None) as batch_op:
+    with portable_alter_table('model_usage') as batch_op:
         batch_op.create_index(batch_op.f('ix_model_usage_correlation_id'), ['correlation_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_model_usage_request_id'), ['request_id'], unique=False)
 
@@ -57,7 +64,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('model_id')
     )
-    with op.batch_alter_table('registered_models', schema=None) as batch_op:
+    with portable_alter_table('registered_models') as batch_op:
         batch_op.create_index(batch_op.f('ix_registered_models_provider'), ['provider'], unique=False)
 
     op.create_table('missions',
@@ -89,7 +96,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['owner_principal_id'], ['principals.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('missions', schema=None) as batch_op:
+    with portable_alter_table('missions') as batch_op:
         batch_op.create_index(batch_op.f('ix_missions_owner_principal_id'), ['owner_principal_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_missions_state'), ['state'], unique=False)
 
@@ -109,7 +116,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['mission_id'], ['missions.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('evidence_records', schema=None) as batch_op:
+    with portable_alter_table('evidence_records') as batch_op:
         batch_op.create_index(batch_op.f('ix_evidence_records_mission_id'), ['mission_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_evidence_records_verification_status'), ['verification_status'], unique=False)
 
@@ -128,7 +135,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['mission_id'], ['missions.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('hypotheses', schema=None) as batch_op:
+    with portable_alter_table('hypotheses') as batch_op:
         batch_op.create_index(batch_op.f('ix_hypotheses_mission_id'), ['mission_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_hypotheses_status'), ['status'], unique=False)
 
@@ -154,7 +161,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['mission_id'], ['missions.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('intelligence_decisions', schema=None) as batch_op:
+    with portable_alter_table('intelligence_decisions') as batch_op:
         batch_op.create_index(batch_op.f('ix_intelligence_decisions_mission_id'), ['mission_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_intelligence_decisions_status'), ['status'], unique=False)
 
@@ -174,7 +181,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['mission_id'], ['missions.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('intelligence_executions', schema=None) as batch_op:
+    with portable_alter_table('intelligence_executions') as batch_op:
         batch_op.create_index(batch_op.f('ix_intelligence_executions_correlation_id'), ['correlation_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_intelligence_executions_mission_id'), ['mission_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_intelligence_executions_operation'), ['operation'], unique=False)
@@ -191,7 +198,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['mission_id'], ['missions.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('mission_history', schema=None) as batch_op:
+    with portable_alter_table('mission_history') as batch_op:
         batch_op.create_index(batch_op.f('ix_mission_history_mission_id'), ['mission_id'], unique=False)
 
     op.create_table('plans',
@@ -215,7 +222,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('mission_id', 'version', name='uq_plans_mission_version')
     )
-    with op.batch_alter_table('plans', schema=None) as batch_op:
+    with portable_alter_table('plans') as batch_op:
         batch_op.create_index(batch_op.f('ix_plans_mission_id'), ['mission_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_plans_status'), ['status'], unique=False)
 
@@ -241,7 +248,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('plan_id', 'step_key', name='uq_plan_steps_plan_key')
     )
-    with op.batch_alter_table('plan_steps', schema=None) as batch_op:
+    with portable_alter_table('plan_steps') as batch_op:
         batch_op.create_index(batch_op.f('ix_plan_steps_plan_id'), ['plan_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_plan_steps_status'), ['status'], unique=False)
 
@@ -250,52 +257,52 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
-    with op.batch_alter_table('plan_steps', schema=None) as batch_op:
+    with portable_alter_table('plan_steps') as batch_op:
         batch_op.drop_index(batch_op.f('ix_plan_steps_status'))
         batch_op.drop_index(batch_op.f('ix_plan_steps_plan_id'))
 
     op.drop_table('plan_steps')
-    with op.batch_alter_table('plans', schema=None) as batch_op:
+    with portable_alter_table('plans') as batch_op:
         batch_op.drop_index(batch_op.f('ix_plans_status'))
         batch_op.drop_index(batch_op.f('ix_plans_mission_id'))
 
     op.drop_table('plans')
-    with op.batch_alter_table('mission_history', schema=None) as batch_op:
+    with portable_alter_table('mission_history') as batch_op:
         batch_op.drop_index(batch_op.f('ix_mission_history_mission_id'))
 
     op.drop_table('mission_history')
-    with op.batch_alter_table('intelligence_executions', schema=None) as batch_op:
+    with portable_alter_table('intelligence_executions') as batch_op:
         batch_op.drop_index(batch_op.f('ix_intelligence_executions_status'))
         batch_op.drop_index(batch_op.f('ix_intelligence_executions_operation'))
         batch_op.drop_index(batch_op.f('ix_intelligence_executions_mission_id'))
         batch_op.drop_index(batch_op.f('ix_intelligence_executions_correlation_id'))
 
     op.drop_table('intelligence_executions')
-    with op.batch_alter_table('intelligence_decisions', schema=None) as batch_op:
+    with portable_alter_table('intelligence_decisions') as batch_op:
         batch_op.drop_index(batch_op.f('ix_intelligence_decisions_status'))
         batch_op.drop_index(batch_op.f('ix_intelligence_decisions_mission_id'))
 
     op.drop_table('intelligence_decisions')
-    with op.batch_alter_table('hypotheses', schema=None) as batch_op:
+    with portable_alter_table('hypotheses') as batch_op:
         batch_op.drop_index(batch_op.f('ix_hypotheses_status'))
         batch_op.drop_index(batch_op.f('ix_hypotheses_mission_id'))
 
     op.drop_table('hypotheses')
-    with op.batch_alter_table('evidence_records', schema=None) as batch_op:
+    with portable_alter_table('evidence_records') as batch_op:
         batch_op.drop_index(batch_op.f('ix_evidence_records_verification_status'))
         batch_op.drop_index(batch_op.f('ix_evidence_records_mission_id'))
 
     op.drop_table('evidence_records')
-    with op.batch_alter_table('missions', schema=None) as batch_op:
+    with portable_alter_table('missions') as batch_op:
         batch_op.drop_index(batch_op.f('ix_missions_state'))
         batch_op.drop_index(batch_op.f('ix_missions_owner_principal_id'))
 
     op.drop_table('missions')
-    with op.batch_alter_table('registered_models', schema=None) as batch_op:
+    with portable_alter_table('registered_models') as batch_op:
         batch_op.drop_index(batch_op.f('ix_registered_models_provider'))
 
     op.drop_table('registered_models')
-    with op.batch_alter_table('model_usage', schema=None) as batch_op:
+    with portable_alter_table('model_usage') as batch_op:
         batch_op.drop_index(batch_op.f('ix_model_usage_request_id'))
         batch_op.drop_index(batch_op.f('ix_model_usage_correlation_id'))
 

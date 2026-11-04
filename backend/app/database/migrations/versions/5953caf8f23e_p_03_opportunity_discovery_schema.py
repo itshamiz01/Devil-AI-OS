@@ -33,6 +33,13 @@ incomplete.  Two columns that no writer would ever have populated
 from alembic import op
 import sqlalchemy as sa
 
+# The migrations directory is not importable by name under every runner,
+# so the shared helper is loaded by explicit path.
+import pathlib as _pathlib
+import sys as _sys
+_sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent.parent))
+from portable import portable_alter_table  # noqa: E402
+
 
 revision = '5953caf8f23e'
 down_revision = '2a904ceb99c4'
@@ -60,7 +67,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('commercial_analyses', schema=None) as batch_op:
+    with portable_alter_table('commercial_analyses') as batch_op:
         batch_op.create_index(batch_op.f('ix_commercial_analyses_opportunity_id'), ['opportunity_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_commercial_analyses_verdict'), ['verdict'], unique=False)
 
@@ -89,7 +96,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('competitor_records', schema=None) as batch_op:
+    with portable_alter_table('competitor_records') as batch_op:
         batch_op.create_index(batch_op.f('ix_competitor_records_competitor_id'), ['competitor_id'], unique=True)
         batch_op.create_index(batch_op.f('ix_competitor_records_opportunity_id'), ['opportunity_id'], unique=False)
 
@@ -110,7 +117,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('market_analyses', schema=None) as batch_op:
+    with portable_alter_table('market_analyses') as batch_op:
         batch_op.create_index(batch_op.f('ix_market_analyses_opportunity_id'), ['opportunity_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_market_analyses_verdict'), ['verdict'], unique=False)
 
@@ -133,7 +140,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('opportunity_candidates', schema=None) as batch_op:
+    with portable_alter_table('opportunity_candidates') as batch_op:
         batch_op.create_index(batch_op.f('ix_opportunity_candidates_candidate_id'), ['candidate_id'], unique=True)
         batch_op.create_index(batch_op.f('ix_opportunity_candidates_category'), ['category'], unique=False)
         batch_op.create_index(batch_op.f('ix_opportunity_candidates_discovery_method'), ['discovery_method'], unique=False)
@@ -149,7 +156,7 @@ def upgrade() -> None:
     sa.Column('metadata', sa.JSON(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('opportunity_history', schema=None) as batch_op:
+    with portable_alter_table('opportunity_history') as batch_op:
         batch_op.create_index(batch_op.f('ix_opportunity_history_opportunity_id'), ['opportunity_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_opportunity_history_to_state'), ['to_state'], unique=False)
 
@@ -173,7 +180,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('opportunity_reports', schema=None) as batch_op:
+    with portable_alter_table('opportunity_reports') as batch_op:
         batch_op.create_index(batch_op.f('ix_opportunity_reports_final_classification'), ['final_classification'], unique=False)
         batch_op.create_index(batch_op.f('ix_opportunity_reports_opportunity_id'), ['opportunity_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_opportunity_reports_report_id'), ['report_id'], unique=True)
@@ -205,7 +212,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('opportunity_scores', schema=None) as batch_op:
+    with portable_alter_table('opportunity_scores') as batch_op:
         batch_op.create_index(batch_op.f('ix_opportunity_scores_attractiveness'), ['attractiveness'], unique=False)
         batch_op.create_index(batch_op.f('ix_opportunity_scores_final_classification'), ['final_classification'], unique=False)
         batch_op.create_index(batch_op.f('ix_opportunity_scores_opportunity_id'), ['opportunity_id'], unique=False)
@@ -232,7 +239,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('research_sources', schema=None) as batch_op:
+    with portable_alter_table('research_sources') as batch_op:
         batch_op.create_index(batch_op.f('ix_research_sources_source_id'), ['source_id'], unique=True)
         batch_op.create_index(batch_op.f('ix_research_sources_source_type'), ['source_type'], unique=False)
         batch_op.create_index(batch_op.f('ix_research_sources_status'), ['status'], unique=False)
@@ -260,7 +267,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('risk_findings', schema=None) as batch_op:
+    with portable_alter_table('risk_findings') as batch_op:
         batch_op.create_index(batch_op.f('ix_risk_findings_blocks_recommendation'), ['blocks_recommendation'], unique=False)
         batch_op.create_index(batch_op.f('ix_risk_findings_category'), ['category'], unique=False)
         batch_op.create_index(batch_op.f('ix_risk_findings_finding_id'), ['finding_id'], unique=True)
@@ -292,7 +299,7 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('source_evidence', schema=None) as batch_op:
+    with portable_alter_table('source_evidence') as batch_op:
         batch_op.create_index(batch_op.f('ix_source_evidence_classification'), ['classification'], unique=False)
         batch_op.create_index(batch_op.f('ix_source_evidence_evidence_id'), ['evidence_id'], unique=True)
         batch_op.create_index(batch_op.f('ix_source_evidence_evidence_type'), ['evidence_type'], unique=False)
@@ -330,7 +337,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['principal_id'], ['principals.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('opportunities', schema=None) as batch_op:
+    with portable_alter_table('opportunities') as batch_op:
         batch_op.create_index(batch_op.f('ix_opportunities_candidate_id'), ['candidate_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_opportunities_category'), ['category'], unique=False)
         batch_op.create_index(batch_op.f('ix_opportunities_final_classification'), ['final_classification'], unique=False)
@@ -358,7 +365,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('research_sweeps', schema=None) as batch_op:
+    with portable_alter_table('research_sweeps') as batch_op:
         batch_op.create_index(batch_op.f('ix_research_sweeps_opportunity_id'), ['opportunity_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_research_sweeps_task_id'), ['task_id'], unique=False)
 
@@ -367,12 +374,12 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
-    with op.batch_alter_table('research_sweeps', schema=None) as batch_op:
+    with portable_alter_table('research_sweeps') as batch_op:
         batch_op.drop_index(batch_op.f('ix_research_sweeps_task_id'))
         batch_op.drop_index(batch_op.f('ix_research_sweeps_opportunity_id'))
 
     op.drop_table('research_sweeps')
-    with op.batch_alter_table('opportunities', schema=None) as batch_op:
+    with portable_alter_table('opportunities') as batch_op:
         batch_op.drop_index(batch_op.f('ix_opportunities_validation_level'))
         batch_op.drop_index(batch_op.f('ix_opportunities_state'))
         batch_op.drop_index(batch_op.f('ix_opportunities_recommendable'))
@@ -383,7 +390,7 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_opportunities_candidate_id'))
 
     op.drop_table('opportunities')
-    with op.batch_alter_table('source_evidence', schema=None) as batch_op:
+    with portable_alter_table('source_evidence') as batch_op:
         batch_op.drop_index(batch_op.f('ix_source_evidence_source_id'))
         batch_op.drop_index(batch_op.f('ix_source_evidence_opportunity_id'))
         batch_op.drop_index(batch_op.f('ix_source_evidence_independence_group'))
@@ -392,7 +399,7 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_source_evidence_classification'))
 
     op.drop_table('source_evidence')
-    with op.batch_alter_table('risk_findings', schema=None) as batch_op:
+    with portable_alter_table('risk_findings') as batch_op:
         batch_op.drop_index(batch_op.f('ix_risk_findings_severity'))
         batch_op.drop_index(batch_op.f('ix_risk_findings_opportunity_id'))
         batch_op.drop_index(batch_op.f('ix_risk_findings_finding_id'))
@@ -400,47 +407,47 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_risk_findings_blocks_recommendation'))
 
     op.drop_table('risk_findings')
-    with op.batch_alter_table('research_sources', schema=None) as batch_op:
+    with portable_alter_table('research_sources') as batch_op:
         batch_op.drop_index(batch_op.f('ix_research_sources_status'))
         batch_op.drop_index(batch_op.f('ix_research_sources_source_type'))
         batch_op.drop_index(batch_op.f('ix_research_sources_source_id'))
 
     op.drop_table('research_sources')
-    with op.batch_alter_table('opportunity_scores', schema=None) as batch_op:
+    with portable_alter_table('opportunity_scores') as batch_op:
         batch_op.drop_index(batch_op.f('ix_opportunity_scores_rejected'))
         batch_op.drop_index(batch_op.f('ix_opportunity_scores_opportunity_id'))
         batch_op.drop_index(batch_op.f('ix_opportunity_scores_final_classification'))
         batch_op.drop_index(batch_op.f('ix_opportunity_scores_attractiveness'))
 
     op.drop_table('opportunity_scores')
-    with op.batch_alter_table('opportunity_reports', schema=None) as batch_op:
+    with portable_alter_table('opportunity_reports') as batch_op:
         batch_op.drop_index(batch_op.f('ix_opportunity_reports_report_id'))
         batch_op.drop_index(batch_op.f('ix_opportunity_reports_opportunity_id'))
         batch_op.drop_index(batch_op.f('ix_opportunity_reports_final_classification'))
 
     op.drop_table('opportunity_reports')
-    with op.batch_alter_table('opportunity_history', schema=None) as batch_op:
+    with portable_alter_table('opportunity_history') as batch_op:
         batch_op.drop_index(batch_op.f('ix_opportunity_history_to_state'))
         batch_op.drop_index(batch_op.f('ix_opportunity_history_opportunity_id'))
 
     op.drop_table('opportunity_history')
-    with op.batch_alter_table('opportunity_candidates', schema=None) as batch_op:
+    with portable_alter_table('opportunity_candidates') as batch_op:
         batch_op.drop_index(batch_op.f('ix_opportunity_candidates_discovery_method'))
         batch_op.drop_index(batch_op.f('ix_opportunity_candidates_category'))
         batch_op.drop_index(batch_op.f('ix_opportunity_candidates_candidate_id'))
 
     op.drop_table('opportunity_candidates')
-    with op.batch_alter_table('market_analyses', schema=None) as batch_op:
+    with portable_alter_table('market_analyses') as batch_op:
         batch_op.drop_index(batch_op.f('ix_market_analyses_verdict'))
         batch_op.drop_index(batch_op.f('ix_market_analyses_opportunity_id'))
 
     op.drop_table('market_analyses')
-    with op.batch_alter_table('competitor_records', schema=None) as batch_op:
+    with portable_alter_table('competitor_records') as batch_op:
         batch_op.drop_index(batch_op.f('ix_competitor_records_opportunity_id'))
         batch_op.drop_index(batch_op.f('ix_competitor_records_competitor_id'))
 
     op.drop_table('competitor_records')
-    with op.batch_alter_table('commercial_analyses', schema=None) as batch_op:
+    with portable_alter_table('commercial_analyses') as batch_op:
         batch_op.drop_index(batch_op.f('ix_commercial_analyses_verdict'))
         batch_op.drop_index(batch_op.f('ix_commercial_analyses_opportunity_id'))
 
