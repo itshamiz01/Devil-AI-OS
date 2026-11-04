@@ -22,7 +22,7 @@ P-01 was conditionally authorized after P-00 ended partially complete. The imple
 - Internal event bus, persisted system events and audit records.
 - Deny-by-default permission engine and approval framework.
 - Lightweight resource monitoring and nonessential task admission control.
-- 43 passing backend tests and a loopback live smoke test.
+- 67 passing backend tests and a loopback live smoke test.
 
 Explicitly not implemented: frontend dashboard, Tauri desktop shell, AI models/Ollama, autonomous agent creation, browser/desktop automation, business execution, wallets/payments, remote access, Windows certification.
 
@@ -64,21 +64,66 @@ Windows helper scripts are provided but not Windows-certified:
 
 `.\scripts\stop_backend.ps1 -Force` is emergency-only and not graceful.
 
-## Publishing to GitHub
+## Publishing and delivery
 
-Work produced in the assistant workspace is delivered as an `AUTONOMUS_*.zip` package. It is **not** pushed to GitHub automatically, and the assistant workspace holds no GitHub credentials. Publishing always runs on the owner's PC.
+Two delivery paths exist, depending on whether the workspace has an authorized
+GitHub connection.
 
-**Easiest:** put `Publish-to-GitHub.cmd`, `publish_to_github.ps1` and the package ZIP in your Downloads folder and double-click `Publish-to-GitHub.cmd`. Choose `1` to preview, `2` to publish, `3` to publish after running tests.
+**1. Authorized workspace connection (used for this repository).** When the
+development workspace holds an authorized GitHub connection, work is delivered on
+a named branch and reviewed through a pull request. This is not automatic:
+each push is explicitly authorized by the owner. PR #1 (restore of the P-01 tree
+plus the approval-gate fix) was merged to `main` on 2026-11-03 this way.
 
-**Or one command:**
+**2. Owner's PC (no workspace connection).** Where no connection exists, work is
+exported as an `AUTONOMUS_*.zip` package and published from the owner's machine.
+Put `Publish-to-GitHub.cmd`, `publish_to_github.ps1` and the package ZIP in your
+Downloads folder and double-click `Publish-to-GitHub.cmd`. Choose `1` to preview,
+`2` to publish, `3` to publish after running tests.
+
+Or one command:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\publish_to_github.ps1"
 ```
 
-The script finds the newest package, clones or reuses `%USERPROFILE%\Devil-AI-OS`, backs up files it will overwrite, blocks secrets and runtime data, commits and pushes to `main`. Use `-DryRun` to preview, `-RunTests` to run backend tests first, `-NoPush` to keep the commit local. Sign-in is handled by Git Credential Manager or your browser; never paste tokens into chat.
+The script finds the newest package, clones or reuses `%USERPROFILE%\\Devil-AI-OS`,
+backs up files it will overwrite, blocks secrets and runtime data, commits and
+pushes to `main`. Use `-DryRun` to preview, `-RunTests` to run backend tests
+first, `-NoPush` to keep the commit local. Sign-in is handled by Git Credential
+Manager or your browser; never paste tokens into chat.
 
 Details: [Publishing guide](docs/architecture/PUBLISHING.md) · [Validation report](docs/reports/PUBLISH_SCRIPT_VALIDATION.md)
+
+## Technology stack
+
+Locked preferences (Constitution §12), with current verification status:
+
+| Layer | Choice | Status in this workspace |
+|---|---|---|
+| Backend | Python + FastAPI | Implemented and tested (67 tests) |
+| Database | SQLite + SQLAlchemy 2.x + Alembic | Implemented; PostgreSQL-ready schema |
+| Testing | Pytest | Implemented |
+| Frontend | React + TypeScript | Not started; Node 22 available here |
+| Desktop shell | Tauri (Windows-first) | Not started; no Rust toolchain here |
+| Local AI | Ollama / GGUF, optional cloud | Not started; no Ollama, downloads blocked |
+| Vector memory | ChromaDB or replaceable | Deferred by ADR-0008 |
+| Browser automation | Playwright | Not started; not installed |
+| Windows automation | Windows APIs / PyAutoGUI | Not started; no Windows host |
+
+Selection evidence and alternatives: [Technology Validation](docs/reports/TECHNOLOGY_VALIDATION.md) · [current-workspace re-audit](docs/reports/P00_REAUDIT_TECHNOLOGY.md)
+
+## Development roadmap
+
+Sequence is `P-00 → P-16`, stage-gated, with tests, a report, an audit, a tracker
+update and explicit owner approval between phases. Full detail:
+[Development Roadmap](docs/reports/DEVELOPMENT_ROADMAP.md) ·
+[Phase Tracker](docs/PHASE_TRACKER.md) (live status) ·
+[Prompt Pack](docs/AUTONOMUS_DEVELOPMENT_PROMPT_PACK.md) (authoritative sequence).
+
+Current position: **P-00 partially complete** (Windows audit and independent
+review pending), **P-01 partially complete** (backend done; frontend, desktop
+shell and Windows acceptance outstanding). **P-02 is not authorized.**
 
 ## API and frontend contract
 

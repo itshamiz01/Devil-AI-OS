@@ -1,0 +1,152 @@
+{
+  "captured_utc": "2026-11-03T08:57:51.328853+00:00",
+  "auditor": "scripts/audit_environment.py",
+  "scope": "Development workspace only; not the owner Windows production target",
+  "os": {
+    "system": "Linux",
+    "release": "6.1.158+",
+    "machine": "x86_64",
+    "python_version": "3.11.2",
+    "python_implementation": "CPython",
+    "platform_string": "Linux-6.1.158+-x86_64-with-glibc2.36",
+    "is_windows_target": false
+  },
+  "cpu": {
+    "visible_logical": 2,
+    "affinity_count": 2,
+    "physical_model": "Intel(R) Xeon(R) Processor @ 2.60GHz",
+    "flags_aes_avx2": {
+      "aes": true,
+      "avx": true,
+      "avx2": true,
+      "fma": true
+    }
+  },
+  "memory": {
+    "MemTotal_KiB": 4034452,
+    "MemAvailable_KiB": 3770416,
+    "SwapTotal_KiB": 0,
+    "MemTotal_GiB": 3.85,
+    "MemAvailable_GiB": 3.6
+  },
+  "storage": {
+    "path": "/home/user/Devil-AI-OS",
+    "total_bytes": 21834924032,
+    "used_bytes": 857186304,
+    "free_bytes": 20692525056,
+    "total_GiB": 20.34,
+    "free_GiB": 19.27,
+    "physical_media_type": "Not established"
+  },
+  "gpu": {
+    "dev_nvidia": [],
+    "dev_dri": [],
+    "nvidia_smi": null,
+    "conclusion": "No /dev/nvidia* or /dev/dri/* interfaces exposed; host GPU existence is not established."
+  },
+  "cgroup": {},
+  "tools": {
+    "python3": "Python 3.11.2",
+    "node": "v22.22.3",
+    "npm": "10.9.8",
+    "npx": "10.9.8",
+    "yarn": "1.22.22",
+    "pnpm": null,
+    "git": "git version 2.39.5",
+    "pwsh": null,
+    "powershell": null,
+    "cargo": null,
+    "rustc": null,
+    "ollama": null,
+    "docker": null,
+    "playwright": null,
+    "nvidia-smi": null,
+    "lscpu": "Architecture:                            x86_64"
+  },
+  "python_distributions": {
+    "fastapi": null,
+    "uvicorn": null,
+    "pydantic": null,
+    "pydantic-settings": null,
+    "sqlalchemy": null,
+    "alembic": null,
+    "aiosqlite": null,
+    "psutil": null,
+    "argon2-cffi": null,
+    "httpx": null,
+    "pytest": null,
+    "playwright": null,
+    "chromadb": null,
+    "keyring": null,
+    "ollama": null
+  },
+  "network": {
+    "results": {
+      "https://pypi.org/simple/": {
+        "reachable": true,
+        "status": 200
+      },
+      "https://registry.npmjs.org/": {
+        "reachable": true,
+        "status": 200
+      },
+      "https://api.github.com/": {
+        "reachable": true,
+        "status": 200
+      },
+      "https://ollama.com/": {
+        "reachable": false,
+        "status": null,
+        "error": "URLError"
+      },
+      "https://huggingface.co/": {
+        "reachable": false,
+        "status": null,
+        "error": "URLError"
+      },
+      "https://www.google.com/": {
+        "reachable": false,
+        "status": null,
+        "error": "URLError"
+      }
+    },
+    "reachable_count": 3,
+    "blocked": [
+      "https://ollama.com/",
+      "https://huggingface.co/",
+      "https://www.google.com/"
+    ]
+  },
+  "workspace": {
+    "repository_path": "/home/user/Devil-AI-OS",
+    "windows_path_visibility": {
+      "C:\\AUTONOMUS": false,
+      "/mnt/c/AUTONOMUS": false,
+      "/c/AUTONOMUS": false
+    },
+    "top_level_entries": [
+      ".env.example",
+      ".gitignore",
+      "LICENSE",
+      "README.md",
+      "backend/",
+      "config/",
+      "docs/",
+      "scripts/",
+      "shared/"
+    ],
+    "tracked_file_count": 128,
+    "git_branch": "arena/0a4e9e66-devil-ai-os",
+    "git_head": "6dd3359",
+    "git_remote": "https://github.com/itshamiz01/Devil-AI-OS.git"
+  },
+  "not_performed": [
+    "Windows hardware audit",
+    "Windows application build",
+    "model download",
+    "inference benchmark",
+    "dependency installation",
+    "financial integration",
+    "external business action"
+  ]
+}

@@ -11,6 +11,26 @@ EVENT_TYPES = {
     "TaskCreated","TaskQueued","TaskStarted","TaskProgressUpdated","TaskCompleted","TaskFailed","TaskCancelled",
     "ApprovalRequested","ApprovalGranted","ApprovalRejected","PermissionDenied","SystemWarning","SystemError",
     "DatabaseUnavailable","ResourceThresholdExceeded",
+    # P-01 extension beyond the §8 initial list: the emergency stop is a
+    # security-critical state change, so it must be observable and auditable
+    # through the same bus as everything else. See ADR-0013.
+    "EmergencyActivated","EmergencyDeactivated",
+    # P-02 Master Intelligence Engine. These are security- and governance-relevant
+    # state changes, so they travel the same auditable bus as everything else
+    # rather than living only in engine memory. See ADR-0015.
+    "MissionCreated","MissionStateChanged","PlanGenerated","PlanRevised","PlanRejected",
+    "TaskDispatched","DecisionRecorded","ModelUnavailable","PromptInjectionDetected",
+    "AutonomyLevelChanged",
+    # P-03 Opportunity Discovery Engine. An opportunity being rejected is as
+    # auditable an outcome as one being recommended - arguably more so, since the
+    # phase brief's design goal is that the system must be better at rejecting bad
+    # opportunities than at generating attractive ones. Source refusals and
+    # governance violations travel the same bus for the same reason: an absence of
+    # evidence, and an attempt to exceed authority, are both things the owner needs
+    # to be able to see after the fact.
+    "OpportunityDiscovered","OpportunityOpened","OpportunityStateChanged",
+    "OpportunityRejected","OpportunityRecommended","ResearchSweepCompleted",
+    "SourceRefused","EvidenceRecorded","ComplianceBlocked","GovernanceViolation",
 }
 
 

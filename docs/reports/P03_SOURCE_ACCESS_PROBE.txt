@@ -1,0 +1,76 @@
+P-03 STAGE 1 EVIDENCE - RESEARCH SOURCE ACCESS PROBE
+Executed: 2026-11-03, host sandbox, Python 3.11.2
+Purpose: determine whether genuine market research is possible in this environment
+         (P-03 §8 source adapters, §35 example investigations).
+
+METHOD
+  Two independent probes were run, because they disagree - and the disagreement
+  is itself the finding.
+
+PROBE 1 - TCP connect only (socket.create_connection, port 443, 6s timeout)
+  REACHABLE (28): google.com, duckduckgo.com, bing.com, amazon.com, etsy.com,
+    ebay.com, gumroad.com, shopify.com, reddit.com, news.ycombinator.com,
+    stackoverflow.com, quora.com, trends.google.com, ahrefs.com, semrush.com,
+    data.gov, census.gov, ons.gov.uk, medium.com, substack.com, github.com,
+    producthunt.com, appsumo.com, namecheap.com, stripe.com, pypi.org,
+    registry.npmjs.org, api.github.com
+  UNREACHABLE (1): stats.gov.in (gaierror - DNS)
+
+  *** PROBE 1 IS MISLEADING AND MUST NOT BE USED AS EVIDENCE OF ACCESS. ***
+  A transparent proxy completes the TCP handshake for non-permitted hosts and
+  then closes the connection during the TLS handshake. A connectivity check
+  based on TCP connect alone reports 28 usable research sources. There are 2.
+
+PROBE 2 - actual HTTPS GET (urllib, 10s timeout, 16 research-relevant URLs)
+  FAIL https://duckduckgo.com/html/?q=digital+product+demand   TLS/SSL connection has been closed (EOF)
+  FAIL https://html.duckduckgo.com/html/?q=test                TLS/SSL connection has been closed (EOF)
+  FAIL https://www.google.com/search?q=test                    TLS/SSL connection has been closed (EOF)
+  FAIL https://api.duckduckgo.com/?q=test&format=json          TLS/SSL connection has been closed (EOF)
+  FAIL https://www.reddit.com/r/Entrepreneur.json              TLS/SSL connection has been closed (EOF)
+  FAIL https://news.ycombinator.com/                           TLS/SSL connection has been closed (EOF)
+  FAIL https://www.etsy.com/market/digital_planner             TLS/SSL connection has been closed (EOF)
+  FAIL https://www.amazon.com/s?k=ebook                        TLS/SSL connection has been closed (EOF)
+  FAIL https://gumroad.com/discover                            TLS/SSL connection has been closed (EOF)
+  FAIL https://trends.google.com/trends/api/explore            TLS/SSL connection has been closed (EOF)
+  FAIL https://data.gov/api/3/action/package_search?q=business TLS/SSL connection has been closed (EOF)
+  OK   https://api.github.com/search/repositories?q=saas       HTTP 200
+  OK   https://pypi.org/pypi/httpx/json                        HTTP 200
+  FAIL https://stripe.com/pricing                              TLS/SSL connection has been closed (EOF)
+  FAIL https://www.namecheap.com/domains/registration/results/ TLS/SSL connection has been closed (EOF)
+  FAIL https://en.wikipedia.org/wiki/Digital_marketing         TLS/SSL connection has been closed (EOF)
+
+  USABLE HTTP SOURCES: 2/16
+  Both usable hosts are the sandbox's software-supply allowlist
+  (api.github.com, pypi.org). NEITHER IS A MARKET RESEARCH SOURCE.
+  Permitted hosts are: github.com, codeload.github.com, api.github.com,
+  registry.npmjs.org, pypi.org, files.pythonhosted.org.
+
+BROWSER / SCRAPING TOOLING
+  playwright ABSENT   chromedriver ABSENT   chromium ABSENT
+  google-chrome ABSENT   firefox ABSENT   scrapy ABSENT
+  curl PRESENT   wget PRESENT   (both useless: TLS blocked to all targets)
+  python -c "import playwright" -> ModuleNotFoundError
+
+CATEGORY-BY-CATEGORY VERDICT (P-03 §8 source types)
+  search engines            BLOCKED   no demand or keyword data obtainable
+  marketplaces              BLOCKED   no pricing, review or listing data
+  communities / forums      BLOCKED   no problem-statement or complaint data
+  trend services            BLOCKED   no time-series interest data
+  government statistics     BLOCKED   no demographic or market-size data
+  vendor pricing pages      BLOCKED   no verified cost data
+  review sites              BLOCKED   no competitor sentiment data
+  package/code registries   AVAILABLE but not business-research sources
+
+CONSEQUENCE FOR P-03
+  This is the exact analogue of P-02's "no inference runtime installed".
+  The source-adapter framework, evidence pipeline, market/competitor/commercial
+  analysis, scoring, validation and reporting must all be BUILT AND TESTED, but
+  every real-world acquisition path resolves to a source-access refusal at
+  runtime. All verification must use mock adapters and clearly labelled test
+  data.
+
+  Per §35: "Do not invent three successful opportunities just to satisfy this
+  requirement. If genuine research cannot be completed, explain the technical or
+  source-access limitation." That instruction is invoked here. No search volume,
+  price, review, market size, transaction volume, URL or publication date will
+  be fabricated anywhere in P-03.

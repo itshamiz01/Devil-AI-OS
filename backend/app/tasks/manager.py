@@ -8,7 +8,8 @@ from uuid import uuid4
 from sqlalchemy import select
 
 from ..core.config import Settings
-from ..core.exceptions import ConflictError, InvalidTransitionError, QueueFullError, ResourceProtectedError, NotFoundError
+from ..core.emergency import AUDIT_BLOCKED
+from ..core.exceptions import ConflictError, EmergencyBlockedError, InvalidTransitionError, QueueFullError, ResourceProtectedError, NotFoundError
 from ..database.connection import Database
 from ..database.models import Approval, Task, utcnow
 from ..database.repositories import ApprovalRepo, AuditRepo, ExecutionRepo, TaskRepo
@@ -43,11 +44,14 @@ def _as_utc(value: datetime) -> datetime:
 
 
 class TaskManager:
-    def __init__(self, settings: Settings, db: Database, bus: EventBus, monitor):
+    def __init__(self, settings: Settings, db: Database, bus: EventBus, monitor, emergency=None):
         self.settings = settings
         self.db = db
         self.bus = bus
         self.monitor = monitor
+        # Optional so this constructor stays compatible with any caller that
+        # predates the emergency stop; application.py always supplies it.
+        self.emergency = emergency
         self.queue = BoundedPriorityQueue(settings.task_queue_capacity)
         self.accepting = False
         self._workers: list[asyncio.Task] = []
@@ -78,6 +82,18 @@ class TaskManager:
             raise ConflictError("Task manager is not accepting submissions")
         handler = HANDLERS[request.handler]
         payload = validate_payload(request.handler, request.payload)
+        # The owner's emergency stop outranks resource pressure: it is an
+        # explicit human halt, not a capacity signal. Essential handlers stay
+        # admissible because SECURITY_FOUNDATION §10 requires audit, recovery and
+        # owner-control paths to remain available during an emergency.
+        if self.emergency is not None and not handler.essential and await self.emergency.is_active():
+            async with self.db.session_factory() as session:
+                await AuditRepo(session).record(
+                    AUDIT_BLOCKED, "denied", principal_id=principal_id, resource="", action="submit",
+                    correlation_id=correlation_id, payload={"handler": request.handler},
+                )
+                await session.commit()
+            raise EmergencyBlockedError("Emergency stop is active; non-essential task admission is blocked")
         pressure = self.monitor.resource_pressure()
         if pressure and not handler.essential:
             await self.bus.publish_new("ResourceThresholdExceeded", "monitoring", {"reasons": pressure}, severity="warning", correlation_id=correlation_id)
@@ -217,6 +233,61 @@ class TaskManager:
             await session.commit()
         await self.bus.publish_new("TaskCancelled", "tasks", {}, task_id=task_id, correlation_id=correlation_id)
         return await self.get(task_id)
+
+    async def apply_emergency_stop(self, correlation_id: str | None = None) -> dict[str, int]:
+        """Bring in-flight work under the owner's emergency stop.
+
+        SECURITY_FOUNDATION §10 requires an emergency stop to "cancel eligible
+        work", while P-01 §10.2 forbids killing active tasks without controlled
+        cancellation and §10 requires essential audit, recovery and owner-control
+        paths to stay available. Therefore:
+
+        * RUNNING non-essential tasks receive a cooperative cancellation request
+          (the same mechanism cancel() uses) and are never hard-killed.
+        * QUEUED / RETRY_PENDING non-essential tasks are PAUSED. That is a legal
+          transition, is not re-queued automatically, and is recoverable by an
+          explicit owner resume. They are paused rather than cancelled because
+          every P-01 handler is side-effect free, so cancelling would destroy
+          recoverable owner work for no safety gain. This deliberately narrows
+          §10's wording and is flagged for owner review in ADR-0013.
+        * Essential tasks are left untouched.
+
+        A paused task may still sit in the in-memory queue; that is harmless
+        because _execute() re-reads status and returns unless it is still QUEUED.
+        """
+        paused = 0
+        cancelling = 0
+        async with self.db.session_factory() as session:
+            repo = TaskRepo(session)
+            for task in await repo.by_status([TaskState.QUEUED.value, TaskState.RETRY_PENDING.value]):
+                if task.essential:
+                    continue
+                task.error_details = {"code": "EMERGENCY_STOP", "message": "Paused by the owner's emergency stop"}
+                await self._transition(task, TaskState.PAUSED)
+                await AuditRepo(session).record(
+                    "task.emergency_paused", "allowed", principal_id=task.creator_id, resource=task.id,
+                    action="emergency_stop", correlation_id=correlation_id,
+                )
+                paused += 1
+            for task in await repo.by_status([TaskState.RUNNING.value]):
+                if task.essential:
+                    continue
+                task.cancellation_requested = True
+                event = self._running.get(task.id)
+                if event:
+                    event.set()
+                await AuditRepo(session).record(
+                    "task.emergency_cancel_requested", "allowed", principal_id=task.creator_id, resource=task.id,
+                    action="emergency_stop", correlation_id=correlation_id,
+                )
+                cancelling += 1
+            await session.commit()
+        if paused or cancelling:
+            logger.warning(
+                "Emergency stop applied to in-flight work",
+                extra={"component": "tasks", "correlation_id": correlation_id, "paused": paused, "cancellation_requested": cancelling},
+            )
+        return {"paused": paused, "cancellation_requested": cancelling}
 
     async def pause(self, principal_id: str, task_id: str) -> Task:
         async with self.db.session_factory() as session:

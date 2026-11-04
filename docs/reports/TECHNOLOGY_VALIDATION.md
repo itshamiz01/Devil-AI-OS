@@ -1,5 +1,16 @@
 # P-00 Technology Validation Report
 
+
+> **Registry observations refreshed (2026-11-03 re-audit).** Versions, engine
+> floors and the Node/TypeScript conclusions have been re-measured against live
+> registries and the actual workspace toolchain: Node is now 22.22.3 (which
+> resolves the Node-20 blocker), the `typescript-eslint` peer ceiling is
+> `<6.1.0` against TypeScript `latest` 7.0.2, and no stack dependency requires
+> Python 3.13. Read [P00_REAUDIT_TECHNOLOGY.md](P00_REAUDIT_TECHNOLOGY.md) with
+> [P00_REAUDIT_TECHNOLOGY_EVIDENCE.json](P00_REAUDIT_TECHNOLOGY_EVIDENCE.json).
+> Retained unmodified as the historical record.
+
+
 **Observed:** 2026-11-03, approximately 05:14–05:18 UTC  
 **Status:** Documentary validation complete; target-hardware and integration validation pending  
 **Installation status:** No project dependencies installed; no lockfiles created

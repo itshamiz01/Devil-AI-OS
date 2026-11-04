@@ -17,6 +17,8 @@ class PrincipalRepo:
     async def get(self, principal_id: str) -> Principal | None: return await self.session.get(Principal, principal_id)
     async def by_name(self, name: str) -> Principal | None:
         return (await self.session.execute(select(Principal).where(Principal.name == name))).scalar_one_or_none()
+    async def by_kind(self, kind: str) -> Sequence[Principal]:
+        return (await self.session.execute(select(Principal).where(Principal.kind == kind))).scalars().all()
     async def create(self, kind: str, name: str, active: bool = True) -> Principal:
         p = Principal(kind=kind, name=name, active=active); self.session.add(p); await self.session.flush(); return p
 

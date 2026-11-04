@@ -1,5 +1,15 @@
 # P-00 Environment Audit
 
+
+> **Superseded for the current workspace (2026-11-03 re-audit).** The machine
+> facts below were captured at 05:16Z against a *different* sandbox. Python, Node,
+> npm, Git, total memory and available memory have all since changed, and the
+> Git remote statement in §1 is no longer true. Read
+> [P00_REAUDIT_ENVIRONMENT.md](P00_REAUDIT_ENVIRONMENT.md) for current
+> measurements. This document is retained unmodified as the historical record of
+> the original P-00 run.
+
+
 **Audit date:** 2026-11-03  
 **Scope:** Available Arena workspace and cloned repository  
 **Result:** Linux environment inspected; Windows target **NOT VERIFIED**  

@@ -46,3 +46,15 @@ class InvalidTransitionError(AppError):
 class ResourceProtectedError(AppError):
     status_code = 503
     code = "resource_protected"
+
+
+class EmergencyBlockedError(AppError):
+    """Raised when the owner's emergency stop refuses non-essential work.
+
+    503 rather than 403: the principal *is* authorized, the system is simply
+    halted. Callers should treat it as retryable-after-clearing, not as a
+    permission failure, and it must never be retried automatically.
+    """
+
+    status_code = 503
+    code = "emergency_stop_active"

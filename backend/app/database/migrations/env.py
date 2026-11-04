@@ -27,7 +27,15 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     connectable = engine_from_config(config.get_section(config.config_ini_section, {}), prefix="sqlalchemy.", poolclass=pool.NullPool)
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            # Batch mode rewrites ALTERs as table rebuilds, which SQLite needs
+            # because it cannot drop or alter many column constraints in place.
+            # Postgres supports them natively, and rebuilding there would be
+            # both slower and lossier, so batch is dialect-conditional.
+            render_as_batch=connection.dialect.name == "sqlite",
+        )
         with context.begin_transaction():
             context.run_migrations()
 
