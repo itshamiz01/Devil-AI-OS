@@ -40,3 +40,9 @@
 ## Cost of the region split
 
 Functions run in **iad1** (Washington D.C.); the database is in **ap-southeast-1** (Singapore). Every query crosses continents. This API issues many small queries per request, so the latency is paid repeatedly rather than once (L-52). Either the function region or the database region should move — the database is empty today, which is the cheapest moment to change it.
+
+## Post-publication verification
+
+Commit `9d9e375` added the `psycopg[binary]==3.3.7` pin to `backend/pyproject.toml` and triggered deployment `dpl_2pUr6uyKzqGXEBr7owrRAEv98ovr`. It reached **READY in 20 s** with a clean log — `Installing required dependencies from pyproject.toml...` → `Compiling Python bytecode...` → `Build Completed in /vercel/output [9s]`, no warnings or errors. The build cache grew from **14.63 MB to 20.13 MB**, consistent with the driver and its binary wheel being newly installed.
+
+So the driver resolves on **Python 3.14** under uv 0.13.5. What is still *not* proven is that the application imports and serves: the lambda has never been invoked, because the deployment is protected and no request has reached it (L-48).
