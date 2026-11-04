@@ -9,6 +9,8 @@ Configuration is centralized in `backend/app/core/config.py` using Pydantic Sett
 | `AUTONOMUS_PORT` | `8000` | Local API port |
 | `AUTONOMUS_ALLOW_REMOTE_ACCESS` | `false` | Must remain false; remote access is not implemented |
 | `AUTONOMUS_DATABASE_URL` | *(empty)* | Optional `postgresql://` connection string (e.g. Supabase). Empty keeps the local SQLite database; an unsupported scheme is a startup error rather than a silent fallback |
+| `AUTONOMUS_DATABASE_URL_DIRECT` | *(empty)* | Optional direct (non-pooled) `postgresql://` URL used **for migrations only**; requires `AUTONOMUS_DATABASE_URL` to be set as well. Matching is case-insensitive, so the mixed-case spelling `AUTONOMUS_DATABASE_URL_direct` binds to the same field |
+| `AUTONOMUS_RUN_MIGRATIONS_ON_STARTUP` | `true` | Applies the Alembic chain during startup. Set `false` on a serverless host, where every cold start would otherwise re-run it and concurrent starts could race |
 | `AUTONOMUS_DATA_DIR` | `<repo>/data` | SQLite database and runtime files |
 | `AUTONOMUS_LOG_DIR` | `<repo>/logs` | Rotating JSON logs |
 | `AUTONOMUS_LOG_LEVEL` | `INFO` | Log level |

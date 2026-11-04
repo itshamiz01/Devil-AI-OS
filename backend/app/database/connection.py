@@ -23,7 +23,7 @@ def run_migrations_sync(settings: Settings) -> None:
         settings.data_dir.mkdir(parents=True, exist_ok=True)
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "app/database/migrations"))
-    cfg.set_main_option("sqlalchemy.url", settings.sync_database_url)
+    cfg.set_main_option("sqlalchemy.url", settings.migration_database_url)
     command.upgrade(cfg, "head")
 
 
@@ -54,8 +54,15 @@ class Database:
         cursor.execute("PRAGMA busy_timeout=5000")
         cursor.close()
 
-    async def initialize(self) -> None:
-        await asyncio.to_thread(run_migrations_sync, self.settings)
+    async def initialize(self, *, run_migrations: bool | None = None) -> None:
+        # None means "whatever the deployment asked for"; an explicit argument
+        # overrides it, which is how a caller applies the chain deliberately.
+        if run_migrations is None:
+            run_migrations = self.settings.run_migrations_on_startup
+        if run_migrations:
+            await asyncio.to_thread(run_migrations_sync, self.settings)
+        # The reachability check always runs: skipping migrations is not a
+        # reason to start up against a database nobody has confirmed is there.
         async with self.engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
 

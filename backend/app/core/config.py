@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     # the sync engine target it with the driver normalised to psycopg3, which
     # serves SQLAlchemy's sync and async APIs from one package.
     database_url: str | None = None
+    # Migrations must not run through a transaction pooler: pgbouncer in
+    # transaction mode breaks multi-statement DDL. When this is set it is used
+    # for Alembic only, while the runtime engines keep the pooled URL above.
+    database_url_direct: str | None = None
+    # Applying the whole chain on every serverless cold start is slow, and two
+    # cold starts at once can race on the same revision, so a hosted deployment
+    # can turn it off and apply migrations deliberately instead.
+    run_migrations_on_startup: bool = True
     log_dir: Path = BASE_DIR / "logs"
     backup_dir: Path = BASE_DIR / "backups"
     # Number of most-recent database backups retained before pruning. Bounded so
@@ -167,7 +175,7 @@ class Settings(BaseSettings):
         """
         return tuple(h.strip().lower() for h in self.research_permitted_hosts.split(",") if h.strip())
 
-    @field_validator("database_url")
+    @field_validator("database_url", "database_url_direct")
     @classmethod
     def _database_url_must_be_postgres(cls, value: str | None) -> str | None:
         """Fail at construction, not at first query.
@@ -187,14 +195,35 @@ class Settings(BaseSettings):
             )
         return value
 
+    @model_validator(mode="after")
+    def _direct_url_requires_a_runtime_url(self) -> "Settings":
+        if self.database_url_direct and not self.database_url:
+            raise ValueError(
+                "database_url_direct only overrides the URL used for "
+                "migrations; set database_url as well, or neither."
+            )
+        return self
+
     @property
     def database_is_sqlite(self) -> bool:
         return not bool(self.database_url)
 
-    def _external_url(self, *, driver: str) -> str:
-        assert self.database_url, "callers must check database_is_sqlite first"
-        rest = self.database_url.split("://", 1)[1]
+    @staticmethod
+    def _normalise_postgres(url: str, *, driver: str) -> str:
+        rest = url.split("://", 1)[1]
         return f"postgresql+{driver}://{rest}"
+
+    @property
+    def migration_database_url(self) -> str:
+        """The URL Alembic should use: the direct connection when one is set.
+
+        Runtime traffic wants the pooler; DDL does not. Keeping them separate
+        means a hosted deployment can pool its queries without pooling its
+        migrations.
+        """
+        if self.database_url_direct:
+            return self._normalise_postgres(self.database_url_direct, driver="psycopg")
+        return self.sync_database_url
 
     @property
     def database_path(self) -> Path:
@@ -203,13 +232,13 @@ class Settings(BaseSettings):
     @property
     def async_database_url(self) -> str:
         if not self.database_is_sqlite:
-            return self._external_url(driver="psycopg")
+            return self._normalise_postgres(self.database_url, driver="psycopg")
         return f"sqlite+aiosqlite:///{self.database_path}"
 
     @property
     def sync_database_url(self) -> str:
         if not self.database_is_sqlite:
-            return self._external_url(driver="psycopg")
+            return self._normalise_postgres(self.database_url, driver="psycopg")
         return f"sqlite:///{self.database_path}"
 
 
