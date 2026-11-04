@@ -35,7 +35,7 @@ Loopback-only bind with startup validation (`host`, `allow_remote_access`); owne
 
 ## 5. Vulnerabilities and limitations
 
-1. `agents.read` absent from the `PERMISSIONS` catalog (P-04 audit §9.1) — unresolved; P-05 permission codes must not repeat the mistake.
+1. ~~`agents.read` absent from the `PERMISSIONS` catalog~~ **WITHDRAWN (corrected 2026-11-04):** `agents.read` is present; P-04 audit §9.1 tested a string against a list of `(code, category, description)` tuples. The residual lesson for P-05 stands: permission-catalog membership must be tested on the code element.
 2. No secret broker exists; any API adapter needing credentials has nowhere safe to put them. P-05 must implement a minimal broker (reference-only, values never returned) or keep credentialled integrations disabled.
 3. No OS-level sandbox is verifiable here (Linux container, no Docker/Windows Sandbox) and none is confirmed on the target Windows machine. Per §30 rule 22, the code adapter must be **labelled weak-isolation and disabled for untrusted code** until a mechanism is verified on the real machine.
 4. Browser automation would add Playwright plus browser binaries — a heavyweight dependency on a 2 GB-GPU CPU-bound machine, against §26's own performance rules; sessions must cap at one and the adapter may legitimately ship disabled.

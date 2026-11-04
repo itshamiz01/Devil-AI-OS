@@ -83,7 +83,7 @@ Agent templates and template versions; capability catalog and agent↔capability
 
 ## 9. Security gaps found
 
-1. **`agents.read` is in `OWNER_PERMISSIONS` but not in `PERMISSIONS`.** The two live endpoints demand a code that the master catalog does not contain, so it cannot be granted to any non-owner principal through the normal assignment path. P-04 Stage 5 must add agent codes to the catalog (add-only) and test both sets.
+1. ~~**`agents.read` is in `OWNER_PERMISSIONS` but not in `PERMISSIONS`.**~~ **WITHDRAWN — this finding was false (corrected 2026-11-04, P-04 Stage 3).** `PERMISSIONS` holds `(code, category, description)` tuples, so the probe's test `"agents.read" in PERMISSIONS` returned `False` for a code the catalog does contain. Verified by introspection: `PERMISSIONS` = 28 entries, `OWNER_PERMISSIONS` = the same 28 codes derived from it, `agents.read` and `agents.manage` both present, no duplicates. The two live endpoints are grantable to any principal through the normal assignment path. What remains true and is still owed: the ten *new* P-04 codes do not exist yet and must be added add-only, and any membership test against this catalog must compare the code element, not the string against the list (recorded as L-60).
 2. `agents.metadata_json` accepts arbitrary JSON with no schema — a configuration smuggled in there would be invisible to policy code. P-04 must validate configuration payloads against template schemas before persisting.
 3. No capability enforcement exists at any tool boundary, because no tool boundary exists yet. The moment agents execute anything, `require_permission`-style checks must sit in backend code, not prompts (brief §8.2). P-04 introduces the registry and the check point.
 4. No secret broker exists. Acceptable today (nothing executes); P-04 must not introduce credential plumbing and must record the constraint (brief §16.3).
@@ -108,8 +108,8 @@ Run against the live checkout after both documents were drafted. **25 assertions
 - Reuse symbols the plan names all exist and are callable: `AgentRepo`; `ApprovalService.create/decide`; `TaskManager.submit/apply_emergency_stop`; `SystemMonitor.resource_pressure/admission_allowed`; `EmergencyController`; `ModelRouter`; `CapabilityRegistry`; `Orchestrator`; `NoRuntimeProvider`/`OllamaProvider`; `envelope`; `require_permission`.
 - `EVENT_TYPES` = 41 members; `Settings` = 57 fields; existing tables = 34; `agents` and `system_configurations` present.
 - The nine planned table names have **zero overlap** with the 34 existing tables.
-- `agents.read` is absent from `PERMISSIONS` and present in `OWNER_PERMISSIONS` (the gap Stage 5 fixes); the ten planned new permission codes are all currently unused.
+- **Corrected 2026-11-04:** `agents.read` is **present** in `PERMISSIONS` (28 entries) and `OWNER_PERMISSIONS` is derived from that same list, so there was no gap to fix; the earlier claim came from testing a string against a list of tuples. The ten planned new permission codes are all currently unused, and that part stands.
 - Resource keys the plan relies on exist: `inference_max_concurrent`, `inference_timeout_seconds`, `memory_percent_max`, `cpu_percent_max`, `task_max_concurrency`.
-- Note discovered while probing: `PERMISSIONS` is a **list**, not a set — membership tests in P-04 code must not assume set semantics.
+- Note discovered while probing: `PERMISSIONS` is a **list of 3-tuples**, not a set of strings. Membership tests must extract the code (`[c for c, _, _ in PERMISSIONS]`); `"agents.read" in PERMISSIONS` is `False` even though the catalog contains it. This exact mistake produced the withdrawn finding in §9.1.
 
 No implementation code was written in Stage 1, per the brief's first rule.

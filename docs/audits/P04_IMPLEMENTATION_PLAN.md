@@ -84,7 +84,7 @@ Idempotency keys on creation and assignment (the `tasks.idempotency_key` precede
 
 ## 6. Permission model
 
-Add-only catalog changes: `agents.read` (fixes the audit §9.1 inconsistency), `agents.write`, `agents.retire`, `agents.templates.read`, `agents.templates.write`, `agents.capabilities.read`, `agents.permissions.grant`, `agents.factory.read`, `agents.factory.approve`, `agents.factory.admin`, `agents.metrics.read`. Owner bootstrap gains them; system principals do not.
+Add-only catalog changes (**corrected 2026-11-04:** `agents.read` already exists in `PERMISSIONS` — audit §9.1 was withdrawn — so it is *not* added, only the new codes are): `agents.write`, `agents.retire`, `agents.templates.read`, `agents.templates.write`, `agents.capabilities.read`, `agents.permissions.grant`, `agents.factory.read`, `agents.factory.approve`, `agents.factory.admin`, `agents.metrics.read`. Owner bootstrap gains them; system principals do not.
 
 Approval levels map onto `approvals.risk`: **L0** autonomous (policy allows, audit records), **L1** conditional (policy conditions checked in code, ceiling values from settings), **L2** owner approval (an `approvals` row must reach `granted` before the capability exists), **L3** prohibited (hard deny list in `capabilities.py`; no approval code path can reach it). Checks happen in backend policy code at grant time *and* at every tool boundary in Stage 6.
 
