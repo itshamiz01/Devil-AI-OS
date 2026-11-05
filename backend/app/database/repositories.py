@@ -738,3 +738,53 @@ class ExecutionRequestRepo:
             .order_by(ExecutionRun.attempt, ExecutionRun.created_at))
         return list(r.scalars().all())
 
+
+
+class ExecutionEvidenceRepo:
+    """Evidence by reference (§13, §19): a path or identifier plus its hash."""
+
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, **kwargs: Any) -> Any:
+        from .models import ExecutionEvidence
+        row = ExecutionEvidence(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def for_run(self, run_id: str) -> Sequence[Any]:
+        from .models import ExecutionEvidence
+        r = await self.session.execute(
+            select(ExecutionEvidence).where(
+                ExecutionEvidence.execution_run_id == run_id)\
+            .order_by(ExecutionEvidence.created_at))
+        return list(r.scalars().all())
+
+
+class ExecutionWorkspaceRepo:
+    """Managed workspace rows (§9.1). Stage 3 resolves scopes against these;
+    workspaces are engine-owned and auto-created on first use under the
+    `execution_workspace_root` setting."""
+
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, **kwargs: Any) -> Any:
+        from .models import ExecutionWorkspace
+        row = ExecutionWorkspace(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def by_owner_name(self, owner_type: str, owner_id: str,
+                            name: str) -> Any | None:
+        from .models import ExecutionWorkspace
+        r = await self.session.execute(
+            select(ExecutionWorkspace).where(
+                ExecutionWorkspace.owner_type == owner_type,
+                ExecutionWorkspace.owner_id == owner_id,
+                ExecutionWorkspace.workspace_name == name))
+        return r.scalars().first()
+
+    async def list_for_owner(self, owner_id: str) -> Sequence[Any]:
+        from .models import ExecutionWorkspace
+        r = await self.session.execute(
+            select(ExecutionWorkspace).where(
+                ExecutionWorkspace.owner_id == owner_id)
+            .order_by(ExecutionWorkspace.created_at))
+        return list(r.scalars().all())

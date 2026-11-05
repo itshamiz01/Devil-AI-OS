@@ -1,4 +1,4 @@
-# API Reference (P-01 + P-02 + P-03 + P-04 + P-05 Stage 2)
+# API Reference (P-01 + P-02 + P-03 + P-04 + P-05 Stage 3)
 
 Base URL: `http://127.0.0.1:8000/api/v1` unless configured otherwise. OpenAPI snapshot: `shared/openapi-p01.json`.
 
@@ -237,7 +237,7 @@ See [AGENT_ASSIGNMENTS.md](AGENT_ASSIGNMENTS.md).
 
 The live surface after Stage 6 is **83 paths and 91 operations** (75 and 83 after Stage 5; 70 and 77 after Stage 4; 64 and 71 after Stage 3; 53 and 58 at the end of P-03). A `shared/openapi-p04.json` snapshot is written when the phase completes at Stage 10; the P-01, P-02 and P-03 snapshots are retained unchanged as historical evidence.
 
-### Execution endpoints (P-05 Stage 2)
+### Execution endpoints (P-05 Stage 3)
 
 Architecture: [EXECUTION_POLICY_MODEL.md](EXECUTION_POLICY_MODEL.md)
 
@@ -254,6 +254,12 @@ Architecture: [EXECUTION_POLICY_MODEL.md](EXECUTION_POLICY_MODEL.md)
 | POST | `/api/v1/execution/tools/{tool_id}/validate` | `execution.admin` | Run the five validation gates; AVAILABLE only if all pass |
 | POST | `/api/v1/execution/tools/{tool_id}/disable` | `execution.admin` | Take a tool out of routing, with the reason recorded |
 | GET | `/api/v1/execution/status` | `execution.read` | Subsystem stage, registry and request counts, and what cannot run yet |
+| GET | `/api/v1/execution/files/list?workspace=&path=` | `execution.submit` | Directory listing inside a workspace; runs synchronously |
+| GET | `/api/v1/execution/files/read?workspace=&path=` | `execution.submit` | File contents, hash-evidenced; runs synchronously |
+| POST | `/api/v1/execution/files/write` | `execution.submit` | Atomic write (temp + replace); runs synchronously |
+| POST | `/api/v1/execution/files/create_dir` | `execution.submit` | Create a directory inside a workspace |
+| POST | `/api/v1/execution/files/move` | `execution.submit` | Move a file within the workspace |
+| POST | `/api/v1/execution/files/delete` | `execution.submit` | Quarantine-reversible delete |
 
 Deliberate behaviours:
 
@@ -266,8 +272,21 @@ Deliberate behaviours:
   carries every check that ran, which one refused, and why. Unlike an assignment
   refusal, an execution refusal *leaves a row*, at REJECTED with its reason:
   §6.1 makes REJECTED an outcome of a request, and `GET` on it stays readable.
-* **`QUEUED` does not mean running.** Stage 2 admits; no adapter drains the
-  queue, and `/execution/status` reports `execution_draining: false`.
+* **`QUEUED` does not mean running.** Stage 2 admitted and queued nothing
+  drained; Stage 3 runs *filesystem* requests before returning (the route
+  submits, drains, and returns the final outcome), so a file op's result is
+  visible in one call. Requests for adapters that do not exist yet (code,
+  api) still stay QUEUED, and `/execution/status` reports which are which.
+* **Every file operation is an execution request.** The six file routes do not
+  shortcut the request machinery: each builds an `ExecutionRequestInput` and
+  goes through the same ten policy checks, audit trail and run row as any
+  other tool. A file operation with a policy refusal is a `409` with the
+  evaluation, and a failed run is a recorded `FAILED` row - never a silent
+  200.
+* **Containment is resolved-path containment.** A `..` segment, an absolute
+  path, a drive letter, a symlink escaping the root, or a symlinked *parent*
+  of a new file is refused with `FAILED` / `workspace_escape`. The boundary
+  is the realpath'd workspace root, not a prefix string.
 * **Browser and desktop routes are not registered.** Their adapters cannot run
   in this environment; an endpoint that cannot work must not exist. The tools
   are in the registry, DISABLED, with the reasons recorded.

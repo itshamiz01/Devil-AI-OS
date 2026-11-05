@@ -155,6 +155,15 @@ class Settings(BaseSettings):
     # still refuses to enable at all, so no setting in this section can open
     # egress from here.
     execution_enabled: bool = True
+    # Stage 3 (filesystem adapter): the root every managed workspace lives
+    # under, and the size caps on read/write. The root is engine-owned - the
+    # adapter creates it on first use - and every workspace is a directory
+    # inside it, which is what makes resolved-path containment a boundary
+    # rather than a convention. The caps are resource limits, recorded as
+    # such: a capped write returns a warning rather than silent truncation.
+    execution_workspace_root: Path = BASE_DIR / "data" / "workspaces"
+    execution_fs_read_cap_bytes: int = Field(default=1_048_576, ge=1024, le=16_777_216)
+    execution_fs_write_cap_bytes: int = Field(default=1_048_576, ge=1024, le=16_777_216)
 
     @field_validator("host")
     @classmethod

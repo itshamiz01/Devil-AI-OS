@@ -19,6 +19,7 @@ from ..api.routes import (
     approvals,
     auth,
     events,
+    execution_files,
     execution_requests,
     execution_tools,
     health,
@@ -293,6 +294,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         agent_templates.router, agent_factory.router,
         agent_assignments.router, agent_capabilities.router, approvals.router,
         execution_requests.router, execution_tools.router,
+        execution_files.router,
         events.router,
         intelligence.router, opportunities.router,
     ):

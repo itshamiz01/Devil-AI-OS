@@ -123,6 +123,45 @@ BUILTIN_TOOLS: tuple[dict[str, Any], ...] = (
     },
 )
 
+#: Stage 3's filesystem tools. Two tools, one per capability family: the read
+#: operations need `filesystem.read` and the mutating ones need
+#: `filesystem.write` - which is scoped, so a grant cannot reach outside its
+#: workspace. Risk classes follow §8: reading what an agent is allowed to see
+#: is Risk 0 (autonomous); writing, creating, moving and deleting inside an
+#: authorized workspace is Risk 1 (autonomous within scope and limits). Nothing
+#: here is Risk 2 or higher: filesystem effects stay on this machine, and a
+#: file that leaves it would be an external-execution event, which the P-01
+#: validator still refuses to enable at all.
+BUILTIN_FS_TOOLS: tuple[dict[str, Any], ...] = (
+    {
+        "name": "filesystem.read_ops",
+        "description": "List directories and read files inside an authorized "
+                       "workspace.",
+        "category": "filesystem",
+        "adapter_type": "filesystem",
+        "version": "1.0.0",
+        "supported_actions": ["list", "read"],
+        "capability_requirements": ["filesystem.read"],
+        "risk_level": 0,
+        "required_approval_level": 0,
+        "supported_platforms": ["linux", "windows"],
+    },
+    {
+        "name": "filesystem.write_ops",
+        "description": "Write, create directories, move and delete files inside "
+                       "an authorized workspace. Deletes are quarantined and "
+                       "reversible; writes are atomic.",
+        "category": "filesystem",
+        "adapter_type": "filesystem",
+        "version": "1.0.0",
+        "supported_actions": ["write", "create_dir", "move", "delete"],
+        "capability_requirements": ["filesystem.write"],
+        "risk_level": 1,
+        "required_approval_level": 0,
+        "supported_platforms": ["linux", "windows"],
+    },
+)
+
 
 class ToolRegistry:
     def __init__(self, db: Any, settings: Settings, *, bus: Any = None) -> None:
@@ -304,27 +343,68 @@ class ToolRegistry:
     # ------------------------------------------------------------------ #
     # Startup seeding and reads
     # ------------------------------------------------------------------ #
-    async def reconcile_builtin_tools(self) -> dict[str, list[str]]:
-        """Register the tools this environment cannot run, as DISABLED.
+    async def reconcile_builtin_tools(
+            self, definitions: tuple[dict[str, Any], ...] | None = None) -> dict[str, list[str]]:
+        """Register the tools this build defines in code.
+
+        Called with no argument it registers the tools this environment cannot
+        run, as DISABLED, because the honest answer to "can this system drive a
+        browser?" is "the registry knows what that would take, and this
+        environment cannot do it". With a definitions argument (Stage 3 passes
+        the filesystem tools) it registers those instead - as REGISTERED,
+        because availability is validation's to grant, never registration's.
 
         Additive only, like the capability catalog reconciliation: an existing
         row is left exactly as it is, so an owner who disabled something by
         hand does not find it re-registered by a restart.
         """
         created, existing = [], []
+        definitions = BUILTIN_TOOLS if definitions is None else definitions
         async with self.db.session_factory() as session:
             repo = ExecutionToolRepo(session)
-            for definition in BUILTIN_TOOLS:
+            for definition in definitions:
                 if await repo.by_name_version(definition["name"], definition["version"]):
                     existing.append(definition["name"])
                     continue
-                reason = ADAPTERS_UNSUPPORTED_HERE[definition["adapter_type"]]
-                await repo.create(
-                    **definition, status="DISABLED", health_status="unsupported",
-                    health_detail=reason, disabled_reason=reason)
+                if definition["adapter_type"] in ADAPTERS_UNSUPPORTED_HERE:
+                    reason = ADAPTERS_UNSUPPORTED_HERE[definition["adapter_type"]]
+                    await repo.create(
+                        **definition, status="DISABLED", health_status="unsupported",
+                        health_detail=reason, disabled_reason=reason)
+                else:
+                    await repo.create(
+                        **definition, status="REGISTERED", health_status="unknown")
                 created.append(definition["name"])
             await session.commit()
         return {"created": created, "existing": existing}
+
+    async def validate_builtin_fs_tools(self) -> dict[str, str]:
+        """Run the validation gates over the filesystem tools, once per start.
+
+        The filesystem tools are registered at startup as REGISTERED and made
+        AVAILABLE here, rather than seeded straight to AVAILABLE: §7's rule is
+        that a tool must not become available until its configuration and
+        health checks pass, and the gate is the check, not the seed. If a
+        validation fails the tool is DISABLED with the reasons recorded, and
+        the subsystem status reports it honestly rather than routing work to a
+        tool that was checked and found wanting.
+        """
+        result: dict[str, str] = {}
+        async with self.db.session_factory() as session:
+            repo = ExecutionToolRepo(session)
+            for definition in BUILTIN_FS_TOOLS:
+                row = await repo.by_name_version(definition["name"], definition["version"])
+                if row is None:
+                    continue
+                # Already AVAILABLE from a previous start: the gate was run and
+                # passed, and the transition graph has no AVAILABLE ->
+                # VALIDATING edge, so re-running it would be an error rather
+                # than a no-op. Report the persisted state.
+                if row.status == "AVAILABLE":
+                    result[definition["name"]] = "AVAILABLE"
+                    continue
+                verdict = await self.validate_tool(row.id)
+                result[definition["name"]] = verdict.status
 
     async def get_tool(self, tool_id: str) -> ToolView:
         async with self.db.session_factory() as session:

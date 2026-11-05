@@ -142,12 +142,14 @@ BUILTIN_CATALOG: tuple[CapabilityDefinition, ...] = (
          "Invoke a registered execution tool. Disabled: the tool registry is P-05.",
          enabled=False),
     _cap("filesystem.read", "Read workspace files", "execution", _L2, "read",
-         "Read files inside an authorized workspace. Disabled: the filesystem "
-         "adapter is P-05.", enabled=False),
+         "Read files inside an authorized workspace. The adapter (Stage 3) "
+         "enforces containment against the resolved workspace root; scope is "
+         "the workspace name.", requires_scope=True),
     _cap("filesystem.write", "Write workspace files", "execution", _L2, "write",
          "Write files inside an authorized workspace. Scope is the workspace path, "
-         "so a grant cannot reach outside it. Disabled: the filesystem adapter is "
-         "P-05.", enabled=False, requires_scope=True),
+         "so a grant cannot reach outside it. The adapter (Stage 3) writes "
+         "atomically and quarantines deletes; scope is the workspace name.",
+         requires_scope=True),
     _cap("code.execute", "Execute code", "execution", _L2, "execute",
          "Run generated code in a sandbox. Disabled: the code-execution adapter is "
          "P-05, and its sandbox is self-labelled weak.", enabled=False),

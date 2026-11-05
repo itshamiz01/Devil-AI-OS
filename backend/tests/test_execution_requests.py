@@ -274,17 +274,19 @@ def test_a_policy_refusal_leaves_a_rejected_row_with_its_reason(settings):
 
 
 def test_a_disabled_catalog_capability_refuses_until_its_adapter_exists(settings):
-    """The P-04 catalog holds filesystem.read disabled pending P-05 adapters,
-    so the capability check refuses honestly rather than admitting work
-    nobody can perform yet."""
+    """The P-04 catalog still holds `code.execute` disabled - its adapter is
+    Stage 4 - so the capability check refuses honestly rather than admitting
+    work nobody can perform yet. filesystem.read is no longer the example:
+    Stage 3 shipped the filesystem adapter and enabled it with the same
+    commit."""
     async def body(db, execution, approvals, world):
         w = await _world(db)
         tool = await _tool(execution, world["owner_id"],
-                           capability_requirements=["filesystem.read"])
+                           capability_requirements=["code.execute"])
         result = await execution.requests.submit(w["principal_id"],
                                                  _request(w["task_id"], tool.id))
         assert result.status == "REJECTED"
-        assert "filesystem.read" in result.evaluation.reason
+        assert "code.execute" in result.evaluation.reason
         assert "disabled" in result.evaluation.reason
     _run(settings, body)
 
