@@ -147,6 +147,15 @@ class Settings(BaseSettings):
     # granting something at a lower one.
     agent_max_active_capabilities: int = Field(default=16, ge=1, le=64)
 
+    # ---- P-05 Universal Digital Execution Engine ----
+    # The execution core (policy, tool registry, request manager) assembles
+    # when this is true. Stage 2 executes nothing: requests are validated and
+    # queued. What leaves the machine stays gated separately, and more
+    # strongly, by `external_execution_enabled` - which the P-01 validator
+    # still refuses to enable at all, so no setting in this section can open
+    # egress from here.
+    execution_enabled: bool = True
+
     @field_validator("host")
     @classmethod
     def validate_host(cls, v: str) -> str:

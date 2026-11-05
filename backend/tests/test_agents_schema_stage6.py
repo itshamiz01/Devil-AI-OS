@@ -129,16 +129,25 @@ def legacy(tmp_path) -> Path:
     return db
 
 
-def test_the_stage_6_revision_is_the_head_of_a_nine_deep_chain():
+def test_the_stage_6_revision_sits_directly_on_stage_5():
+    """Scoped to Stage 6's own horizon, deliberately.
+
+    The original asserted Stage 6 was the global head of a nine-deep chain;
+    every later revision breaks that by existing, which is how Stage 5's own
+    head-pinning guard broke three times. What this test owns is narrower and
+    stays true: Stage 6 sits directly on Stage 5, and the chain up to Stage 6
+    was nine revisions deep. The one global tripwire is
+    `test_the_chain_is_nine_revisions_deep` in test_migration_portability.py.
+    """
     cfg = Config(str(BACKEND / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND / "app/database/migrations"))
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(cfg)
     revisions = [s.revision for s in script.walk_revisions()]
-    assert script.get_current_head() == STAGE6_HEAD
-    assert len(revisions) == 9, revisions
-    assert revisions[1] == STAGE5_HEAD, "Stage 6 must sit directly on Stage 5"
+    at = revisions.index(STAGE6_HEAD)
+    assert len(revisions[at:]) == 9, revisions
+    assert revisions[at + 1] == STAGE5_HEAD, "Stage 6 must sit directly on Stage 5"
 
 
 def test_upgrade_preserves_rows_and_every_reference(populated):
@@ -271,7 +280,9 @@ def test_the_downgraded_schema_accepts_the_free_text_it_used_to(populated):
 def test_reupgrade_after_a_downgrade_is_clean(populated):
     command.upgrade(_alembic(populated), "head")
     command.downgrade(_alembic(populated), STAGE5_HEAD)
-    command.upgrade(_alembic(populated), "head")
+    # Back to Stage 6's own head, not the global one: a later revision's
+    # presence must not change what this stage's round trip proves.
+    command.upgrade(_alembic(populated), STAGE6_HEAD)
     con = sqlite3.connect(populated)
     con.execute("PRAGMA foreign_keys=ON")
     assert con.execute("SELECT COUNT(*) FROM agent_assignments").fetchone()[0] == 1

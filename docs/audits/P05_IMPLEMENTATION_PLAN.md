@@ -7,7 +7,16 @@ templates and assignment ledger this plan integrates with all exist as tested co
 Counts below are the post-Stage-6 baseline, re-verified live rather than carried over
 from the 2026-11-04 draft.
 
-## 0. Unresolved contract inputs (blocking Stage 2)
+## 0. Contract inputs (resolved 2026-11-05)
+
+The owner supplied the P-05 master brief on 2026-11-05. Every enumeration this
+section previously listed as missing is in it: the 14 outcomes (§6.1), the 7 tool
+lifecycle states (§7), the 17 lifecycle steps (§4), the ten policy verifications
+(§8.1), and the 18 security assertions (§25.3). Stage 2 was built against those
+lists verbatim and is delivered in the same commit as this note. The original
+gap analysis is kept below for the record.
+
+## 0a. Unresolved contract inputs (blocking Stage 2) — superseded
 
 This plan was written from the P-05 brief, which is **not in the repository** —
 `docs/prompts/` holds only `P-00_EXECUTION_CONTRACT.md`. Several enumerations the

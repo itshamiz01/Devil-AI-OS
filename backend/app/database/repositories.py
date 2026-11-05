@@ -10,11 +10,13 @@ from app.agents.schemas import (
     ASSIGNMENT_STATUSES,
     IN_FLIGHT_ASSIGNMENT_STATUSES,
 )
+from app.execution.schemas import EXECUTION_OUTCOMES
 from .models import (
     AgentAssignment,
     Agent, AgentCapability, AgentCreationRequest, AgentPermission, AgentTemplate,
     AgentTemplateVersion, Approval,
     AuditEvent, AuthSession, OwnerCredential, Permission, PermissionAssignment,
+    ExecutionRequest, ExecutionRun, ExecutionTool,
     Principal, SystemConfiguration, SystemEvent, Task, TaskExecution, utcnow,
 )
 
@@ -605,3 +607,134 @@ class AgentAssignmentRepo:
         for k, v in changes.items(): setattr(row, k, v)
         row.updated_at = utcnow()
         self.session.add(row); await self.session.flush(); return row
+
+
+# --------------------------------------------------------------------------- #
+# P-05 Universal Digital Execution Engine (Stage 2)
+# --------------------------------------------------------------------------- #
+class ExecutionToolRepo:
+    """The tool registry's rows. Status moves only through the registry service,
+    which is the one place the lifecycle transitions are enforced."""
+
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, **kwargs: Any) -> ExecutionTool:
+        row = ExecutionTool(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def get(self, tool_id: str) -> ExecutionTool | None:
+        return await self.session.get(ExecutionTool, tool_id)
+
+    async def by_name_version(self, name: str, version: str) -> ExecutionTool | None:
+        r = await self.session.execute(
+            select(ExecutionTool).where(ExecutionTool.name == name,
+                                        ExecutionTool.version == version))
+        return r.scalars().first()
+
+    async def list_all(self, *, status: str | None = None, adapter_type: str | None = None,
+                       limit: int = 100, offset: int = 0) -> Sequence[ExecutionTool]:
+        q = select(ExecutionTool)
+        if status:
+            q = q.where(ExecutionTool.status == status)
+        if adapter_type:
+            q = q.where(ExecutionTool.adapter_type == adapter_type)
+        r = await self.session.execute(q.order_by(ExecutionTool.created_at.desc(), ExecutionTool.id).limit(limit).offset(offset))
+        return list(r.scalars().all())
+
+    async def count(self, *, status: str | None = None, adapter_type: str | None = None) -> int:
+        q = select(func.count(ExecutionTool.id))
+        if status:
+            q = q.where(ExecutionTool.status == status)
+        if adapter_type:
+            q = q.where(ExecutionTool.adapter_type == adapter_type)
+        return int((await self.session.execute(q)).scalar() or 0)
+
+    async def count_by_status(self) -> dict[str, int]:
+        r = await self.session.execute(
+            select(ExecutionTool.status, func.count(ExecutionTool.id))
+            .group_by(ExecutionTool.status))
+        return {str(s): int(n) for s, n in r.all()}
+
+    async def update(self, row: ExecutionTool, **changes: Any) -> ExecutionTool:
+        for k, v in changes.items(): setattr(row, k, v)
+        row.updated_at = utcnow()
+        self.session.add(row); await self.session.flush(); return row
+
+
+class ExecutionRequestRepo:
+    """Execution requests and the runs attempted for them."""
+
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, **kwargs: Any) -> ExecutionRequest:
+        row = ExecutionRequest(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def get(self, request_id: str) -> ExecutionRequest | None:
+        return await self.session.get(ExecutionRequest, request_id)
+
+    async def by_idempotency_key(self, key: str) -> ExecutionRequest | None:
+        r = await self.session.execute(
+            select(ExecutionRequest).where(ExecutionRequest.idempotency_key == key))
+        return r.scalars().first()
+
+    async def list_all(self, *, status: str | None = None, agent_id: str | None = None,
+                       tool_id: str | None = None, limit: int = 100,
+                       offset: int = 0) -> Sequence[ExecutionRequest]:
+        q = select(ExecutionRequest)
+        if status:
+            q = q.where(ExecutionRequest.status == status)
+        if agent_id:
+            q = q.where(ExecutionRequest.agent_id == agent_id)
+        if tool_id:
+            q = q.where(ExecutionRequest.tool_id == tool_id)
+        r = await self.session.execute(q.order_by(ExecutionRequest.created_at.desc(), ExecutionRequest.id).limit(limit).offset(offset))
+        return list(r.scalars().all())
+
+    async def count(self, *, status: str | None = None, agent_id: str | None = None,
+                    tool_id: str | None = None) -> int:
+        q = select(func.count(ExecutionRequest.id))
+        if status:
+            q = q.where(ExecutionRequest.status == status)
+        if agent_id:
+            q = q.where(ExecutionRequest.agent_id == agent_id)
+        if tool_id:
+            q = q.where(ExecutionRequest.tool_id == tool_id)
+        return int((await self.session.execute(q)).scalar() or 0)
+
+    async def count_by_status(self) -> dict[str, int]:
+        """Every outcome is reported, including the ones holding nothing, for the
+        reason `AgentAssignmentRepo.count_by_status` gives: an empty dict reads
+        the same as a ledger that could not be consulted."""
+        r = await self.session.execute(
+            select(ExecutionRequest.status, func.count(ExecutionRequest.id))
+            .group_by(ExecutionRequest.status))
+        counts = {str(s): int(n) for s, n in r.all()}
+        return {s: counts.get(s, 0) for s in EXECUTION_OUTCOMES}
+
+    async def count_standing_authorization_uses(self, authorization_id: str,
+                                                agent_id: str) -> int:
+        """How often one standing authorization has already carried work for one
+        agent. §17 limits are enforced against this count, not against a figure
+        the requester supplies."""
+        r = await self.session.execute(
+            select(func.count(ExecutionRequest.id)).where(
+                ExecutionRequest.standing_authorization_id == authorization_id,
+                ExecutionRequest.agent_id == agent_id))
+        return int(r.scalar() or 0)
+
+    async def update(self, row: ExecutionRequest, **changes: Any) -> ExecutionRequest:
+        for k, v in changes.items(): setattr(row, k, v)
+        row.updated_at = utcnow()
+        self.session.add(row); await self.session.flush(); return row
+
+    async def create_run(self, **kwargs: Any) -> ExecutionRun:
+        row = ExecutionRun(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def runs_for(self, request_id: str) -> Sequence[ExecutionRun]:
+        r = await self.session.execute(
+            select(ExecutionRun).where(ExecutionRun.execution_request_id == request_id)
+            .order_by(ExecutionRun.attempt, ExecutionRun.created_at))
+        return list(r.scalars().all())
+

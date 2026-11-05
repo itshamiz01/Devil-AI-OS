@@ -93,6 +93,27 @@ PERMISSIONS: list[tuple[str, str, str]] = [
     # not include it, so the application cannot assign work to an agent on its own
     # authority.
     ("agents.write", "agents", "Assign work to an agent and close the assignment"),
+    # ---- P-05 Universal Digital Execution Engine ----
+    # Seven codes, added add-only as the stages that enforce them land; Stage 2
+    # enforces read, submit and admin. The granular codes exist now because the
+    # plan fixes the catalog in advance and the adapters (filesystem write, code
+    # run, API call) must not each invent their own spelling when they arrive.
+    #
+    # OWNER_PERMISSIONS is derived from this list, so the owner receives all
+    # seven automatically. SYSTEM_PERMISSIONS is enumerated explicitly and
+    # includes none of them, so the application can never submit, approve or
+    # administer its own execution on its own authority.
+    #
+    # There is deliberately NO permission for the prohibited operations of §8
+    # Risk 3. A code would imply the capability exists and merely needs
+    # granting; policy rejects those actions outright, with no approval path.
+    ("execution.read", "execution", "Read execution requests, runs, tools and execution status"),
+    ("execution.submit", "execution", "Submit, retry and cancel execution requests as an agent"),
+    ("execution.files.write", "execution", "Write files through the filesystem execution adapter"),
+    ("execution.code.run", "execution", "Run code through the code execution adapter"),
+    ("execution.api.call", "execution", "Call approved external APIs through the API execution adapter"),
+    ("execution.workflows.write", "execution", "Create and run multi-step execution workflows"),
+    ("execution.admin", "execution", "Register, validate and disable execution tools; administer the execution engine"),
 ]
 
 OWNER_PERMISSIONS = [code for code, _, _ in PERMISSIONS]

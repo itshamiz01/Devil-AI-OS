@@ -7,6 +7,15 @@ from typing import Any
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy import CheckConstraint
 from app.agents.lifecycle import STATES as _AGENT_STATES
+from app.execution.schemas import (
+    ADAPTER_TYPES as _ADAPTER_TYPES,
+    BROWSER_SESSION_STATES as _BROWSER_SESSION_STATES,
+    EXECUTION_OUTCOMES as _EXECUTION_OUTCOMES,
+    TOOL_STATES as _TOOL_STATES,
+    WORKFLOW_DEFINITION_STATUSES as _WORKFLOW_DEFINITION_STATUSES,
+    WORKFLOW_RUN_STATES as _WORKFLOW_RUN_STATES,
+    WORKFLOW_STEP_STATES as _WORKFLOW_STEP_STATES,
+)
 from app.agents.schemas import (
     AGENT_PERMISSION_STATUSES,
     ASSIGNMENT_STATUSES,
@@ -921,3 +930,288 @@ class AgentCreationRequest(TimestampMixin, Base):
     )
     approval_id: Mapped[str | None] = mapped_column(ForeignKey("approvals.id"))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+def _in_list(values) -> str:
+    """Render a CHECK-constraint IN list from a vocabulary tuple.
+
+    The vocabularies themselves live in `app.execution.schemas` as literals, so a
+    status the code can produce and a status the database accepts cannot drift
+    apart silently: both read the same tuple.
+    """
+    return "IN (%s)" % ", ".join("'%s'" % v for v in values)
+
+
+# --------------------------------------------------------------------------- #
+# P-05 Universal Digital Execution Engine (Stage 2: the execution core)
+#
+# Nine tables. Two from the brief's §19 list are deliberately absent:
+# `execution_approvals` (the central `approvals` table carries execution
+# approvals, so the owner keeps one approval queue) and `execution_audit_events`
+# (`audit_events` and `system_events` already record execution decisions). What
+# was *requested* lives on `execution_requests`; what an adapter actually *did*
+# lives on `execution_runs`; what *verified* it is the run's
+# `verification_status`. The three are separate columns on separate rows because
+# §6 forbids assuming they are identical.
+# --------------------------------------------------------------------------- #
+class ExecutionTool(TimestampMixin, Base):
+    """A registered execution tool (§7). Discovery never exposes
+    `configuration_reference`; see `ToolView`."""
+
+    __tablename__ = "execution_tools"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    category: Mapped[str] = mapped_column(String(64), default="general", nullable=False)
+    adapter_type: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("adapter_type %s" % _in_list(_ADAPTER_TYPES),
+                        name="ck_execution_tools_adapter_type"),
+        nullable=False)
+    version: Mapped[str] = mapped_column(String(32), default="1.0.0", nullable=False)
+    supported_actions: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    input_schema: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    output_schema: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    capability_requirements: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    risk_level: Mapped[int] = mapped_column(
+        Integer, CheckConstraint("risk_level >= 0 AND risk_level <= 3",
+                                 name="ck_execution_tools_risk_level"),
+        default=1, server_default="1", nullable=False)
+    required_approval_level: Mapped[int] = mapped_column(
+        Integer, CheckConstraint("required_approval_level >= 0 AND required_approval_level <= 3",
+                                 name="ck_execution_tools_required_approval_level"),
+        default=0, server_default="0", nullable=False)
+    supported_platforms: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    resource_requirements: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    timeout_default_seconds: Mapped[int] = mapped_column(
+        Integer, CheckConstraint("timeout_default_seconds > 0",
+                                 name="ck_execution_tools_timeout_default"),
+        default=60, server_default="60", nullable=False)
+    retry_eligible: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    idempotent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("status %s" % _in_list(_TOOL_STATES), name="ck_execution_tools_status"),
+        default="REGISTERED", server_default="REGISTERED", nullable=False, index=True)
+    health_status: Mapped[str] = mapped_column(String(32), default="unknown",
+                                               server_default="unknown", nullable=False)
+    health_detail: Mapped[str | None] = mapped_column(Text)
+    configuration_reference: Mapped[str | None] = mapped_column(String(256))
+    isolation_strength: Mapped[str | None] = mapped_column(String(128))
+    disabled_reason: Mapped[str | None] = mapped_column(Text)
+    __table_args__ = (
+        UniqueConstraint("name", "version", name="uq_execution_tools_name_version"),)
+
+
+class ExecutionRequest(TimestampMixin, Base):
+    """One agent's ask, and the outcome it reached (§6, §19).
+
+    `risk_level` is written by the policy engine, never by the requester: an
+    agent that could declare its own risk class could declare everything
+    Risk 0. `approval_reference` names the central `approvals` row that gated
+    this request when one did; a standing authorization is recorded separately
+    in `standing_authorization_id`, because it is not an approval row and
+    pretending otherwise would make an audit reader look for one.
+    """
+
+    __tablename__ = "execution_requests"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), nullable=False, index=True)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False, index=True)
+    tool_id: Mapped[str] = mapped_column(ForeignKey("execution_tools.id"), nullable=False, index=True)
+    adapter_type: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("adapter_type %s" % _in_list(_ADAPTER_TYPES),
+                        name="ck_execution_requests_adapter_type"),
+        nullable=False)
+    action_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    input_references: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    requested_scope: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    required_capabilities: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    risk_level: Mapped[int] = mapped_column(
+        Integer, CheckConstraint("risk_level >= 0 AND risk_level <= 3",
+                                 name="ck_execution_requests_risk_level"),
+        nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("status %s" % _in_list(_EXECUTION_OUTCOMES),
+                        name="ck_execution_requests_status"),
+        default="ACCEPTED", server_default="ACCEPTED", nullable=False, index=True)
+    priority: Mapped[int] = mapped_column(
+        Integer, CheckConstraint("priority >= 1 AND priority <= 10",
+                                 name="ck_execution_requests_priority"),
+        default=5, server_default="5", nullable=False)
+    timeout_seconds: Mapped[int] = mapped_column(Integer, default=60, server_default="60",
+                                                 nullable=False)
+    retry_policy: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    expected_output_schema: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    approval_reference: Mapped[str | None] = mapped_column(ForeignKey("approvals.id"))
+    standing_authorization_id: Mapped[str | None] = mapped_column(String(64))
+    idempotency_key: Mapped[str | None] = mapped_column(String(128))
+    business_id: Mapped[str | None] = mapped_column(String(64))
+    refusal_reason: Mapped[str | None] = mapped_column(Text)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Named rather than `unique=True` on the column, per ADR-0024: a constraint
+    # alembic cannot name is a constraint a later revision cannot drop. NULL keys
+    # never collide, so only requests that asked for idempotency are deduplicated.
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_execution_requests_idempotency_key"),)
+
+
+class ExecutionRun(TimestampMixin, Base):
+    """One attempt at one request. `executed_action` is what the adapter did,
+    which §6 requires to be recorded separately from what was asked for."""
+
+    __tablename__ = "execution_runs"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    execution_request_id: Mapped[str] = mapped_column(
+        ForeignKey("execution_requests.id"), nullable=False, index=True)
+    worker_id: Mapped[str] = mapped_column(String(64), default="unassigned",
+                                           server_default="unassigned", nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("status %s" % _in_list(_EXECUTION_OUTCOMES),
+                        name="ck_execution_runs_status"),
+        default="QUEUED", server_default="QUEUED", nullable=False, index=True)
+    attempt: Mapped[int] = mapped_column(
+        Integer, CheckConstraint("attempt >= 1", name="ck_execution_runs_attempt"),
+        default=1, server_default="1", nullable=False)
+    executed_action: Mapped[str | None] = mapped_column(String(128))
+    exit_code: Mapped[int | None] = mapped_column(Integer)
+    result_summary: Mapped[str | None] = mapped_column(Text)
+    error_category: Mapped[str | None] = mapped_column(String(64))
+    verification_status: Mapped[str | None] = mapped_column(String(32))
+    resource_usage: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ExecutionEvidence(TimestampMixin, Base):
+    """Evidence by reference (§13, §19): a path or identifier plus its hash,
+    never the artefact itself and never a secret."""
+
+    __tablename__ = "execution_evidence"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    execution_run_id: Mapped[str] = mapped_column(
+        ForeignKey("execution_runs.id"), nullable=False, index=True)
+    evidence_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    evidence_reference: Mapped[str] = mapped_column(String(512), nullable=False)
+    content_hash: Mapped[str | None] = mapped_column(String(64))
+    verification_status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("verification_status IN ('unverified', 'verified', 'failed')",
+                        name="ck_execution_evidence_verification_status"),
+        default="unverified", server_default="unverified", nullable=False)
+
+
+class ExecutionWorkspace(TimestampMixin, Base):
+    """A managed workspace root (§9.1). Stage 3 enforces containment against
+    `root_path`; this stage only records what was authorized."""
+
+    __tablename__ = "execution_workspaces"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    workspace_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    owner_type: Mapped[str] = mapped_column(String(32), default="agent", nullable=False)
+    owner_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    root_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    permission_scope: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("status IN ('active', 'disabled', 'removed')",
+                        name="ck_execution_workspaces_status"),
+        default="active", server_default="active", nullable=False)
+    __table_args__ = (
+        UniqueConstraint("owner_type", "owner_id", "workspace_name",
+                         name="uq_execution_workspaces_owner_name"),)
+
+
+class BrowserSession(TimestampMixin, Base):
+    """A controlled browser session (§11.2). No adapter can open one in this
+    environment, so rows here can only ever be `created` by a later stage that
+    has a browser to drive; the table exists now because §19 requires it and
+    Stage 5 builds on it."""
+
+    __tablename__ = "browser_sessions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False, index=True)
+    browser_type: Mapped[str] = mapped_column(String(64), default="chromium", nullable=False)
+    allowed_domains: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    permission_scope: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("status %s" % _in_list(_BROWSER_SESSION_STATES),
+                        name="ck_browser_sessions_status"),
+        default="created", server_default="created", nullable=False)
+    last_activity: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class WorkflowDefinition(TimestampMixin, Base):
+    """A validated workflow definition (§15.1). Definitions are data, never
+    arbitrary code (§15.2)."""
+
+    __tablename__ = "workflow_definitions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    version: Mapped[int] = mapped_column(
+        Integer, CheckConstraint("version >= 1", name="ck_workflow_definitions_version"),
+        default=1, server_default="1", nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    definition_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("status %s" % _in_list(_WORKFLOW_DEFINITION_STATUSES),
+                        name="ck_workflow_definitions_status"),
+        default="draft", server_default="draft", nullable=False)
+    __table_args__ = (
+        UniqueConstraint("name", "version", name="uq_workflow_definitions_name_version"),)
+
+
+class WorkflowRun(TimestampMixin, Base):
+    """One execution of a workflow definition, checkpointed as it goes (§16.1)."""
+
+    __tablename__ = "workflow_runs"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    workflow_id: Mapped[str] = mapped_column(
+        ForeignKey("workflow_definitions.id"), nullable=False, index=True)
+    workflow_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    requesting_agent_id: Mapped[str] = mapped_column(
+        ForeignKey("agents.id"), nullable=False, index=True)
+    task_id: Mapped[str | None] = mapped_column(ForeignKey("tasks.id"), index=True)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("status %s" % _in_list(_WORKFLOW_RUN_STATES),
+                        name="ck_workflow_runs_status"),
+        default="QUEUED", server_default="QUEUED", nullable=False, index=True)
+    current_step: Mapped[str | None] = mapped_column(String(128))
+    checkpoint_data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class WorkflowStepRun(TimestampMixin, Base):
+    """One step of one workflow run, linked to the execution run that did it."""
+
+    __tablename__ = "workflow_step_runs"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    workflow_run_id: Mapped[str] = mapped_column(
+        ForeignKey("workflow_runs.id"), nullable=False, index=True)
+    step_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    execution_run_id: Mapped[str | None] = mapped_column(ForeignKey("execution_runs.id"))
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("status %s" % _in_list(_WORKFLOW_STEP_STATES),
+                        name="ck_workflow_step_runs_status"),
+        default="pending", server_default="pending", nullable=False)
+    input_reference: Mapped[str | None] = mapped_column(String(512))
+    output_reference: Mapped[str | None] = mapped_column(String(512))
+    error_details: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        UniqueConstraint("workflow_run_id", "step_id",
+                         name="uq_workflow_step_runs_run_step"),)
+

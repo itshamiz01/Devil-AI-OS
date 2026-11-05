@@ -53,8 +53,7 @@ def _agents(request: Request) -> Any:
     if getattr(services, "agents", None) is None:
         raise ConflictError(
             "the agent subsystem is not enabled",
-            details={"hint": "set AUTONOMOUS_AGENTS_ENABLED=true"},
-            code="agents_disabled")
+            details={"hint": "set AUTONOMOUS_AGENTS_ENABLED=true"})
     return services.agents
 
 

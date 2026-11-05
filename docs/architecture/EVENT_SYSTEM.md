@@ -6,7 +6,7 @@ Implemented event types (21) include application lifecycle, task lifecycle, appr
 
 ## Later phases
 
-The count of 21 above is the P-01 state. `EVENT_TYPES` has grown additively since, one phase at a time, with each new type added in the same commit as the code that publishes it — the bus rejects an unknown type, so a publisher and its event type cannot drift apart. Verified by reading the set back: **58 types, no duplicates**, grouped in the source by phase.
+The count of 21 above is the P-01 state. `EVENT_TYPES` has grown additively since, one phase at a time, with each new type added in the same commit as the code that publishes it — the bus rejects an unknown type, so a publisher and its event type cannot drift apart. Verified by reading the set back: **63 types, no duplicates**, grouped in the source by phase.
 
 | Phase | Added | Running total |
 |---|---|---|
@@ -18,9 +18,12 @@ The count of 21 above is the P-01 state. `EVENT_TYPES` has grown additively sinc
 | P-04 Stage 4 agent creation | 5 — `AgentCreationRequested`, `AgentCreated`, `AgentCreationQueued`, `AgentCreationApprovalRequested`, `AgentCreationRejected` | 52 |
 | P-04 Stage 5 capability governance | 5 — `AgentCapabilityGranted`, `AgentCapabilityRevoked`, `AgentCapabilityDenied`, `AgentCapabilityApprovalRequested`, `CapabilityCatalogChanged` | 57 |
 | P-04 Stage 6 assignment | 1 — `AgentAssignmentChanged` (recorded, started, completed, failed, cancelled; never published for a refusal, whose status is not in the ledger vocabulary) | 58 |
+| P-05 Stage 2 execution core | 5 — `ExecutionRequested`, `ExecutionStateChanged`, `ExecutionRefused`, `ExecutionToolRegistered`, `ExecutionToolStateChanged` | 63 |
 
 The Stage 3 types carry source `agent_templates` and the Stage 4 types carry source `agent_factory`. An **invalid** validation verdict is published as well as a valid one, with its issue count: "this template was refused, and why" is the record an owner needs after the fact, and a bus carrying only successes would be a log of what went right. See [AGENT_TEMPLATES.md](AGENT_TEMPLATES.md).
 
 The creation types follow the same rule, with one asymmetry that is deliberate. Every creation request publishes `AgentCreationRequested` carrying the decision, and a rejection or a queued request publishes its own type as well, because what the system decided **not** to do is what an owner audits afterwards. `REUSE_EXISTING` publishes only `AgentCreationRequested`: reusing an agent creates nothing, so emitting `AgentCreated` for it would inflate every downstream count of agents that were made. See [AGENT_FACTORY.md](AGENT_FACTORY.md).
+
+The P-05 types include `ExecutionRefused`, on the same reasoning as P-03's rejections and P-04's refusals: what the system decided not to do is what an owner audits afterwards, and a Risk 3 attempt that left no trace would be indistinguishable from one that never happened. Tool state changes are published because taking a tool out of routing is a governance act; a registry that changed silently would make a later refusal unreadable.
 
 This is not a distributed broker. Recursive flooding is bounded by queue capacity and subscriber limits, but P-01 does not implement a distributed outbox.

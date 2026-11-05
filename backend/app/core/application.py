@@ -19,6 +19,8 @@ from ..api.routes import (
     approvals,
     auth,
     events,
+    execution_requests,
+    execution_tools,
     health,
     intelligence,
     opportunities,
@@ -36,6 +38,7 @@ from ..permissions.engine import PermissionEngine
 from ..intelligence.factory import build_intelligence, initialize as initialize_intelligence
 from ..opportunities.factory import build_opportunities, initialize as initialize_opportunities
 from ..agents.subsystem import build_agents, initialize as initialize_agents
+from ..execution.subsystem import build_execution, initialize as initialize_execution
 from ..tasks.handlers import clear_research_backend, set_research_backend
 from ..permissions.policies import OWNER_PERMISSIONS, PERMISSIONS, SYSTEM_PERMISSIONS
 from ..tasks.manager import TaskManager
@@ -75,6 +78,11 @@ class Services:
     # is what gets a flag, so that a deployment can hold definitions it is not
     # yet allowed to act on.
     agents: Any = None
+    # P-05 execution subsystem. None when AUTONOMUS_EXECUTION_ENABLED is false.
+    # The capability authority it consults comes from the agent subsystem, so
+    # it is built after agents; built without that authority it still
+    # evaluates, and refuses what it cannot verify.
+    execution: Any = None
 
 
 async def seed_core_data(db: Database, settings: Settings) -> None:
@@ -185,6 +193,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
             if agent_services is not None:
                 await initialize_agents(agent_services)
+            # Built last. Stage 2 admits execution requests and queues them;
+            # no adapter runs yet. Initialization only reconciles the
+            # code-defined disabled tools (browser, desktop) and reports what
+            # the request table already holds: a request that was QUEUED when
+            # the process stopped stays QUEUED, because startup must not
+            # decide on its own that work should begin.
+            execution_services = (
+                build_execution(settings, db, bus,
+                                capabilities=(agent_services.capabilities
+                                              if agent_services is not None else None),
+                                approvals=approval_service, monitor=monitor,
+                                emergency=emergency)
+                if settings.execution_enabled else None
+            )
+            if execution_services is not None:
+                await initialize_execution(execution_services)
             services = Services(
                 settings=settings, db=db, bus=bus, permissions=permissions,
                 approvals=approval_service, auth=auth_service, monitor=monitor,
@@ -193,6 +217,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 intelligence=intelligence_services,
                 opportunities=opportunity_services,
                 agents=agent_services,
+                execution=execution_services,
             )
             services.health = HealthService(services)
             app.state.services = services
@@ -267,6 +292,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         auth.router, health.router, system.router, tasks.router, agents.router,
         agent_templates.router, agent_factory.router,
         agent_assignments.router, agent_capabilities.router, approvals.router,
+        execution_requests.router, execution_tools.router,
         events.router,
         intelligence.router, opportunities.router,
     ):

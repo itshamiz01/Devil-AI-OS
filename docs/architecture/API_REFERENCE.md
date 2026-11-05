@@ -1,4 +1,4 @@
-# API Reference (P-01 + P-02 + P-03 + P-04)
+# API Reference (P-01 + P-02 + P-03 + P-04 + P-05 Stage 2)
 
 Base URL: `http://127.0.0.1:8000/api/v1` unless configured otherwise. OpenAPI snapshot: `shared/openapi-p01.json`.
 
@@ -236,3 +236,41 @@ Five behaviours are deliberate and visible in the responses:
 See [AGENT_ASSIGNMENTS.md](AGENT_ASSIGNMENTS.md).
 
 The live surface after Stage 6 is **83 paths and 91 operations** (75 and 83 after Stage 5; 70 and 77 after Stage 4; 64 and 71 after Stage 3; 53 and 58 at the end of P-03). A `shared/openapi-p04.json` snapshot is written when the phase completes at Stage 10; the P-01, P-02 and P-03 snapshots are retained unchanged as historical evidence.
+
+### Execution endpoints (P-05 Stage 2)
+
+Architecture: [EXECUTION_POLICY_MODEL.md](EXECUTION_POLICY_MODEL.md)
+
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| POST | `/api/v1/execution/requests` | `execution.submit` | Run §8.1's ten policy checks; `201` admits (QUEUED or AWAITING_APPROVAL) |
+| GET | `/api/v1/execution/requests` | `execution.read` | The request ledger, filterable by `status`, `agent_id`, `tool_id` |
+| GET | `/api/v1/execution/requests/{request_id}` | `execution.read` | One request, with its recorded classification and approval reference |
+| POST | `/api/v1/execution/requests/{request_id}/retry` | `execution.submit` | Re-run policy after an owner decision or human intervention |
+| POST | `/api/v1/execution/requests/{request_id}/cancel` | `execution.submit` | Withdraw an admitted request; terminal states refuse |
+| GET | `/api/v1/execution/tools` | `execution.read` | Tool discovery (§7); never configuration references |
+| GET | `/api/v1/execution/tools/{tool_id}` | `execution.read` | One tool's contract, risk and health |
+| POST | `/api/v1/execution/tools/register` | `execution.admin` | Declare a tool; lands REGISTERED, never AVAILABLE |
+| POST | `/api/v1/execution/tools/{tool_id}/validate` | `execution.admin` | Run the five validation gates; AVAILABLE only if all pass |
+| POST | `/api/v1/execution/tools/{tool_id}/disable` | `execution.admin` | Take a tool out of routing, with the reason recorded |
+| GET | `/api/v1/execution/status` | `execution.read` | Subsystem stage, registry and request counts, and what cannot run yet |
+
+Deliberate behaviours:
+
+* **Identity comes from the principal, never the payload.** The submit body has
+  no agent field; the agent is resolved from the authenticated principal. The
+  owner holds `execution.submit` (OWNER_PERMISSIONS is derived) and still gets
+  `403 execution_identity_required`, because no agent is bound to the owner
+  principal.
+* **A policy refusal is a `409 execution_refused`** whose `details.evaluation`
+  carries every check that ran, which one refused, and why. Unlike an assignment
+  refusal, an execution refusal *leaves a row*, at REJECTED with its reason:
+  §6.1 makes REJECTED an outcome of a request, and `GET` on it stays readable.
+* **`QUEUED` does not mean running.** Stage 2 admits; no adapter drains the
+  queue, and `/execution/status` reports `execution_draining: false`.
+* **Browser and desktop routes are not registered.** Their adapters cannot run
+  in this environment; an endpoint that cannot work must not exist. The tools
+  are in the registry, DISABLED, with the reasons recorded.
+* **`AUTONOMUS_EXECUTION_ENABLED=false` answers `409 execution_disabled`** naming
+  the setting, rather than a 500 from a half-built engine.
+

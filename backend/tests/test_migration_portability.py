@@ -34,7 +34,7 @@ def postgres_sql() -> str:
 def test_the_whole_chain_renders_without_dialect_errors(postgres_sql):
     """A TypeError here means a shim call Postgres cannot execute."""
     assert "CREATE TABLE alembic_version" in postgres_sql
-    assert postgres_sql.count("CREATE TABLE ") == 44   # 43 tables + version
+    assert postgres_sql.count("CREATE TABLE ") == 53   # 52 tables + version
 
 
 def test_no_sqlite_only_statements_reach_postgres(postgres_sql):
@@ -74,7 +74,7 @@ def test_batch_mode_is_not_used_on_postgres(postgres_sql):
     assert "DROP TABLE agents" not in postgres_sql
 
 
-def test_the_chain_is_eight_revisions_deep(postgres_sql):
+def test_the_chain_is_nine_revisions_deep(postgres_sql):
     """One INSERT for the base revision, one UPDATE per revision after it.
 
     This count is deliberately brittle: it is the one assertion that notices a
@@ -82,16 +82,24 @@ def test_the_chain_is_eight_revisions_deep(postgres_sql):
     revision count would defeat the purpose, so it is bumped by hand, by whoever
     added the revision.
 
-    Last reviewed for `d577d056a63b` (P-04 Stage 6), whose DDL is hand-written for
-    the same reason as Stage 5's: it adds a CHECK over an existing column and a
-    `server_default`, and autogenerate renders neither (L-56). What it does is
-    normalize any unrecognized `agent_assignments.status`, add
-    `ck_agent_assignments_status` with the default the model already declared, and
-    add a nullable `task_id` reference with its foreign key and index to
-    `agent_creation_requests`.
+    Last reviewed for `229ca08ee712` (P-05 Stage 2), whose DDL was reviewed in
+    full: nine new tables (`execution_tools`, `execution_requests`,
+    `execution_runs`, `execution_evidence`, `execution_workspaces`,
+    `browser_sessions`, `workflow_definitions`, `workflow_runs`,
+    `workflow_step_runs`), no existing table touched and no data normalized,
+    because none of the nine existed before. Autogenerate rendered the tables
+    and indexes but **none** of the 18 named CHECK constraints (the L-56 /
+    ADR-0024 omission), so every `sa.CheckConstraint(..., name='ck_...')` in
+    the revision was restored by hand and is proven by
+    `tests/test_execution_schema_stage2.py`, which inserts values the CHECKs
+    must refuse on a populated database. The previous review, for
+    `d577d056a63b` (P-04 Stage 6), normalized any unrecognized
+    `agent_assignments.status`, added `ck_agent_assignments_status` with the
+    default the model already declared, and added a nullable `task_id`
+    reference with its foreign key and index to `agent_creation_requests`.
     """
     assert postgres_sql.count("INSERT INTO alembic_version") == 1
-    assert postgres_sql.count("UPDATE alembic_version") == 8
+    assert postgres_sql.count("UPDATE alembic_version") == 9
 
 
 def test_the_shim_implements_every_batch_method_the_chain_uses():

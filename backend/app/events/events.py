@@ -57,6 +57,15 @@ EVENT_TYPES = {
     "AgentCapabilityGranted","AgentCapabilityRevoked","AgentCapabilityDenied",
     "AgentAssignmentChanged",
     "AgentCapabilityApprovalRequested","CapabilityCatalogChanged",
+    # P-05 Universal Digital Execution Engine, Stage 2. An execution *refusal*
+    # is published on the same reasoning as a refused approval and a rejected
+    # opportunity: what the system decided not to do is exactly what an owner
+    # audits afterwards, and a risk-3 attempt that left no trace would be
+    # indistinguishable from one that never happened. Tool state changes are
+    # published because taking a tool out of routing is a governance act, and
+    # a registry that changed silently would make a later refusal unreadable.
+    "ExecutionRequested","ExecutionStateChanged","ExecutionRefused",
+    "ExecutionToolRegistered","ExecutionToolStateChanged",
 }
 
 
