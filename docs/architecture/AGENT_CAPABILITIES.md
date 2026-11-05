@@ -394,19 +394,23 @@ revision, which is the review it exists to force.
 
 ## What is not true yet
 
-* **Nothing calls `check()`.** It is implemented and tested, but no tool boundary
-  asks it, because adapters and the tool registry are P-05 and assignment output
-  contracts are P-04 Stage 6. A capability grant today governs what an agent is
-  *recorded* as allowed to do; it does not yet stop an adapter from doing
-  something else. `GET /agent-capabilities/status` says this in its
-  `enforcement_note` rather than leaving it to be inferred from a catalog that
-  looks authoritative.
+* **No tool boundary calls `check()`, but assignment does.** Stage 6 gave the
+  boundary its first caller: assignment rule 7 asks `check()` about every
+  capability a task requires before the work is handed out, and a denial refuses
+  the assignment. Adapters and the tool registry are still P-05, so a grant does
+  not yet stop an adapter from doing something else.
+  `GET /agent-capabilities/status` says this in its `enforcement_note` rather than
+  leaving it to be inferred from a catalog that looks authoritative. See
+  [AGENT_ASSIGNMENTS.md](AGENT_ASSIGNMENTS.md).
 * **Eight capabilities are disabled pending the subsystems that would use them.**
   They are in the vocabulary so that a template or a request naming one gets a
   precise refusal instead of "unknown key".
 * **No agent is granted anything at creation.** A newly created agent holds zero
-  capabilities. Stage 6 decides what a created agent should be granted from its
-  template's allowed set; until then, granting is an explicit owner action.
+  capabilities, and Stage 6 did **not** change that: it added verification at
+  assignment time, not grants at creation time. Granting from a template's allowed
+  set is still an explicit owner action, which means an `ASSIGN_EXISTING` decision
+  naming required capabilities is refused at rule 7 until those grants exist
+  (L-78).
 * **Expiry is enforced on use, not on a clock.** There is no timer, because
   autonomous scheduling is P-12. A lapsed grant is discovered by `check()` or by
   `sweep_expired()`.

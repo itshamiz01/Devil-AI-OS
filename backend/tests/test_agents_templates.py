@@ -539,17 +539,20 @@ def test_the_subsystem_reports_what_is_not_built_yet(client, settings):
     services = build_agents(settings, Database(settings), None)
     status = services.status()
     assert status["templates"] is True
-    # Stage 4 built the creation engine and Stage 5 the catalog, so both are
-    # reported as present; what is still owed must keep being reported absent.
+    # Stage 4 built the creation engine, Stage 5 the catalog and Stage 6 the
+    # assignment ledger, so all three are reported as present; what is still owed
+    # must keep being reported absent rather than quietly dropped from the dict.
     assert status["factory"] is True
     assert status["capabilities"] is True
-    assert status["assignments"] is False
+    assert status["assignments"] is True
     assert status["resources"] is False
     assert status["monitoring"] is False
-    # Stage 5 discloses what it built alongside what it does not do yet.
-    assert any("no tool boundary calls check()" in n for n in status["notes"])
+    # Stage 6 discloses what it built alongside what it still does not do: the
+    # boundary that exists is assignment, not tools, and an assignment is a record
+    # rather than a dispatch.
+    assert any("rule 7 now calls check()" in n for n in status["notes"])
     assert any("P-05" in n for n in status["notes"])
-    assert any("Stage 6" in n for n in status["notes"])
+    assert any("task manager" in n for n in status["notes"])
     assert any("Stage 8" in n for n in status["notes"])
 
 
@@ -577,17 +580,18 @@ def test_the_subsystem_status_endpoint_reports_what_is_not_built(client):
     data = resp.json()["data"]
     assert data["enabled"] is True
     assert data["templates"] is True
-    # Stage 4 built the creation engine and Stage 5 the catalog, so both are
-    # reported as present; the three still owed must keep being reported absent.
+    # Stage 4 built the creation engine, Stage 5 the catalog and Stage 6 the
+    # assignment ledger, so all three are reported as present; the two still owed
+    # must keep being reported absent.
     assert data["factory"] is True
     assert data["capabilities"] is True
-    assert data["assignments"] is False
+    assert data["assignments"] is True
     assert data["resources"] is False
     assert data["monitoring"] is False
-    # The stage this build is at, and the stages that own what is still absent.
-    assert "Stage 5" in data["stage"]
+    # The stage this build is at, and who owns what is still absent.
+    assert "Stage 6" in data["stage"]
     assert any("P-05" in n for n in data["notes"])
-    assert any("Stage 6" in n for n in data["notes"])
+    assert any("task manager" in n for n in data["notes"])
     assert any("Stage 8" in n for n in data["notes"])
 
 

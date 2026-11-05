@@ -995,24 +995,31 @@ def test_status_reports_counts_against_the_configured_ceilings(client, settings)
         settings.agent_max_delegation_depth
 
 
-def test_status_says_assignment_is_not_implemented(client):
+def test_status_reports_assignment_as_supported_and_says_what_it_does(client):
+    """Stage 6 turned this from a promise into a path, so the note has to describe
+    the path rather than name the stage that would build it."""
     status = client.get(f"{FACTORY}/status").json()["data"]
-    assert status["assignment_supported"] is False
-    assert "Stage 6" in status["assignment_note"]
+    assert status["assignment_supported"] is True
+    assert "ASSIGN_EXISTING" in status["assignment_note"]
+    assert "nine assignment rules" in status["assignment_note"]
 
 
 def test_the_agent_subsystem_status_reports_the_factory_as_built(client):
     status = client.get(f"{AGENTS}/status").json()["data"]
     assert status["enabled"] is True
     assert status["factory"] is True
-    # Stage 5 built the capability catalog, so it is reported as present.
+    # Stage 5 built the capability catalog and Stage 6 the assignment ledger, so
+    # both are reported as present. The stage string names the newest stage, which
+    # is why this assertion lives here rather than in an older stage's file.
     assert status["capabilities"] is True
-    assert "Stage 5" in status["stage"]
+    assert status["assignments"] is True
+    assert "Stage 6" in status["stage"]
 
 
-def test_assign_existing_is_never_emitted(client):
-    """The vocabulary declares it so callers can rely on the six values, but this
-    stage has no execution path for it and must not pretend otherwise."""
+def test_assign_existing_needs_the_request_to_name_a_task(client):
+    """`ASSIGN_EXISTING` is an answer about *work*, so without named work the answer
+    stays `REUSE_EXISTING`. Stage 6 gave the decision an execution path; this guards
+    that the path is reached only by the thing that justifies it."""
     template = _published(client)
     _ask(client, template_id=template["id"])
     _ask(client, template_id=template["id"])

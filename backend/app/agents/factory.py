@@ -30,9 +30,12 @@ full registry still answers "use the agent you already have" rather than
 queueing work that need not be created, and approval is checked **last** so an
 owner is never asked to approve a creation that would be refused anyway.
 
-One thing this stage deliberately does not do: it never produces
-``ASSIGN_EXISTING``. Assignment validation is Stage 6, and emitting a decision
-this module cannot execute would be a promise with nothing behind it.
+``ASSIGN_EXISTING`` is produced only when the request names a task and an agent
+already fills the role — an answer about work rather than about identity. Stage 4
+declared it and could not emit it, because nothing let a request say which work it
+meant; emitting a decision this module could not execute would have been a promise
+with nothing behind it. The nine assignment rules still run before the work is
+handed over, in :mod:`app.agents.assignments`.
 """
 
 from __future__ import annotations
@@ -227,11 +230,26 @@ class AgentFactory:
         if request.allow_reuse:
             candidate = await self._reuse_candidate(template.id, request.requested_role)
             if candidate is not None:
-                detail = (f"agent {candidate.id} ('{candidate.name}') already fills this "
-                          f"role from the same template and is {candidate.status}, so no "
-                          "new identity is needed")
+                # REUSE_EXISTING answers a question about identity: an agent already
+                # fills this role. ASSIGN_EXISTING answers one about work: the request
+                # named a task, so the useful answer is who should take it. The nine
+                # assignment rules still run when the assignment is recorded, because
+                # a decision that an agent *should* take work is not evidence that it
+                # *may*.
+                if request.task_id:
+                    detail = (f"agent {candidate.id} ('{candidate.name}') already fills "
+                              f"this role from the same template and is "
+                              f"{candidate.status}, and the request names task "
+                              f"{request.task_id}, so the work goes to that agent rather "
+                              "than a new identity being created")
+                    decision = CreationDecision.ASSIGN_EXISTING
+                else:
+                    detail = (f"agent {candidate.id} ('{candidate.name}') already fills this "
+                              f"role from the same template and is {candidate.status}, so no "
+                              "new identity is needed")
+                    decision = CreationDecision.REUSE_EXISTING
                 checks.append(Check("no_reusable_agent_exists", False, detail))
-                evaluation.decision = CreationDecision.REUSE_EXISTING
+                evaluation.decision = decision
                 evaluation.reason = detail
                 evaluation.reuse_agent_id = candidate.id
                 evaluation.agent_id = candidate.id
@@ -339,14 +357,16 @@ class AgentFactory:
                 "requested capabilities are cross-checked against the code-defined "
                 "catalog: a prohibited, unknown or disabled key is refused, and a key "
                 "at approval level 2 sends the creation to its owner. What is not yet "
-                "true is enforcement at a tool boundary - no adapter calls "
-                "CapabilityService.check(), because adapters are P-05 and assignment "
-                "output contracts are Stage 6"
+                "true is enforcement at a tool boundary - assignment rule 7 calls "
+                "CapabilityService.check() before work is handed out, but no adapter "
+                "does, because adapters and the tool registry are P-05"
             ),
-            "assignment_supported": False,
+            "assignment_supported": True,
             "assignment_note": (
-                "ASSIGN_EXISTING is declared in the decision vocabulary but never "
-                "emitted here; assignment validation is P-04 Stage 6"
+                "ASSIGN_EXISTING is emitted when the request names a task and an "
+                "agent already fills the role; the nine assignment rules in "
+                "AssignmentService decide whether that agent may take it, and a "
+                "refusal is recorded on the creation request rather than retried"
             ),
         }
 

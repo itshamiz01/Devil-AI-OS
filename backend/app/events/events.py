@@ -55,6 +55,7 @@ EVENT_TYPES = {
     # CapabilityCatalogChanged is published only when a reconciliation actually
     # changed something, so a normal startup stays quiet.
     "AgentCapabilityGranted","AgentCapabilityRevoked","AgentCapabilityDenied",
+    "AgentAssignmentChanged",
     "AgentCapabilityApprovalRequested","CapabilityCatalogChanged",
 }
 

@@ -6,7 +6,12 @@ from typing import Any, Sequence
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.schemas import (
+    ASSIGNMENT_STATUSES,
+    IN_FLIGHT_ASSIGNMENT_STATUSES,
+)
 from .models import (
+    AgentAssignment,
     Agent, AgentCapability, AgentCreationRequest, AgentPermission, AgentTemplate,
     AgentTemplateVersion, Approval,
     AuditEvent, AuthSession, OwnerCredential, Permission, PermissionAssignment,
@@ -530,3 +535,73 @@ class AgentPermissionRepo:
             AgentPermission.expires_at < now,
         ).limit(limit)
         return (await self.session.execute(q)).scalars().all()
+
+
+class AgentAssignmentRepo:
+    """The assignment ledger. `tasks.id` stays the live pointer on the task."""
+
+    def __init__(self, session): self.session = session
+
+    async def create(self, **kwargs: Any) -> AgentAssignment:
+        row = AgentAssignment(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def get(self, assignment_id: str) -> AgentAssignment | None:
+        return await self.session.get(AgentAssignment, assignment_id)
+
+    async def for_task(self, task_id: str) -> AgentAssignment | None:
+        r = await self.session.execute(
+            select(AgentAssignment).where(AgentAssignment.task_id == task_id))
+        return r.scalars().first()
+
+    async def list_for_agent(self, agent_id: str,
+                             statuses: Sequence[str] | None = None) -> Sequence[AgentAssignment]:
+        q = select(AgentAssignment).where(AgentAssignment.agent_id == agent_id)
+        if statuses:
+            q = q.where(AgentAssignment.status.in_(statuses))
+        r = await self.session.execute(
+            q.order_by(AgentAssignment.assigned_at.desc(), AgentAssignment.id))
+        return list(r.scalars().all())
+
+    async def count_in_flight(self, agent_id: str) -> int:
+        r = await self.session.execute(
+            select(func.count(AgentAssignment.id)).where(
+                AgentAssignment.agent_id == agent_id,
+                AgentAssignment.status.in_(IN_FLIGHT_ASSIGNMENT_STATUSES)))
+        return int(r.scalar() or 0)
+
+    async def list_all(self, *, status: str | None = None, agent_id: str | None = None,
+                       limit: int = 100, offset: int = 0) -> Sequence[AgentAssignment]:
+        q = select(AgentAssignment)
+        if status:
+            q = q.where(AgentAssignment.status == status)
+        if agent_id:
+            q = q.where(AgentAssignment.agent_id == agent_id)
+        r = await self.session.execute(
+            q.order_by(AgentAssignment.assigned_at.desc(), AgentAssignment.id)
+             .limit(limit).offset(offset))
+        return list(r.scalars().all())
+
+    async def count(self, *, status: str | None = None, agent_id: str | None = None) -> int:
+        q = select(func.count(AgentAssignment.id))
+        if status:
+            q = q.where(AgentAssignment.status == status)
+        if agent_id:
+            q = q.where(AgentAssignment.agent_id == agent_id)
+        r = await self.session.execute(q)
+        return int(r.scalar() or 0)
+
+    async def count_by_status(self) -> dict[str, int]:
+        """Every status is reported, including the ones holding nothing. Counting
+        only what exists would report a zero-status ledger as an empty dict, which
+        reads the same as a ledger that could not be consulted."""
+        r = await self.session.execute(
+            select(AgentAssignment.status, func.count(AgentAssignment.id))
+            .group_by(AgentAssignment.status))
+        counts = {str(s): int(n) for s, n in r.all()}
+        return {s: counts.get(s, 0) for s in ASSIGNMENT_STATUSES}
+
+    async def update(self, row: AgentAssignment, **changes: Any) -> AgentAssignment:
+        for k, v in changes.items(): setattr(row, k, v)
+        row.updated_at = utcnow()
+        self.session.add(row); await self.session.flush(); return row

@@ -9,6 +9,7 @@ from sqlalchemy import CheckConstraint
 from app.agents.lifecycle import STATES as _AGENT_STATES
 from app.agents.schemas import (
     AGENT_PERMISSION_STATUSES,
+    ASSIGNMENT_STATUSES,
     CAPABILITY_ACCESS_CLASSES,
     CAPABILITY_RISK_LEVELS,
     CREATION_APPROVAL_STATUSES as _CREATION_APPROVAL_STATUSES,
@@ -819,7 +820,12 @@ class AgentAssignment(TimestampMixin, Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False, index=True)
     task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), unique=True, nullable=False)
-    status: Mapped[str] = mapped_column(String(32), default="assigned", nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint(
+            "status IN (%s)" % ", ".join("'%s'" % v for v in ASSIGNMENT_STATUSES),
+            name="ck_agent_assignments_status"),
+        default="assigned", server_default="assigned", nullable=False, index=True)
     priority: Mapped[int] = mapped_column(Integer, default=5, server_default="5", nullable=False)
     required_capabilities: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     expected_output_schema: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
@@ -884,6 +890,13 @@ class AgentCreationRequest(TimestampMixin, Base):
     requested_role: Mapped[str] = mapped_column(String(128), nullable=False)
     requested_template_id: Mapped[str | None] = mapped_column(ForeignKey("agent_templates.id"), index=True)
     business_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    #: The work a decision was about, when the request named any. Stage 6 added it
+    #: so `ASSIGN_EXISTING` has something to point at: a decision that says "give
+    #: this to an agent that already exists" is unreadable without recording which
+    #: work it meant. Nullable because a creation request usually names a role, not
+    #: a task, and the Stage-4 rows predate the column.
+    task_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tasks.id", name="fk_agent_creation_requests_task_id"), index=True)
     justification: Mapped[str] = mapped_column(Text, nullable=False)
     requested_capabilities: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     resource_estimate: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)

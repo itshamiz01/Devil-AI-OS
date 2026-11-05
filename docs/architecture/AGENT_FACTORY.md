@@ -54,12 +54,12 @@ Ambiguity is refused rather than resolved. Fuzzy-matching a free-text role again
 |---|---|---|
 | `CREATE_AGENT` | Yes | Principal, agent row and configuration snapshot in one transaction (§5) |
 | `REUSE_EXISTING` | Yes | The existing agent's id is returned; nothing is written except the ledger row |
-| `ASSIGN_EXISTING` | **No** | Declared in the vocabulary, never emitted: assignment validation is Stage 6 |
+| `ASSIGN_EXISTING` | Yes | Emitted when the request names a `task_id` and an agent already fills the role; `_execute_assign` runs the nine assignment rules and records the outcome (§ Stage 6) |
 | `QUEUE` | Yes | The request stays open (`completed_at` NULL) until an owner drains it (§6) |
 | `REQUEST_OWNER_APPROVAL` | Yes | An approval is opened at risk `high`; the agent is created only if it is granted (§4) |
 | `REJECT` | Yes | Terminal, recorded with its reason |
 
-`ASSIGN_EXISTING` is the honest gap. A caller can rely on the six-value vocabulary without the engine silently inventing an execution path for one of them, and `GET /agent-factory/status` reports `assignment_supported: false` with a note naming Stage 6.
+`ASSIGN_EXISTING` was the honest gap until Stage 6 gave it an execution path. The distinction from `REUSE_EXISTING` is what the request is about: `REUSE_EXISTING` answers a question about identity (an agent already fills this role), `ASSIGN_EXISTING` one about work (the request named a task, so the useful answer is who should take it). `GET /agent-factory/status` reports `assignment_supported: true`. Deciding is still not doing: the nine assignment rules in [AGENT_ASSIGNMENTS.md](AGENT_ASSIGNMENTS.md) run before any work is handed over, and a refusal is recorded on the creation request rather than retried.
 
 ## 4. The approval gate
 
@@ -158,10 +158,9 @@ Verification performed for this stage:
 
 | Absent | Owner |
 |---|---|
-| `ASSIGN_EXISTING` execution, assignment rules, output contracts | Stage 6 |
 | Budgets, the shared inference semaphore, backpressure | Stage 7 |
 | Health states, idle detection, metrics, suspension and retirement endpoints, configuration rollback | Stage 8 |
 
-Two rows that used to be in this table are not, because Stage 5 delivered them: the capability catalog cross-check on requested capabilities, and approval levels 0–3 with prohibited actions and self-grant prevention. A creation decision now runs a `capabilities_governed` check after the template subset check, refusing a prohibited, unknown or disabled key outright and sending a level-2 key to `REQUEST_OWNER_APPROVAL`. See [AGENT_CAPABILITIES.md](AGENT_CAPABILITIES.md). What Stage 5 did **not** deliver is enforcement at a tool boundary: nothing calls `CapabilityService.check()` yet, because adapters are P-05 and assignment output contracts are Stage 6.
+Two rows that used to be in this table are not, because Stage 5 delivered them: the capability catalog cross-check on requested capabilities, and approval levels 0–3 with prohibited actions and self-grant prevention. A creation decision now runs a `capabilities_governed` check after the template subset check, refusing a prohibited, unknown or disabled key outright and sending a level-2 key to `REQUEST_OWNER_APPROVAL`. See [AGENT_CAPABILITIES.md](AGENT_CAPABILITIES.md). What Stage 5 did **not** deliver was enforcement at a boundary; Stage 6 supplied the first one, since assignment rule 7 calls `CapabilityService.check()` before work is handed out. A *tool* boundary still does not, because adapters and the tool registry are P-05. Stage 6 also moved the `ASSIGN_EXISTING` row out of the table above: see [AGENT_ASSIGNMENTS.md](AGENT_ASSIGNMENTS.md).
 
 Two consequences are worth stating plainly. **`REUSE_EXISTING` can only trigger on an agent that is already `ACTIVE` or `IDLE`**, and nothing sets `IDLE` until Stage 8 — so until then reuse matches agents that were created and left active. And **a creation decision cannot see a capability's approval level**, because no capability has one yet: the catalog is empty. `GET /agent-factory/status` reports `capability_catalog_checked: false` with a note naming Stage 5, so no decision can be read as a broader clearance than it is.

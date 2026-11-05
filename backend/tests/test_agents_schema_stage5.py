@@ -151,16 +151,21 @@ def legacy(tmp_path) -> Path:
 # --------------------------------------------------------------------------- #
 # The chain
 # --------------------------------------------------------------------------- #
-def test_the_stage_5_revision_is_the_head_of_an_eight_deep_chain():
+def test_the_stage_5_revision_sits_directly_on_stage_4():
     cfg = Config(str(BACKEND / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND / "app/database/migrations"))
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(cfg)
     revisions = [s.revision for s in script.walk_revisions()]
-    assert script.get_current_head() == STAGE5_HEAD
-    assert len(revisions) == 8, revisions
-    assert revisions[1] == STAGE4_HEAD, "Stage 5 must sit directly on Stage 4"
+    # Scoped to this stage's horizon rather than to the global head. Asserting the
+    # head here made this a test that needed editing every stage; the newest stage's
+    # file owns the claim about the head, and this one owns the claim that Stage 5
+    # landed on Stage 4 over the chain Stage 5 was written against.
+    assert STAGE5_HEAD in revisions, revisions
+    at = revisions.index(STAGE5_HEAD)
+    assert revisions[at + 1] == STAGE4_HEAD, "Stage 5 must sit directly on Stage 4"
+    assert len(revisions[at:]) == 8, revisions[at:]
 
 
 # --------------------------------------------------------------------------- #
@@ -333,9 +338,12 @@ def test_the_downgraded_schema_accepts_the_values_it_used_to(populated):
 
 
 def test_reupgrade_after_a_downgrade_is_clean(populated):
-    command.upgrade(_alembic(populated), "head")
+    # Stage 5 explicitly, not "head": this test is about Stage 5's own downgrade and
+    # re-upgrade, and pointing it at the head would make it a test of whatever stage
+    # happens to be newest.
+    command.upgrade(_alembic(populated), STAGE5_HEAD)
     command.downgrade(_alembic(populated), STAGE4_HEAD)
-    command.upgrade(_alembic(populated), "head")
+    command.upgrade(_alembic(populated), STAGE5_HEAD)
     con = sqlite3.connect(populated)
     con.execute("PRAGMA foreign_keys=ON")
     assert con.execute("SELECT COUNT(*) FROM agent_capabilities").fetchone()[0] == 1

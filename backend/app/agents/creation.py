@@ -46,6 +46,7 @@ from ..database.repositories import (
     PrincipalRepo,
 )
 from ..permissions.models import ApprovalCreateRequest
+from .assignments import AssignmentService
 from .factory import CREATION_APPROVAL_ACTION, AgentFactory, Check, Evaluation
 from .lifecycle import AgentStatus, transition
 from .schemas import CreationDecision, CreationRequestInput
@@ -57,8 +58,10 @@ class CreationEngine:
     """Records decisions and carries out the ones that have an execution path."""
 
     def __init__(self, db: Database, factory: AgentFactory, settings: Settings,
-                 approvals: Any = None, bus: Any = None, permissions: Any = None) -> None:
+                 approvals: Any = None, bus: Any = None, permissions: Any = None,
+                 capabilities: Any = None) -> None:
         self.db = db
+        self.capabilities = capabilities
         self.factory = factory
         self.settings = settings
         self.approvals = approvals
@@ -88,6 +91,8 @@ class CreationEngine:
         elif evaluation.decision is CreationDecision.REUSE_EXISTING:
             await self._finish(evaluation.request_id, evaluation.decision,
                                evaluation.reason, completed=True)
+        elif evaluation.decision is CreationDecision.ASSIGN_EXISTING:
+            await self._execute_assign(request, evaluation, actor_id, correlation_id)
         else:  # QUEUE stays open; REJECT is terminal
             await self._finish(evaluation.request_id, evaluation.decision,
                                evaluation.reason,
@@ -226,6 +231,38 @@ class CreationEngine:
     # ------------------------------------------------------------------ #
     # Execution paths
     # ------------------------------------------------------------------ #
+    async def _execute_assign(self, request: CreationRequestInput,
+                              evaluation: Evaluation, actor_id: str | None,
+                              correlation_id: str | None) -> None:
+        """ASSIGN_EXISTING: hand the named work to the agent that already exists.
+
+        The factory decided which agent; the nine assignment rules still decide
+        whether it may take the work. A refusal is recorded on the creation request
+        rather than retried, because retrying a rule that just failed produces the
+        same answer and a second row saying so.
+        """
+        agent_id = evaluation.reuse_agent_id or evaluation.agent_id
+        if not agent_id or not request.task_id:
+            await self._finish(evaluation.request_id, evaluation.decision,
+                               "the decision named no agent or the request named no "
+                               "task, so there was nothing to assign", completed=True)
+            return
+        service = AssignmentService(
+            self.db, self.settings,
+            capabilities=getattr(self, "capabilities", None),
+            emergency=getattr(self, "emergency", None),
+            bus=getattr(self, "bus", None))
+        outcome = await service.assign(
+            agent_id, request.task_id,
+            required_capabilities=request.requested_capabilities,
+            assigned_by=actor_id, reason=evaluation.reason,
+            correlation_id=correlation_id)
+        detail = (f"{evaluation.reason}; assignment {outcome.assignment_id} recorded"
+                  if outcome.assigned else
+                  f"the work was not assigned: {outcome.reason}")
+        await self._finish(evaluation.request_id, evaluation.decision, detail,
+                           completed=True)
+
     async def _execute_create(self, request: CreationRequestInput, evaluation: Evaluation,
                               actor_id: str | None, correlation_id: str | None,
                               *, request_id: str | None = None,
@@ -490,7 +527,10 @@ class CreationEngine:
         await self._emit("AgentCreationRequested", payload, correlation_id)
         # REUSE_EXISTING deliberately has no second event: reusing an agent
         # creates nothing, and emitting a creation event for it would inflate
-        # every downstream count of agents that were made.
+        # every downstream count of agents that were made. ASSIGN_EXISTING is
+        # absent for the same reason, and it has an event of its own: the
+        # assignment it produces publishes AgentAssignmentChanged, which says what
+        # actually happened instead of implying that an agent was created.
         event = {
             CreationDecision.CREATE_AGENT: "AgentCreated",
             CreationDecision.QUEUE: "AgentCreationQueued",

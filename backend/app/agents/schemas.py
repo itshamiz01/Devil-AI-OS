@@ -349,6 +349,12 @@ class CreationRequestInput(BaseModel):
     agent_name: str | None = Field(default=None, min_length=1, max_length=128)
     essential: bool = False
     allow_reuse: bool = True
+    #: The work the request is about, when it is about work rather than about a
+    #: role. Stage 6 added it because `ASSIGN_EXISTING` was declared in the decision
+    #: vocabulary at Stage 4 and could never be emitted: nothing let a request say
+    #: which task an existing agent should be given. Optional and nullable, so every
+    #: Stage-4 caller keeps working unchanged.
+    task_id: str | None = Field(default=None, max_length=64)
     idempotency_key: str | None = Field(default=None, min_length=1, max_length=64)
     resource_estimate: dict[str, Any] = Field(default_factory=dict)
 
@@ -383,3 +389,138 @@ class CreationEvaluationView(BaseModel):
     replayed: bool = False
     recorded: bool = False
     limits: dict[str, Any] = Field(default_factory=dict)
+
+
+# --------------------------------------------------------------------------- #
+# P-04 Stage 6: assignment
+# --------------------------------------------------------------------------- #
+#: What an assignment row can say. A refusal is **not** a status: a validation
+#: that fails writes no row, so the ledger cannot be read as a list that includes
+#: work nobody was ever given. Same rule as capability grants in Stage 5.
+ASSIGNMENT_STATUSES = ("assigned", "in_progress", "completed", "failed", "cancelled")
+
+#: Forward only. `completed`, `failed` and `cancelled` are terminal: an assignment
+#: that could reopen would make "this work was done" a claim that can quietly
+#: become false again.
+ASSIGNMENT_TRANSITIONS = {
+    # `assigned` may reach `completed` without passing through `in_progress`.
+    # Work can finish before anyone recorded it starting, and refusing that would
+    # push callers to report a start they never observed — a fabricated
+    # `started_at` is worse than a null one, which reads honestly as "we did not
+    # see it begin".
+    "assigned": frozenset({"in_progress", "completed", "cancelled", "failed"}),
+    "in_progress": frozenset({"completed", "failed", "cancelled"}),
+    "completed": frozenset(),
+    "failed": frozenset(),
+    "cancelled": frozenset(),
+}
+
+#: Assignments that still represent work an agent is expected to do. Used for the
+#: concurrency rule: counting `completed`, `failed` and `cancelled` would mean an
+#: agent's history limited its future.
+IN_FLIGHT_ASSIGNMENT_STATUSES = frozenset({"assigned", "in_progress"})
+
+#: Agent states that may accept work. `BUSY` and `DEGRADED` are excluded on
+#: purpose rather than by oversight: both are health judgements, health thresholds
+#: are P-04 Stage 8, and until they exist a rule that admitted them would be
+#: guessing at what they mean. `SUSPENDED`, `FAILED`, `RETIRING` and `RETIRED` are
+#: excluded for the reason Stage 5 established — such an agent holds no authority,
+#: so it cannot be given work that needs any.
+ASSIGNABLE_AGENT_STATES = frozenset({"ACTIVE", "IDLE"})
+
+#: Task states that can still be given to an agent. `VALIDATING` has not finished
+#: being checked, `RUNNING` is already executing, `WAITING_FOR_APPROVAL` is
+#: somebody else's decision, and the three terminals are history.
+ASSIGNABLE_TASK_STATES = frozenset({"CREATED", "QUEUED", "RETRY_PENDING"})
+
+#: The nine assignment rules, in the order they run. Each stops at the first
+#: refusal, and a refusal names the rule, so a caller can tell *which* rule said
+#: no rather than only that something did.
+#:
+#: The phase brief's own enumeration of the nine is not in this repository; this
+#: list is reconstructed from what is, and each rule names its source:
+#: `P04_IMPLEMENTATION_PLAN.md` §2 (assignment validation, delegation depth,
+#: output-contract enforcement), `AGENT_GOVERNANCE.md` §3 (scope, duplicates,
+#: authorized agent, scoped capabilities) and §11 (quota/depth/cycle violations,
+#: permission escalation, business isolation), the Stage-2 `agent_assignments`
+#: columns, and the ceilings Stage 4 already enforces.
+ASSIGNMENT_RULES = (
+    "task_exists_and_is_assignable",
+    "task_is_not_already_assigned",
+    "emergency_stop_clear",
+    "agent_can_accept_work",
+    "delegation_within_limit",
+    "business_scope_matches",
+    "agent_holds_required_capabilities",
+    "no_permission_escalation",
+    "concurrency_within_budget",
+)
+
+
+class AssignmentInput(BaseModel):
+    """A request to give one task to one agent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    task_id: str = Field(min_length=1, max_length=64)
+    #: What the work needs. Empty is a legitimate answer — it means the task
+    #: requires no capability — and is checked like any other list.
+    required_capabilities: list[str] = Field(default_factory=list, max_length=64)
+    #: The contract the result will be judged against. Taken from the caller
+    #: rather than invented here, and normally the template's own
+    #: `expected_output_schema`, so the agent is judged against what it was built
+    #: to produce.
+    expected_output_schema: dict[str, Any] = Field(default_factory=dict)
+    priority: int = Field(default=5, ge=1, le=10)
+    reason: str = Field(default="", max_length=2000)
+
+
+class AssignmentCompletionInput(BaseModel):
+    """A report that the work finished, with the result to judge."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    succeeded: bool = True
+    result: dict[str, Any] = Field(default_factory=dict)
+    reason: str = Field(default="", max_length=2000)
+
+
+class AssignmentTransitionInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(default="", max_length=2000)
+
+
+class AgentAssignmentView(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    agent_id: str
+    task_id: str
+    status: str
+    priority: int
+    required_capabilities: list[str]
+    expected_output_schema: dict[str, Any]
+    delegation_depth: int
+    assigned_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    failure_reason: str | None = None
+    #: Resolved beside the row rather than stored: the task's own state moves
+    #: under the assignment, and a copy of it here would go stale and read as a
+    #: fact about the assignment.
+    task_status: str | None = None
+    agent_name: str | None = None
+
+    @classmethod
+    def from_row(cls, row: Any, *, task_status: str | None = None,
+                 agent_name: str | None = None) -> "AgentAssignmentView":
+        return cls(
+            id=row.id, agent_id=row.agent_id, task_id=row.task_id, status=row.status,
+            priority=int(row.priority),
+            required_capabilities=list(row.required_capabilities or []),
+            expected_output_schema=dict(row.expected_output_schema or {}),
+            delegation_depth=int(row.delegation_depth), assigned_at=row.assigned_at,
+            started_at=row.started_at, completed_at=row.completed_at,
+            failure_reason=row.failure_reason, task_status=task_status,
+            agent_name=agent_name)

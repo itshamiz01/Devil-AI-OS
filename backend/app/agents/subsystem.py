@@ -25,6 +25,7 @@ from ..core.config import Settings
 from ..database.connection import Database
 from ..database.repositories import AgentCapabilityRepo, AgentRepo, AgentTemplateRepo
 from ..events.bus import EventBus
+from .assignments import AssignmentService
 from .capabilities import (
     CapabilityService,
     register_capability_approval_subscribers,
@@ -42,6 +43,7 @@ class AgentServices:
     def __init__(self, *, settings: Settings, db: Database, bus: EventBus | None,
                  templates: TemplateService, factory: AgentFactory,
                  creation: CreationEngine, capabilities: CapabilityService,
+                 assignments: AssignmentService,
                  notes: tuple[str, ...] = ()) -> None:
         self.settings = settings
         self.db = db
@@ -50,6 +52,7 @@ class AgentServices:
         self.factory = factory
         self.creation = creation
         self.capabilities = capabilities
+        self.assignments = assignments
         self.notes = list(notes)
 
     def status(self) -> dict[str, Any]:
@@ -61,11 +64,12 @@ class AgentServices:
         """
         return {
             "enabled": True,
-            "stage": "P-04 Stage 5 (registry, templates, creation and capabilities)",
+            "stage": "P-04 Stage 6 (registry, templates, creation, capabilities "
+                     "and assignment)",
             "templates": True,
             "factory": True,
             "capabilities": True,
-            "assignments": False,
+            "assignments": True,
             "resources": False,
             "monitoring": False,
             "notes": tuple(self.notes),
@@ -90,6 +94,13 @@ def build_agents(settings: Settings, db: Database, bus: EventBus | None = None,
                               permissions=permissions)
     capabilities = CapabilityService(db, settings, approvals=approvals, bus=bus,
                                      emergency=emergency)
+    assignments = AssignmentService(db, settings, capabilities=capabilities,
+                                    emergency=emergency, bus=bus)
+    # The engine executes ASSIGN_EXISTING, which runs the nine assignment rules;
+    # rule 7 needs the capability authority, and without it a request that named
+    # required capabilities would be refused rather than verified.
+    creation.capabilities = capabilities
+    creation.emergency = emergency
     if bus is not None:
         register_factory_approval_subscribers(bus, creation)
         register_capability_approval_subscribers(bus, capabilities)
@@ -97,12 +108,17 @@ def build_agents(settings: Settings, db: Database, bus: EventBus | None = None,
         "the capability catalog is defined in code and reconciled at startup; "
         "no endpoint can add or edit an entry, so the level a capability carries "
         "cannot depend on who asked",
-        "capability grants are governed, but no tool boundary calls check() yet: "
-        "adapters and the tool registry are P-05 and assignment output contracts "
-        "are P-04 Stage 6",
+        "capability grants are governed, and assignment rule 7 now calls check() "
+        "before work is handed out; no *tool* boundary calls it yet, because "
+        "adapters and the tool registry are P-05",
         "creation decisions are deterministic: no model is consulted, and "
-        "ASSIGN_EXISTING is never emitted because assignment validation is "
-        "P-04 Stage 6",
+        "ASSIGN_EXISTING is emitted only when the request names a task and an "
+        "agent already fills the role; the nine assignment rules still run before "
+        "the work is handed over",
+        "an assignment records who was given work and judges the result against "
+        "its output contract; it never dispatches execution, which stays with the "
+        "task manager, and nothing observes task progress yet, so an assignment "
+        "can sit in 'assigned' after the task has run",
         "bringing a new agent to ACTIVE means its principal, registry row and "
         "configuration snapshot exist; no health observation has taken place "
         "yet, which is P-04 Stage 8",
@@ -115,6 +131,7 @@ def build_agents(settings: Settings, db: Database, bus: EventBus | None = None,
         factory=factory,
         creation=creation,
         capabilities=capabilities,
+        assignments=assignments,
         notes=tuple(notes),
     )
 

@@ -204,4 +204,35 @@ Five behaviours are deliberate:
 
 Architecture: [AGENT_CAPABILITIES.md](AGENT_CAPABILITIES.md) · [AGENT_GOVERNANCE.md](AGENT_GOVERNANCE.md)
 
-The live surface after Stage 5 is **75 paths and 83 operations** (70 and 77 after Stage 4; 64 and 71 after Stage 3; 53 and 58 at the end of P-03). A `shared/openapi-p04.json` snapshot is written when the phase completes at Stage 10; the P-01, P-02 and P-03 snapshots are retained unchanged as historical evidence.
+### Agent assignment endpoints (P-04 Stage 6)
+
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| POST | `/api/v1/agents/{agent_id}/assign` | `agents.write` | Run the nine assignment rules; `201` records the work |
+| GET | `/api/v1/agents/{agent_id}/assignments` | `agents.read` | That agent's ledger rows |
+| GET | `/api/v1/assignments` | `agents.read` | The ledger, filterable by `status` and `agent_id` |
+| GET | `/api/v1/assignments/status` | `agents.read` | Counts by status, the rule list, and what is not observed |
+| GET | `/api/v1/assignments/{assignment_id}` | `agents.read` | One row, with the task's state resolved beside it |
+| POST | `/api/v1/assignments/{assignment_id}/start` | `agents.write` | `assigned` to `in_progress`; records that work began |
+| POST | `/api/v1/assignments/{assignment_id}/complete` | `agents.write` | Judge the result against the output contract and close it |
+| POST | `/api/v1/assignments/{assignment_id}/cancel` | `agents.write` | Release the hold so the task can be given to somebody else |
+
+Five behaviours are deliberate and visible in the responses:
+
+* **A refusal is a `409`, not a `200` with a sad field in it**, and its
+  `details.evaluation` carries every rule that ran, which one refused, and why.
+* **A refusal creates nothing.** The `201` on `assign` always means a ledger row
+  exists, so the ledger reads as a list of work somebody was actually given.
+* **Completion is judged.** A reported success whose result breaks the contract
+  produces `status: failed`, `accepted: false` and the violations listed; an
+  assignment carrying no contract produces a reason saying the result was recorded
+  *unjudged* rather than a silent pass.
+* **`agents.write` is new in Stage 6** because assigning work changes what the
+  system will do next, and `agents.read` has only ever looked at the registry.
+* **`GET /assignments/status` reports `progress_observed: false`.** Nothing watches
+  task progress yet, so an assignment can sit in `assigned` after its task has run;
+  the endpoint says so instead of letting a healthy-looking count imply otherwise.
+
+See [AGENT_ASSIGNMENTS.md](AGENT_ASSIGNMENTS.md).
+
+The live surface after Stage 6 is **83 paths and 91 operations** (75 and 83 after Stage 5; 70 and 77 after Stage 4; 64 and 71 after Stage 3; 53 and 58 at the end of P-03). A `shared/openapi-p04.json` snapshot is written when the phase completes at Stage 10; the P-01, P-02 and P-03 snapshots are retained unchanged as historical evidence.

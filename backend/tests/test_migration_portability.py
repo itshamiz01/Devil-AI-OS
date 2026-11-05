@@ -82,12 +82,16 @@ def test_the_chain_is_eight_revisions_deep(postgres_sql):
     revision count would defeat the purpose, so it is bumped by hand, by whoever
     added the revision.
 
-    Last reviewed for `e8b2ced758fc` (P-04 Stage 5), whose DDL is hand-written
-    because autogenerate renders neither a CHECK addition nor a `server_default`
-    change on an existing column (L-56): it detected only the two added columns.
+    Last reviewed for `d577d056a63b` (P-04 Stage 6), whose DDL is hand-written for
+    the same reason as Stage 5's: it adds a CHECK over an existing column and a
+    `server_default`, and autogenerate renders neither (L-56). What it does is
+    normalize any unrecognized `agent_assignments.status`, add
+    `ck_agent_assignments_status` with the default the model already declared, and
+    add a nullable `task_id` reference with its foreign key and index to
+    `agent_creation_requests`.
     """
     assert postgres_sql.count("INSERT INTO alembic_version") == 1
-    assert postgres_sql.count("UPDATE alembic_version") == 7
+    assert postgres_sql.count("UPDATE alembic_version") == 8
 
 
 def test_the_shim_implements_every_batch_method_the_chain_uses():

@@ -84,6 +84,15 @@ PERMISSIONS: list[tuple[str, str, str]] = [
     # SYSTEM_PERMISSIONS, so the application cannot widen its own authority.
     ("agents.capabilities.read", "agents", "Read the capability catalog and agent capability grants"),
     ("agents.permissions.grant", "agents", "Grant and revoke agent capabilities"),
+    # ---- P-04 Stage 6 ----
+    # Handing work to an agent changes what the system will do next, so it is a
+    # write and gets its own code: `agents.read` has only ever looked at the
+    # registry, and widening it to cover assignment would have made every existing
+    # reader able to commit work. OWNER_PERMISSIONS is derived from this list, so
+    # the owner receives it; SYSTEM_PERMISSIONS is enumerated explicitly and does
+    # not include it, so the application cannot assign work to an agent on its own
+    # authority.
+    ("agents.write", "agents", "Assign work to an agent and close the assignment"),
 ]
 
 OWNER_PERMISSIONS = [code for code, _, _ in PERMISSIONS]

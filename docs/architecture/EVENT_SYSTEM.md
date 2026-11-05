@@ -6,7 +6,7 @@ Implemented event types (21) include application lifecycle, task lifecycle, appr
 
 ## Later phases
 
-The count of 21 above is the P-01 state. `EVENT_TYPES` has grown additively since, one phase at a time, with each new type added in the same commit as the code that publishes it — the bus rejects an unknown type, so a publisher and its event type cannot drift apart. Verified by reading the set back: **57 types, no duplicates**, grouped in the source by phase.
+The count of 21 above is the P-01 state. `EVENT_TYPES` has grown additively since, one phase at a time, with each new type added in the same commit as the code that publishes it — the bus rejects an unknown type, so a publisher and its event type cannot drift apart. Verified by reading the set back: **58 types, no duplicates**, grouped in the source by phase.
 
 | Phase | Added | Running total |
 |---|---|---|
@@ -17,6 +17,7 @@ The count of 21 above is the P-01 state. `EVENT_TYPES` has grown additively sinc
 | P-04 Stage 3 agent templates | 6 — `AgentTemplateCreated`, `AgentTemplateRevised`, `AgentTemplateValidated`, `AgentTemplatePublished`, `AgentTemplateDeprecated`, `AgentTemplateRestored` | 47 |
 | P-04 Stage 4 agent creation | 5 — `AgentCreationRequested`, `AgentCreated`, `AgentCreationQueued`, `AgentCreationApprovalRequested`, `AgentCreationRejected` | 52 |
 | P-04 Stage 5 capability governance | 5 — `AgentCapabilityGranted`, `AgentCapabilityRevoked`, `AgentCapabilityDenied`, `AgentCapabilityApprovalRequested`, `CapabilityCatalogChanged` | 57 |
+| P-04 Stage 6 assignment | 1 — `AgentAssignmentChanged` (recorded, started, completed, failed, cancelled; never published for a refusal, whose status is not in the ledger vocabulary) | 58 |
 
 The Stage 3 types carry source `agent_templates` and the Stage 4 types carry source `agent_factory`. An **invalid** validation verdict is published as well as a valid one, with its issue count: "this template was refused, and why" is the record an owner needs after the fact, and a bus carrying only successes would be a log of what went right. See [AGENT_TEMPLATES.md](AGENT_TEMPLATES.md).
 
