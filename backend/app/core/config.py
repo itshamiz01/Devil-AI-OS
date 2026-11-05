@@ -141,6 +141,11 @@ class Settings(BaseSettings):
     agent_max_creation_queue: int = Field(default=20, ge=1, le=200)
     # How deep parent_agent_id chains may go. 0 means no agent may have a parent.
     agent_max_delegation_depth: int = Field(default=2, ge=0, le=4)
+    # Stage 5: how much authority one agent may hold at once. A ceiling on grants
+    # is what makes "least privilege" enforceable rather than aspirational, and
+    # it applies at every approval level so a ceiling cannot be stepped around by
+    # granting something at a lower one.
+    agent_max_active_capabilities: int = Field(default=16, ge=1, le=64)
 
     @field_validator("host")
     @classmethod

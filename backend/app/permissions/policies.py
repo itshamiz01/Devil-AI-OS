@@ -77,6 +77,13 @@ PERMISSIONS: list[tuple[str, str, str]] = [
     # would decide without the ability to make one happen.
     ("agents.factory.read", "agents", "Evaluate creation requests and read the creation ledger"),
     ("agents.factory.admin", "agents", "Create agents, drain the creation queue"),
+    # ---- P-04 Dynamic Agent Factory, Stage 5 ----
+    # Reading the catalog is separated from granting against it for the same
+    # reason as the factory split: an agent may need to know what a capability
+    # costs without being able to hold one. Neither code is in
+    # SYSTEM_PERMISSIONS, so the application cannot widen its own authority.
+    ("agents.capabilities.read", "agents", "Read the capability catalog and agent capability grants"),
+    ("agents.permissions.grant", "agents", "Grant and revoke agent capabilities"),
 ]
 
 OWNER_PERMISSIONS = [code for code, _, _ in PERMISSIONS]

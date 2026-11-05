@@ -68,7 +68,16 @@ Every one of these models is `extra="forbid"`. An unknown key is a `422` naming 
 | duplicate keys inside either capability list | issue |
 | no allowed capabilities at all | **warning**, not an issue: such a template can only be assigned work that requires none |
 
-**What Stage 3 does not check, and says so.** Capability keys are *not* cross-checked against the `agent_capabilities` catalog, because that catalog is empty until Stage 5 populates and governs it — a check against an empty catalog would either refuse every template or pass every one, and both answers would be false. Every verdict therefore carries `capability_catalog_checked: false` with a note naming Stage 5, so a reader cannot mistake the verdict for a broader clearance than it is.
+**Capability keys are cross-checked against the catalog** (added in Stage 5; Stage 3 did not check them, because the catalog was empty until then and a check against an empty catalog would either refuse every template or pass every one). `templates.py::_catalog_check` reads the code-defined catalog rather than the table, so validation does not depend on a startup reconciliation having run:
+
+| Key in the configuration | Verdict |
+|---|---|
+| Prohibited (level 3) under `allowed_capabilities` | **issue** — a template may not ask for what no agent can ever hold, so it cannot reach a `valid` verdict or be published |
+| Not in the catalog, under either list | **issue** — the catalog is closed and defined in code, so an unknown key is a mistake to name rather than a new capability to accept |
+| Disabled in the catalog | **warning** — a template may legitimately be written ahead of the subsystem that will use it; it simply cannot be granted yet |
+| Prohibited under `restricted_capabilities` | neither — forbidding a prohibited capability is redundant, not wrong |
+
+Every verdict carries `capability_catalog_checked: true`, the catalog size, and a note saying the check is about *definitions*: it does not mean any agent holds any of these keys, because grants are separate and governed by `CapabilityService`. A verdict stored before Stage 5 still says `false`, and nothing re-validates published templates at startup — L-72.
 
 A verdict is persisted with a `configuration_fingerprint`: the project's canonical SHA-256 (`canonical_payload_hash`, the same function the approval subsystem uses, so there is one canonicalisation and not two) over the exact document judged. If a document ever differs from that hash, the verdict does not apply to it.
 
@@ -121,7 +130,7 @@ Autogenerate detected **only the new column** — it renders neither a CHECK add
 ## 9. What is deliberately not here
 
 * **No creation engine.** Nothing turns a template into an agent; that is Stage 4, and `AgentServices.status()` reports `factory: false` rather than implying otherwise.
-* **No capability catalog governance.** `agent_capabilities` is empty and ungoverned until Stage 5.
+* **No capability catalog governance in this module.** Stage 5 added the cross-check described above, but validation only judges *definitions*. Granting, refusing and checking authority lives in `CapabilityService` — see [AGENT_CAPABILITIES.md](AGENT_CAPABILITIES.md).
 * **No assignment, resource, health or metric behaviour** (Stages 6–8). The tables exist from Stage 2 and hold no rows.
 * **No phase flag of its own.** `Services.agents` is always assembled, unlike `intelligence` and `opportunities`: Stage 3 stores and validates definitions, which cannot execute anything. The creation engine that does change system behaviour is what gets a flag, so a deployment can hold definitions it is not yet allowed to act on. Until then `GET /api/v1/agents/status` is the honest answer to "what can this do", and `GET /api/v1/agents` returns an empty list because nothing can create a row.
 * **No frontend.** The repository contains none (Stage 9 is reported as deferred, not skipped).

@@ -16,7 +16,9 @@ a decision:
 
 1. the emergency stop is clear;
 2. a published template with a valid current version can be resolved;
-3. every requested capability is inside that template's allowed set;
+3. every requested capability is inside that template's allowed set, and every
+   one of them exists in the capability catalog, is enabled, and is not
+   prohibited;
 4. the delegation depth stays within its ceiling;
 5. an existing agent can be reused instead of creating one;
 6. the registry is within its limits;
@@ -28,12 +30,9 @@ full registry still answers "use the agent you already have" rather than
 queueing work that need not be created, and approval is checked **last** so an
 owner is never asked to approve a creation that would be refused anyway.
 
-Two things this stage deliberately does not do. It never produces
-``ASSIGN_EXISTING`` — assignment validation is Stage 6, and emitting a decision
-this module cannot execute would be a promise with nothing behind it. And it
-does not cross-check capabilities against the ``agent_capabilities`` catalog,
-which is empty until Stage 5 governs it; a check against an empty catalog would
-either refuse everything or pass everything, and both answers would be false.
+One thing this stage deliberately does not do: it never produces
+``ASSIGN_EXISTING``. Assignment validation is Stage 6, and emitting a decision
+this module cannot execute would be a promise with nothing behind it.
 """
 
 from __future__ import annotations
@@ -49,9 +48,12 @@ from ..database.repositories import (
     AgentRepo,
     AgentTemplateRepo,
 )
+from .catalog import BUILTIN_CATALOG, PROHIBITED_CAPABILITIES
 from .lifecycle import AgentStatus
-from .schemas import (CREATION_DECISIONS, CreationDecision,
+from .schemas import (CREATION_DECISIONS, ApprovalLevel, CreationDecision,
                       CreationRequestInput, TemplateConfiguration)
+
+_CATALOG_BY_KEY = {entry.capability_key: entry for entry in BUILTIN_CATALOG}
 
 __all__ = [
     "APPROVAL_REQUIRED_TOKEN",
@@ -192,8 +194,21 @@ class AgentFactory:
             return evaluation
         checks.append(Check(
             "capabilities_within_template", True,
-            f"{len(request.requested_capabilities)} requested, all inside the template's "
-            f"allowed set (catalog cross-check is P-04 Stage 5)"))
+            f"{len(request.requested_capabilities)} requested, all inside the "
+            f"template's allowed set"))
+
+        # 3b. The catalog governs what may be held at all, independently of what
+        #     this template allows. A template cannot authorize a prohibited
+        #     capability, and a request cannot be granted one either.
+        requested_level, detail = self._catalog_findings(request.requested_capabilities)
+        if requested_level is None:
+            checks.append(Check("capabilities_governed", False, detail))
+            evaluation.decision = CreationDecision.REJECT
+            evaluation.reason = detail
+            return evaluation
+        checks.append(Check("capabilities_governed", True, detail))
+        evaluation.approval_required = requested_level >= int(
+            ApprovalLevel.OWNER_APPROVAL)
 
         # 4. Delegation depth.
         depth, detail = await self._delegation_depth(request.parent_agent_id)
@@ -258,9 +273,11 @@ class AgentFactory:
                      + ", ".join(pressure)))
 
         # 8. Approval requirement.
+        capability_needs_owner = requested_level >= int(ApprovalLevel.OWNER_APPROVAL)
         needs_approval = (
             APPROVAL_REQUIRED_TOKEN in configuration.approval_requirements
             or configuration.security_classification == "restricted"
+            or capability_needs_owner
         )
         evaluation.approval_required = needs_approval
         if needs_approval:
@@ -270,6 +287,10 @@ class AgentFactory:
                            "approval_requirements")
             if configuration.security_classification == "restricted":
                 why.append("the template's security classification is 'restricted'")
+            if capability_needs_owner:
+                why.append(f"the requested capabilities include one at approval "
+                           f"level {requested_level}, which needs the owner's "
+                           f"decision before any agent may hold it")
             detail = "; ".join(why)
             checks.append(Check("approval_not_required", False, detail))
             evaluation.decision = CreationDecision.REQUEST_OWNER_APPROVAL
@@ -311,11 +332,16 @@ class AgentFactory:
                 "agent_max_creation_queue": self.settings.agent_max_creation_queue,
                 "agent_max_delegation_depth": self.settings.agent_max_delegation_depth,
             },
-            "capability_catalog_checked": False,
+            "capability_catalog_checked": True,
+            "catalog_size": len(BUILTIN_CATALOG),
+            "prohibited_keys": sorted(PROHIBITED_CAPABILITIES),
             "capability_catalog_note": (
-                "requested capabilities are checked against the template's allowed set "
-                "only; the agent_capabilities catalog is populated and governed in "
-                "P-04 Stage 5"
+                "requested capabilities are cross-checked against the code-defined "
+                "catalog: a prohibited, unknown or disabled key is refused, and a key "
+                "at approval level 2 sends the creation to its owner. What is not yet "
+                "true is enforcement at a tool boundary - no adapter calls "
+                "CapabilityService.check(), because adapters are P-05 and assignment "
+                "output contracts are Stage 6"
             ),
             "assignment_supported": False,
             "assignment_note": (
@@ -379,6 +405,39 @@ class AgentFactory:
             detail = (f"template '{template.name}' version {version_row.version} "
                       f"({template.category})")
             return template, version_row, configuration, detail
+
+    def _catalog_findings(self, requested: Sequence[str]) -> tuple[int | None, str]:
+        """Return ``(highest approval level, detail)``; level is None to refuse.
+
+        The catalog is consulted from code rather than from the table, so a
+        creation decision does not depend on a startup reconciliation having run.
+        A prohibited capability is refused outright (L-64's required resolution);
+        an unknown one is refused because the catalog is closed and defined in
+        code, so an unknown key is a mistake rather than a new capability; a
+        disabled one is refused because there is nothing to grant it against yet.
+        """
+        highest = 0
+        for key in requested:
+            if key in PROHIBITED_CAPABILITIES:
+                entry = _CATALOG_BY_KEY.get(key)
+                why = entry.prohibited_reason if entry else (
+                    "it is on the code-level prohibition list")
+                return None, (f"the requested capability '{key}' is prohibited at "
+                              f"approval level 3 and cannot be held by any agent: {why}")
+            entry = _CATALOG_BY_KEY.get(key)
+            if entry is None:
+                return None, (f"the requested capability '{key}' is not in the "
+                              f"capability catalog, which is defined in code and "
+                              f"closed to additions at runtime")
+            if not entry.enabled:
+                return None, (f"the requested capability '{key}' is disabled in the "
+                              f"catalog: {entry.description}")
+            highest = max(highest, int(entry.approval_level))
+        if not requested:
+            return highest, ("no capability was requested; the agent would hold none, "
+                             "so only work requiring none could be assigned to it")
+        return highest, (f"{len(requested)} requested, highest approval level "
+                         f"{highest} in the catalog")
 
     async def _delegation_depth(self, parent_agent_id: str | None):
         """Return (depth, detail); depth is None when the request must be refused."""

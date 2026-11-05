@@ -20,7 +20,9 @@ from sqlalchemy import select, update
 from app.core.application import create_app, seed_core_data
 from app.core.auth import AuthService, token_hash
 from app.database.connection import Database
-from app.database.models import Agent, AgentConfigurationHistory, utcnow
+from app.agents.catalog import BUILTIN_CATALOG, PROHIBITED_CAPABILITIES
+from app.database.models import (Agent, AgentConfigurationHistory,
+                                 AgentTemplateVersion, utcnow)
 from app.database.repositories import PermissionRepo, PrincipalRepo, SessionRepo
 
 FACTORY = "/api/v1/agent-factory"
@@ -155,6 +157,25 @@ def _set_agent_field(settings, agent_id: str, **values) -> None:
     _db(settings, go)
 
 
+def _force_allowed_capabilities(settings, template_id: str, keys: list[str]) -> None:
+    """Write capability keys into a published version, past validation.
+
+    Only used to reproduce the one situation where the factory's own catalog
+    guard can still be reached: a template whose verdict was recorded before the
+    catalog was cross-checked (L-61), or whose configuration was edited
+    underneath that verdict. Since Stage 5 validation refuses to judge such a
+    template valid, there is no HTTP route to this state - which is the point of
+    having the guard in the decision engine as well.
+    """
+    async def go(session):
+        row = (await session.execute(
+            select(AgentTemplateVersion).where(AgentTemplateVersion.template_id == template_id))).scalars().first()
+        configuration = dict(row.configuration_json or {})
+        configuration["allowed_capabilities"] = list(keys)
+        row.configuration_json = configuration
+    _db(settings, go)
+
+
 def _snapshot_for(settings, agent_id: str) -> list[dict]:
     async def go(session):
         rows = (await session.execute(
@@ -254,9 +275,10 @@ def test_the_checks_are_returned_in_the_order_they_ran(client):
     result = _preview(client, template_id=template["id"])
     names = [c["name"] for c in result["checks"]]
     assert names == ["emergency_stop_clear", "template_resolved",
-                     "capabilities_within_template", "delegation_within_limit",
-                     "no_reusable_agent_exists", "registry_within_limits",
-                     "resources_available", "approval_not_required"]
+                     "capabilities_within_template", "capabilities_governed",
+                     "delegation_within_limit", "no_reusable_agent_exists",
+                     "registry_within_limits", "resources_available",
+                     "approval_not_required"]
     assert all(c["passed"] for c in result["checks"])
     assert result["template_id"] == template["id"]
     assert result["template_version"] == 1
@@ -369,16 +391,79 @@ def test_a_capability_inside_the_template_is_accepted(client):
     assert result["decision"] == "CREATE_AGENT"
 
 
-def test_the_response_says_the_catalog_was_not_checked(client):
-    """An empty catalog would make a cross-check either refuse everything or pass
-    everything, so this stage does not claim to have performed one."""
+def test_the_response_says_the_catalog_is_checked_and_what_it_does_not_cover(
+        client, settings):
+    """Closes L-64's disclosure half.
+
+    A creation decision now consults the catalog. The response also says which
+    part is still false: nothing calls `check()` at a tool boundary yet, because
+    adapters are P-05 and assignment output contracts are Stage 6.
+    """
     template = _published(client)
     result = _preview(client, template_id=template["id"])
-    check = next(c for c in result["checks"] if c["name"] == "capabilities_within_template")
-    assert "Stage 5" in check["detail"]
+    governed = next(c for c in result["checks"] if c["name"] == "capabilities_governed")
+    assert governed["passed"] is True
     status = client.get(f"{FACTORY}/status").json()["data"]
-    assert status["capability_catalog_checked"] is False
-    assert "Stage 5" in status["capability_catalog_note"]
+    assert status["capability_catalog_checked"] is True
+    assert status["catalog_size"] == len(BUILTIN_CATALOG)
+    assert status["prohibited_keys"] == sorted(PROHIBITED_CAPABILITIES)
+    note = status["capability_catalog_note"]
+    assert "check()" in note and "P-05" in note, note
+
+
+def test_a_prohibited_capability_is_refused_even_when_a_template_allows_it(
+        client, settings):
+    """L-64's required resolution: level 3 is refused outright.
+
+    The template allows the key, so the subset check passes - which is exactly
+    why the catalog check has to be a separate one. A template cannot authorize
+    what no agent may ever hold, and no approval code path can reach it either.
+    """
+    template = _published(client)
+    _force_allowed_capabilities(settings, template["id"], ["spending.authorize"])
+    result = _preview(client, template_id=template["id"],
+                      requested_capabilities=["spending.authorize"])
+    assert result["decision"] == "REJECT"
+    assert "prohibited" in result["reason"] and "level 3" in result["reason"]
+    assert next(c for c in result["checks"]
+                if c["name"] == "capabilities_governed")["passed"] is False
+    # Refused at the catalog check, so nothing downstream ran and nothing was recorded.
+    names = [c["name"] for c in result["checks"]]
+    assert "registry_within_limits" not in names
+    assert result["recorded"] is False and _ledger(client) == []
+
+
+def test_an_unknown_or_disabled_capability_is_refused(client, settings):
+    """The catalog is closed: an unknown key is a mistake, a disabled one is not
+    grantable yet, and neither becomes an agent."""
+    template = _published(client)
+    _force_allowed_capabilities(settings, template["id"], ["not.a.key", "execution.tool"])
+    unknown = _preview(client, template_id=template["id"],
+                       requested_capabilities=["not.a.key"])
+    assert unknown["decision"] == "REJECT"
+    assert "not in the capability catalog" in unknown["reason"]
+    disabled = _preview(client, template_id=template["id"],
+                        requested_capabilities=["execution.tool"])
+    assert disabled["decision"] == "REJECT" and "disabled" in disabled["reason"]
+
+
+def test_a_capability_needing_the_owner_sends_the_creation_to_approval(client):
+    """Level 2 is not a refusal - it is a request that must reach the owner."""
+    template = _published(client, allowed_capabilities=["agents.create_request"])
+    result = _preview(client, template_id=template["id"],
+                      requested_capabilities=["agents.create_request"])
+    assert result["approval_required"] is True
+    assert "approval level 2" in result["reason"]
+
+
+def test_a_level_one_capability_needs_no_approval(client):
+    """Levels 0 and 1 are answered in code: their conditions are the scope
+    requirement and the ceilings, not an owner's decision."""
+    template = _published(client, allowed_capabilities=["research.write"])
+    result = _preview(client, template_id=template["id"],
+                      requested_capabilities=["research.write"])
+    assert result["decision"] == "CREATE_AGENT"
+    assert result["approval_required"] is False
 
 
 # --------------------------------------------------------------------------- #
@@ -920,8 +1005,9 @@ def test_the_agent_subsystem_status_reports_the_factory_as_built(client):
     status = client.get(f"{AGENTS}/status").json()["data"]
     assert status["enabled"] is True
     assert status["factory"] is True
-    assert status["capabilities"] is False
-    assert "Stage 4" in status["stage"]
+    # Stage 5 built the capability catalog, so it is reported as present.
+    assert status["capabilities"] is True
+    assert "Stage 5" in status["stage"]
 
 
 def test_assign_existing_is_never_emitted(client):

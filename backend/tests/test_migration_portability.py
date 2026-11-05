@@ -74,14 +74,20 @@ def test_batch_mode_is_not_used_on_postgres(postgres_sql):
     assert "DROP TABLE agents" not in postgres_sql
 
 
-def test_the_chain_is_seven_revisions_deep(postgres_sql):
+def test_the_chain_is_eight_revisions_deep(postgres_sql):
     """One INSERT for the base revision, one UPDATE per revision after it.
 
     This count is deliberately brittle: it is the one assertion that notices a
-    revision was added without its DDL being reviewed.
+    revision was added without its DDL being reviewed. Deriving it from the
+    revision count would defeat the purpose, so it is bumped by hand, by whoever
+    added the revision.
+
+    Last reviewed for `e8b2ced758fc` (P-04 Stage 5), whose DDL is hand-written
+    because autogenerate renders neither a CHECK addition nor a `server_default`
+    change on an existing column (L-56): it detected only the two added columns.
     """
     assert postgres_sql.count("INSERT INTO alembic_version") == 1
-    assert postgres_sql.count("UPDATE alembic_version") == 6
+    assert postgres_sql.count("UPDATE alembic_version") == 7
 
 
 def test_the_shim_implements_every_batch_method_the_chain_uses():

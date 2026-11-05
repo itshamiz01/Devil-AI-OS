@@ -165,6 +165,76 @@ class AgentTemplateVersionView(BaseModel):
         )
 
 
+#: Capability risk, using the **same** vocabulary as `approvals.risk` rather than
+#: a parallel one: two words for the same idea in one system is how a mapping
+#: gets written wrong and nobody notices.
+CAPABILITY_RISK_LEVELS = ("low", "medium", "high", "critical")
+
+#: What a capability lets an agent do to data. `execute` is the class that will
+#: bind to P-05 tool boundaries; nothing invokes it yet.
+CAPABILITY_ACCESS_CLASSES = ("read", "write", "execute")
+
+#: The life of a grant. A denial is deliberately **not** a status: `agent_permissions`
+#: records grants, and a refusal is recorded in the audit log and on the event bus,
+#: where an attempt that never became a grant belongs.
+AGENT_PERMISSION_STATUSES = ("pending", "active", "revoked", "expired")
+
+
+class ApprovalLevel(int, Enum):
+    """How much authority a capability needs before an agent may hold it.
+
+    These are the four levels the P-04 design fixes, and they are the only
+    authority model in this phase:
+
+    * ``AUTONOMOUS`` (0) — policy allows it; the grant is recorded and audited.
+    * ``CONDITIONAL`` (1) — allowed only if conditions checked in code hold.
+    * ``OWNER_APPROVAL`` (2) — an `approvals` row must reach `granted` first.
+    * ``PROHIBITED`` (3) — refused unconditionally, with no approval path.
+    """
+
+    AUTONOMOUS = 0
+    CONDITIONAL = 1
+    OWNER_APPROVAL = 2
+    PROHIBITED = 3
+
+
+#: Derived from the enum so the database CHECK and the code cannot drift.
+APPROVAL_LEVELS = tuple(int(level) for level in ApprovalLevel)
+
+
+class CapabilityDefinition(BaseModel):
+    """One entry of the built-in catalog, as code.
+
+    The catalog is defined here rather than only in the database for one reason:
+    a prohibition that lives in a row can be lifted by editing a row. The level-3
+    list in `capabilities.py` is code, and no database change can widen it.
+    """
+
+    model_config = _STRICT
+
+    capability_key: str = Field(min_length=1, max_length=128)
+    name: str = Field(min_length=1, max_length=128)
+    category: str = Field(min_length=1, max_length=64)
+    risk_level: Literal["low", "medium", "high", "critical"]
+    approval_level: ApprovalLevel
+    access_class: Literal["read", "write", "execute"]
+    description: str = Field(default="", max_length=2000)
+    enabled: bool = True
+    #: A conditional capability that must be granted with a non-empty scope.
+    requires_scope: bool = False
+    #: Set for level 3 only, and required for it: a prohibition without a stated
+    #: reason is a rule nobody can argue with or review.
+    prohibited_reason: str = Field(default="", max_length=1000)
+
+    @model_validator(mode="after")
+    def _prohibited_entries_must_state_why(self) -> "CapabilityDefinition":
+        if self.approval_level is ApprovalLevel.PROHIBITED and not self.prohibited_reason:
+            raise ValueError("a level-3 capability must state its prohibited_reason")
+        if self.approval_level is not ApprovalLevel.PROHIBITED and self.prohibited_reason:
+            raise ValueError("prohibited_reason is only meaningful on a level-3 capability")
+        return self
+
+
 class AgentCapabilityView(BaseModel):
     id: str
     capability_key: str
@@ -175,12 +245,25 @@ class AgentCapabilityView(BaseModel):
     access_class: str
     description: str
     enabled: bool
+    requires_scope: bool = False
+    prohibited_reason: str = ""
+
+    @classmethod
+    def from_row(cls, row: Any) -> "AgentCapabilityView":
+        return cls(
+            id=row.id, capability_key=row.capability_key, name=row.name,
+            category=row.category, risk_level=row.risk_level,
+            approval_level=int(row.approval_level), access_class=row.access_class,
+            description=row.description, enabled=bool(row.enabled),
+            requires_scope=bool(getattr(row, "requires_scope", False)),
+            prohibited_reason=getattr(row, "prohibited_reason", "") or "")
 
 
 class AgentPermissionView(BaseModel):
     id: str
     agent_id: str
     capability_id: str
+    capability_key: str | None = None
     scope: str
     approval_level: int
     approval_id: str | None
@@ -188,6 +271,15 @@ class AgentPermissionView(BaseModel):
     granted_at: datetime
     expires_at: datetime | None
     revoked_at: datetime | None
+
+    @classmethod
+    def from_row(cls, row: Any, capability_key: str | None = None) -> "AgentPermissionView":
+        return cls(
+            id=row.id, agent_id=row.agent_id, capability_id=row.capability_id,
+            capability_key=capability_key, scope=row.scope,
+            approval_level=int(row.approval_level), approval_id=row.approval_id,
+            status=row.status, granted_at=row.granted_at, expires_at=row.expires_at,
+            revoked_at=row.revoked_at)
 
 
 class AgentCreationRequestView(BaseModel):

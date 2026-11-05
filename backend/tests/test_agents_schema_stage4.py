@@ -84,15 +84,25 @@ def populated(tmp_path) -> Path:
 _TABLES = ("principals", "agent_templates", "approvals", "agent_creation_requests")
 
 
-def test_the_stage_4_revision_is_the_head_of_a_seven_deep_chain():
+def test_the_stage_4_revision_sits_atop_a_seven_deep_chain():
+    """Scoped to this stage on purpose.
+
+    Asserting the global head would fail every time a later stage appended a
+    revision, which turns a guard against a silently inserted revision into a
+    test that has to be edited on schedule. What this stage owns is that its own
+    revision is the seventh from the base, with the six it depends on beneath it.
+    Stage 5's schema test asserts the same thing for the longer chain.
+    """
     cfg = Config(str(BACKEND / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND / "app/database/migrations"))
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(cfg)
     revisions = [s.revision for s in script.walk_revisions()]
-    assert script.get_current_head() == STAGE4_HEAD
-    assert len(revisions) == 7, revisions
+    assert STAGE4_HEAD in revisions, revisions
+    # walk_revisions is newest-first, so everything from this stage's revision
+    # onwards is the chain it stands on.
+    assert len(revisions[revisions.index(STAGE4_HEAD):]) == 7, revisions
 
 
 def test_the_rebuild_preserves_rows_and_every_reference(populated):

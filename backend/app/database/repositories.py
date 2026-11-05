@@ -7,7 +7,8 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import (
-    Agent, AgentCreationRequest, AgentTemplate, AgentTemplateVersion, Approval,
+    Agent, AgentCapability, AgentCreationRequest, AgentPermission, AgentTemplate,
+    AgentTemplateVersion, Approval,
     AuditEvent, AuthSession, OwnerCredential, Permission, PermissionAssignment,
     Principal, SystemConfiguration, SystemEvent, Task, TaskExecution, utcnow,
 )
@@ -363,3 +364,169 @@ class AgentTemplateRepo:
             update(AgentTemplate).where(AgentTemplate.id == template_id)
             .values(current_version=version, updated_at=utcnow()))
         await self.session.flush()
+
+
+class AgentCapabilityRepo:
+    """The capability catalog (P-04 Stage 5).
+
+    ``upsert_definition`` reconciles a code-defined entry into the table on every
+    startup, so a catalog change ships with the code that needs it instead of
+    depending on someone running a script.
+    """
+
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def list(self, limit: int, offset: int, category: str | None = None,
+                   risk_level: str | None = None, approval_level: int | None = None,
+                   enabled: bool | None = None) -> Sequence[AgentCapability]:
+        q = self._filtered(select(AgentCapability), category, risk_level,
+                           approval_level, enabled).order_by(
+            AgentCapability.approval_level.desc(), AgentCapability.capability_key.asc()
+        ).limit(limit).offset(offset)
+        return (await self.session.execute(q)).scalars().all()
+
+    async def count(self, category: str | None = None, risk_level: str | None = None,
+                    approval_level: int | None = None,
+                    enabled: bool | None = None) -> int:
+        base = self._filtered(select(AgentCapability), category, risk_level,
+                              approval_level, enabled).subquery()
+        return int((await self.session.execute(select(func.count()).select_from(base))).scalar_one())
+
+    def _filtered(self, q, category, risk_level, approval_level, enabled):
+        if category: q = q.where(AgentCapability.category == category)
+        if risk_level: q = q.where(AgentCapability.risk_level == risk_level)
+        if approval_level is not None: q = q.where(AgentCapability.approval_level == approval_level)
+        if enabled is not None: q = q.where(AgentCapability.enabled == enabled)
+        return q
+
+    async def get(self, capability_id: str) -> AgentCapability | None:
+        return await self.session.get(AgentCapability, capability_id)
+
+    async def by_key(self, capability_key: str) -> AgentCapability | None:
+        q = select(AgentCapability).where(AgentCapability.capability_key == capability_key)
+        return (await self.session.execute(q)).scalars().first()
+
+    async def by_keys(self, keys: Sequence[str]) -> Sequence[AgentCapability]:
+        if not keys:
+            return []
+        q = select(AgentCapability).where(AgentCapability.capability_key.in_(list(keys)))
+        return (await self.session.execute(q)).scalars().all()
+
+    async def keys_by_ids(self, capability_ids: Sequence[str]) -> dict[str, str]:
+        """Resolve ids to keys in one query.
+
+        Callers list grants and need a key beside each one; looking each grant's
+        capability up separately turns a page of grants into a page of queries.
+        """
+        ids = list(dict.fromkeys(capability_ids))
+        if not ids:
+            return {}
+        q = select(AgentCapability.id, AgentCapability.capability_key).where(
+            AgentCapability.id.in_(ids))
+        return {cid: key for cid, key in (await self.session.execute(q)).all()}
+
+    async def upsert_definition(self, *, capability_key: str, name: str, category: str,
+                                risk_level: str, approval_level: int, access_class: str,
+                                description: str = "", enabled: bool = True,
+                                requires_scope: bool = False,
+                                prohibited_reason: str = "") -> AgentCapability:
+        row = await self.by_key(capability_key)
+        if row is None:
+            row = AgentCapability(capability_key=capability_key)
+            self.session.add(row)
+        row.name = name
+        row.category = category
+        row.risk_level = risk_level
+        row.approval_level = int(approval_level)
+        row.access_class = access_class
+        row.description = description
+        row.enabled = enabled
+        row.requires_scope = requires_scope
+        row.prohibited_reason = prohibited_reason
+        row.updated_at = utcnow()
+        await self.session.flush()
+        return row
+
+
+class AgentPermissionRepo:
+    """Capability grants to agents (P-04 Stage 5). Nothing is implicit."""
+
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, *, agent_id: str, capability_id: str, scope: str = "",
+                     approval_level: int, status: str = "active",
+                     approval_id: str | None = None,
+                     expires_at: datetime | None = None) -> AgentPermission:
+        row = AgentPermission(
+            agent_id=agent_id, capability_id=capability_id, scope=scope,
+            approval_level=int(approval_level), status=status, approval_id=approval_id,
+            expires_at=expires_at, granted_at=utcnow())
+        self.session.add(row)
+        await self.session.flush()
+        return row
+
+    async def get(self, permission_id: str) -> AgentPermission | None:
+        return await self.session.get(AgentPermission, permission_id)
+
+    async def for_agent(self, agent_id: str, status: str | None = None,
+                        limit: int = 200, offset: int = 0) -> Sequence[AgentPermission]:
+        q = select(AgentPermission).where(AgentPermission.agent_id == agent_id)
+        if status: q = q.where(AgentPermission.status == status)
+        q = q.order_by(AgentPermission.granted_at.desc()).limit(limit).offset(offset)
+        return (await self.session.execute(q)).scalars().all()
+
+    async def count_for_agent(self, agent_id: str, status: str | None = None) -> int:
+        q = select(func.count()).select_from(AgentPermission).where(
+            AgentPermission.agent_id == agent_id)
+        if status: q = q.where(AgentPermission.status == status)
+        return int((await self.session.execute(q)).scalar_one())
+
+    async def count_by_status(self) -> dict[str, int]:
+        """Every grant in the system, grouped by status, in one query.
+
+        Deliberately not ``for_agent("")``: an empty agent id matches no row, so
+        counting per status through it reports zero for the whole system while
+        looking as though it had asked the right question.
+        """
+        q = select(AgentPermission.status, func.count()).group_by(AgentPermission.status)
+        return {status: int(number)
+                for status, number in (await self.session.execute(q)).all()}
+
+    async def find(self, agent_id: str, capability_id: str, scope: str,
+                   statuses: Sequence[str] = ("pending", "active")) -> AgentPermission | None:
+        """The existing grant for this agent, capability and scope, if any.
+
+        Granting is idempotent on that triple: a second grant of the same thing
+        returns the first rather than creating an ambiguity that revocation would
+        then have to guess about.
+        """
+        q = select(AgentPermission).where(
+            AgentPermission.agent_id == agent_id,
+            AgentPermission.capability_id == capability_id,
+            AgentPermission.scope == scope,
+            AgentPermission.status.in_(list(statuses)),
+        ).order_by(AgentPermission.granted_at.desc()).limit(1)
+        return (await self.session.execute(q)).scalars().first()
+
+    async def by_approval(self, approval_id: str) -> AgentPermission | None:
+        q = select(AgentPermission).where(AgentPermission.approval_id == approval_id)
+        return (await self.session.execute(q)).scalars().first()
+
+    async def set_status(self, permission_id: str, status: str, *,
+                         revoked_at: datetime | None = None,
+                         approval_id: str | None = None) -> None:
+        values: dict[str, Any] = {"status": status, "updated_at": utcnow()}
+        if revoked_at is not None: values["revoked_at"] = revoked_at
+        if approval_id is not None: values["approval_id"] = approval_id
+        await self.session.execute(
+            update(AgentPermission).where(AgentPermission.id == permission_id).values(**values))
+        await self.session.flush()
+
+    async def expirable(self, now: datetime, limit: int = 200) -> Sequence[AgentPermission]:
+        """Active or pending grants whose expiry has passed."""
+        q = select(AgentPermission).where(
+            AgentPermission.status.in_(["active", "pending"]),
+            AgentPermission.expires_at.is_not(None),
+            AgentPermission.expires_at < now,
+        ).limit(limit)
+        return (await self.session.execute(q)).scalars().all()

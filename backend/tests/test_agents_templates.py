@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from app.agents.templates import TEMPLATE_TRANSITIONS, diff_configurations
 from app.core.auth import token_hash
+from app.agents.catalog import BUILTIN_CATALOG
 from app.database.connection import Database
 from app.database.models import utcnow
 from app.database.repositories import PrincipalRepo, SessionRepo
@@ -258,15 +259,62 @@ def test_blank_intent_fields_are_judged_invalid(client):
     assert "role_definition" in joined and "system_instruction" in joined
 
 
-def test_a_valid_configuration_is_judged_valid_and_says_what_was_not_checked(client):
+def test_a_valid_configuration_is_judged_valid_and_reports_the_catalog_check(client):
     tid = _create(client)["template"]["id"]
     data = client.post(f"{TPL}/{tid}/validate", json={}).json()["data"]
     assert data["validation_status"] == "valid"
     assert data["details"]["issues"] == []
     assert data["details"]["configuration_fingerprint"]
-    # Honesty about scope: the capability catalog is a Stage 5 concern.
-    assert data["details"]["capability_catalog_checked"] is False
-    assert "Stage 5" in data["details"]["capability_catalog_note"]
+    # Closes L-61: the catalog is cross-checked, and the verdict says so.
+    assert data["details"]["capability_catalog_checked"] is True
+    assert data["details"]["catalog_size"] == len(BUILTIN_CATALOG)
+    assert "capability_catalog" in data["details"]["checks_performed"]
+    note = data["details"]["capability_catalog_note"]
+    assert "grant" in note.lower(), "the note must not imply a grant was checked"
+
+
+def test_a_prohibited_capability_in_a_template_is_an_issue_and_blocks_publishing(client):
+    """A template may not ask for something no agent can ever hold.
+
+    This is why the factory's own catalog guard is defence in depth rather than
+    the only line: such a template cannot reach `published` in the first place.
+    """
+    tid = _create(client, allowed_capabilities=["spending.authorize"])["template"]["id"]
+    data = client.post(f"{TPL}/{tid}/validate", json={}).json()["data"]
+    assert data["validation_status"] == "invalid"
+    assert any("prohibited" in i and "level 3" in i for i in data["details"]["issues"])
+    assert client.post(f"{TPL}/{tid}/publish", json={}).status_code == 409
+
+
+def test_the_same_key_is_fine_as_a_restriction(client):
+    """Restricting a prohibited capability is redundant, not wrong."""
+    tid = _create(client, allowed_capabilities=["research.read"],
+                  restricted_capabilities=["spending.authorize"])["template"]["id"]
+    assert client.post(f"{TPL}/{tid}/validate", json={}).json()["data"]["validation_status"] == "valid"
+
+
+def test_an_unknown_capability_key_is_an_issue(client):
+    """The catalog is defined in code, so an unknown key is a mistake to name,
+    not a new capability to accept."""
+    tid = _create(client, allowed_capabilities=["not.a.real.capability"])["template"]["id"]
+    data = client.post(f"{TPL}/{tid}/validate", json={}).json()["data"]
+    assert data["validation_status"] == "invalid"
+    assert any("not in the capability catalog" in i for i in data["details"]["issues"])
+
+
+def test_an_unknown_restricted_key_is_also_an_issue(client):
+    tid = _create(client, allowed_capabilities=["research.read"],
+                  restricted_capabilities=["not.a.real.capability"])["template"]["id"]
+    assert client.post(f"{TPL}/{tid}/validate", json={}).json()["data"]["validation_status"] == "invalid"
+
+
+def test_a_disabled_capability_warns_but_does_not_invalidate(client):
+    """A template may legitimately be written ahead of the subsystem that will
+    use it; it simply cannot be granted yet, and the verdict says which."""
+    tid = _create(client, allowed_capabilities=["execution.tool"])["template"]["id"]
+    data = client.post(f"{TPL}/{tid}/validate", json={}).json()["data"]
+    assert data["validation_status"] == "valid", "a warning is not a refusal"
+    assert any("execution.tool" in w and "disabled" in w for w in data["details"]["warnings"])
 
 
 def test_a_template_with_no_capabilities_is_valid_but_warned(client):
@@ -484,20 +532,23 @@ def test_a_principal_without_agent_permissions_is_refused(client, settings, meth
 
 
 def test_the_subsystem_reports_what_is_not_built_yet(client, settings):
-    """A status that claimed a capability catalog or a scheduler exists would be
-    a false claim about work that has not happened."""
+    """A status that claimed an executor or a scheduler exists would be a false
+    claim about work that has not happened."""
     from app.agents.subsystem import build_agents
 
     services = build_agents(settings, Database(settings), None)
     status = services.status()
     assert status["templates"] is True
-    # Stage 4 built the creation engine, so it is now reported as present.
+    # Stage 4 built the creation engine and Stage 5 the catalog, so both are
+    # reported as present; what is still owed must keep being reported absent.
     assert status["factory"] is True
-    assert status["capabilities"] is False
+    assert status["capabilities"] is True
     assert status["assignments"] is False
     assert status["resources"] is False
     assert status["monitoring"] is False
-    assert any("Stage 5" in n for n in status["notes"])
+    # Stage 5 discloses what it built alongside what it does not do yet.
+    assert any("no tool boundary calls check()" in n for n in status["notes"])
+    assert any("P-05" in n for n in status["notes"])
     assert any("Stage 6" in n for n in status["notes"])
     assert any("Stage 8" in n for n in status["notes"])
 
@@ -526,16 +577,16 @@ def test_the_subsystem_status_endpoint_reports_what_is_not_built(client):
     data = resp.json()["data"]
     assert data["enabled"] is True
     assert data["templates"] is True
-    # Stage 4 built the creation engine, so it is reported as present; the four
-    # that are still owed must keep being reported as absent.
+    # Stage 4 built the creation engine and Stage 5 the catalog, so both are
+    # reported as present; the three still owed must keep being reported absent.
     assert data["factory"] is True
-    assert data["capabilities"] is False
+    assert data["capabilities"] is True
     assert data["assignments"] is False
     assert data["resources"] is False
     assert data["monitoring"] is False
     # The stage this build is at, and the stages that own what is still absent.
-    assert "Stage 4" in data["stage"]
-    assert any("Stage 5" in n for n in data["notes"])
+    assert "Stage 5" in data["stage"]
+    assert any("P-05" in n for n in data["notes"])
     assert any("Stage 6" in n for n in data["notes"])
     assert any("Stage 8" in n for n in data["notes"])
 

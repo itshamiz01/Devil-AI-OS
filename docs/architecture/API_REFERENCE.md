@@ -175,8 +175,33 @@ Five behaviours are deliberate and differ from the obvious implementation:
 * **A `REJECT`, a `QUEUE` and a `REQUEST_OWNER_APPROVAL` are all `201`.** The resource created is the *recorded decision*, and those three are outcomes rather than failures. Reporting a refusal as an error would train a caller to treat a decision as a bug.
 * **The request is recorded before it is executed**, so a decision that fails halfway is still on the ledger instead of having silently not happened.
 * **A repeated `idempotency_key` replays the recorded outcome** (`replayed: true`) rather than deciding twice. Requests without a key never collide: the unique constraint allows any number of NULLs.
-* **The response states what it did not check.** `capability_catalog_checked: false` until Stage 5 populates the catalog, and `assignment_supported: false` because `ASSIGN_EXISTING` is declared in the vocabulary but never emitted — assignment validation is Stage 6.
+* **The response states what it did not check.** `capability_catalog_checked: true` since Stage 5, carrying the catalog size, the prohibition list, and a note naming what the check does *not* cover — no tool boundary calls `CapabilityService.check()` yet, because adapters are P-05 and assignment output contracts are Stage 6. `assignment_supported: false` because `ASSIGN_EXISTING` is declared in the vocabulary but never emitted — assignment validation is Stage 6.
 
 Architecture: [AGENT_TEMPLATES.md](AGENT_TEMPLATES.md) · [AGENT_FACTORY.md](AGENT_FACTORY.md) · [ADR-0024](../decisions/ADR-0024-EXTEND-AGENTS-NOT-A-SECOND-REGISTRY.md)
 
-The live surface after Stage 4 is **70 paths and 77 operations** (64 and 71 after Stage 3; 53 and 58 at the end of P-03). A `shared/openapi-p04.json` snapshot is written when the phase completes at Stage 10; the P-01, P-02 and P-03 snapshots are retained unchanged as historical evidence.
+### Agent capability endpoints (P-04 Stage 5)
+
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| GET | `/agent-capabilities/status` | `agents.capabilities.read` | Catalog size, counts by approval level, the prohibition list, the per-agent ceiling, and what is not enforced yet |
+| GET | `/agent-capabilities` | `agents.capabilities.read` | The catalog, most-restrictive level first; `category`, `risk_level`, `approval_level` and `enabled` filters |
+| GET | `/agent-capabilities/{capability_key}` | `agents.capabilities.read` | One entry, including why a prohibited one is prohibited |
+| GET | `/agents/{agent_id}/permissions` | `agents.capabilities.read` | What one agent holds. Nothing is implicit: an unlisted capability is not held, whatever the agent's template allows |
+| POST | `/agents/{agent_id}/permissions` | `agents.permissions.grant` | Grant one capability, or refuse and say why (`201`) |
+| POST | `/agents/{agent_id}/permissions/{permission_id}/revoke` | `agents.permissions.grant` | Revoke one grant, with a reason |
+
+Both codes derive into `OWNER_PERMISSIONS` and neither is in `SYSTEM_PERMISSIONS`, so the application cannot widen its own authority. Reading is separated from granting for the same reason as the factory split: an agent may need to know what a capability costs without being able to hold one, and granting does not imply reading — a principal holding only `agents.permissions.grant` gets `403` from the catalog endpoints. `/agent-capabilities/status` is declared before `/{capability_key}` so the literal path is never captured as a key.
+
+Deciding a level-2 grant is **not** here. It goes through the central `POST /approvals/{id}/decision` under the pre-existing `approvals.decide`, so the owner has one approval queue for every gated action rather than one per subsystem.
+
+Five behaviours are deliberate:
+
+* **The catalog is read-only over HTTP, and that is asserted.** A test walks the OpenAPI document and requires every `/agent-capabilities` path to expose `GET` only. A capability that could be added over HTTP could be added at level 0 by whoever holds the grant permission, and then the level a capability carries would depend on who asked. The catalog is code, reconciled at startup.
+* **A refusal is an error, not a `200` with a sad field in it.** `404 capability_not_found`, `403 capability_prohibited` (carrying the reason), `409 capability_disabled`, `409 agent_not_grantable`, `409 capability_conditions_unmet`, `403 capability_denied` for a self-grant. A caller must not be able to ignore a prohibition by not reading a field.
+* **A level-2 grant is `201` and `pending`.** The resource created is the grant record; the authority does not exist until the owner decides. `200` with an active grant would claim an authority nobody had approved.
+* **Granting is idempotent on agent, capability and scope**, returning `replayed: true`. Two rows for one authority is two authorities.
+* **The emergency stop blocks granting and never blocks revoking.** Removing authority is what an emergency calls for; a stop that prevented it would make the system less safe while stopped.
+
+Architecture: [AGENT_CAPABILITIES.md](AGENT_CAPABILITIES.md) · [AGENT_GOVERNANCE.md](AGENT_GOVERNANCE.md)
+
+The live surface after Stage 5 is **75 paths and 83 operations** (70 and 77 after Stage 4; 64 and 71 after Stage 3; 53 and 58 at the end of P-03). A `shared/openapi-p04.json` snapshot is written when the phase completes at Stage 10; the P-01, P-02 and P-03 snapshots are retained unchanged as historical evidence.

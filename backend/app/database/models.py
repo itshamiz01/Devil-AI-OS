@@ -8,6 +8,9 @@ from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, Stri
 from sqlalchemy import CheckConstraint
 from app.agents.lifecycle import STATES as _AGENT_STATES
 from app.agents.schemas import (
+    AGENT_PERMISSION_STATUSES,
+    CAPABILITY_ACCESS_CLASSES,
+    CAPABILITY_RISK_LEVELS,
     CREATION_APPROVAL_STATUSES as _CREATION_APPROVAL_STATUSES,
     CREATION_DECISIONS as _CREATION_DECISIONS,
 )
@@ -755,14 +758,34 @@ class AgentCapability(TimestampMixin, Base):
     capability_key: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     category: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    risk_level: Mapped[str] = mapped_column(String(32), nullable=False)
+    risk_level: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint(
+            "risk_level IN (%s)" % ", ".join("'%s'" % v for v in CAPABILITY_RISK_LEVELS),
+            name="ck_agent_capabilities_risk_level"),
+        nullable=False,
+    )
     approval_level: Mapped[int] = mapped_column(
         Integer, CheckConstraint("approval_level BETWEEN 0 AND 3", name="ck_agent_capabilities_approval_level"),
         default=0, server_default="0", nullable=False,
     )
-    access_class: Mapped[str] = mapped_column(String(16), default="read", nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    access_class: Mapped[str] = mapped_column(
+        String(16),
+        CheckConstraint(
+            "access_class IN (%s)" % ", ".join("'%s'" % v for v in CAPABILITY_ACCESS_CLASSES),
+            name="ck_agent_capabilities_access_class"),
+        default="read", server_default="read", nullable=False,
+    )
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", nullable=False)
+    #: A conditional capability that must be granted with a non-empty scope.
+    requires_scope: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False)
+    #: Why a level-3 capability is prohibited. Informational: the prohibition
+    #: itself is enforced from the code-level list in `app/agents/capabilities.py`,
+    #: so editing this row cannot lift it.
+    prohibited_reason: Mapped[str] = mapped_column(
+        Text, nullable=False, default="", server_default="")
 
 
 class AgentPermission(TimestampMixin, Base):
@@ -772,13 +795,18 @@ class AgentPermission(TimestampMixin, Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), nullable=False, index=True)
     capability_id: Mapped[str] = mapped_column(ForeignKey("agent_capabilities.id"), nullable=False, index=True)
-    scope: Mapped[str] = mapped_column(String(256), nullable=False, default="")
+    scope: Mapped[str] = mapped_column(String(256), nullable=False, default="", server_default="")
     approval_level: Mapped[int] = mapped_column(
         Integer, CheckConstraint("approval_level BETWEEN 0 AND 3", name="ck_agent_permissions_approval_level"),
         default=0, server_default="0", nullable=False,
     )
     approval_id: Mapped[str | None] = mapped_column(ForeignKey("approvals.id"))
-    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint(
+            "status IN (%s)" % ", ".join("'%s'" % v for v in AGENT_PERMISSION_STATUSES),
+            name="ck_agent_permissions_status"),
+        default="active", server_default="active", nullable=False, index=True)
     granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

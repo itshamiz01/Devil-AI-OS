@@ -47,6 +47,15 @@ EVENT_TYPES = {
     # every downstream count of agents that were made.
     "AgentCreationRequested","AgentCreated","AgentCreationQueued",
     "AgentCreationApprovalRequested","AgentCreationRejected",
+    # P-04 Dynamic Agent Factory, Stage 5. Authority changing hands is the most
+    # governance-relevant thing an agent system does, so grants, refusals and
+    # revocations are all published. A *denied* capability is published for the
+    # same reason a refused approval is: an attempt to widen authority that did
+    # not succeed is exactly what an owner wants to see afterwards.
+    # CapabilityCatalogChanged is published only when a reconciliation actually
+    # changed something, so a normal startup stays quiet.
+    "AgentCapabilityGranted","AgentCapabilityRevoked","AgentCapabilityDenied",
+    "AgentCapabilityApprovalRequested","CapabilityCatalogChanged",
 }
 
 

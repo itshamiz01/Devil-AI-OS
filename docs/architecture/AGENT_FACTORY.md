@@ -158,10 +158,10 @@ Verification performed for this stage:
 
 | Absent | Owner |
 |---|---|
-| Capability catalog cross-check — requested capabilities are checked against the template's allowed set only | Stage 5 |
-| Approval levels 0–3, prohibited actions, self-grant prevention on capabilities and permissions | Stage 5 |
 | `ASSIGN_EXISTING` execution, assignment rules, output contracts | Stage 6 |
 | Budgets, the shared inference semaphore, backpressure | Stage 7 |
 | Health states, idle detection, metrics, suspension and retirement endpoints, configuration rollback | Stage 8 |
+
+Two rows that used to be in this table are not, because Stage 5 delivered them: the capability catalog cross-check on requested capabilities, and approval levels 0–3 with prohibited actions and self-grant prevention. A creation decision now runs a `capabilities_governed` check after the template subset check, refusing a prohibited, unknown or disabled key outright and sending a level-2 key to `REQUEST_OWNER_APPROVAL`. See [AGENT_CAPABILITIES.md](AGENT_CAPABILITIES.md). What Stage 5 did **not** deliver is enforcement at a tool boundary: nothing calls `CapabilityService.check()` yet, because adapters are P-05 and assignment output contracts are Stage 6.
 
 Two consequences are worth stating plainly. **`REUSE_EXISTING` can only trigger on an agent that is already `ACTIVE` or `IDLE`**, and nothing sets `IDLE` until Stage 8 — so until then reuse matches agents that were created and left active. And **a creation decision cannot see a capability's approval level**, because no capability has one yet: the catalog is empty. `GET /agent-factory/status` reports `capability_catalog_checked: false` with a note naming Stage 5, so no decision can be read as a broader clearance than it is.

@@ -45,7 +45,12 @@ from ..core.exceptions import AppError, ConflictError, NotFoundError
 from ..database.connection import Database
 from ..database.repositories import AgentTemplateRepo
 from ..permissions.models import canonical_payload_hash
+from .catalog import BUILTIN_CATALOG, PROHIBITED_CAPABILITIES
 from .schemas import TemplateConfiguration
+
+#: Keyed once at import: the catalog is a module constant, so rebuilding the map
+#: per validation would be churn with no benefit.
+_CATALOG_BY_KEY = {entry.capability_key: entry for entry in BUILTIN_CATALOG}
 
 __all__ = [
     "TEMPLATE_TRANSITIONS",
@@ -242,6 +247,7 @@ class TemplateService:
                 raise NotFoundError("Template version not found",
                                     {"template_id": template_id, "version": number})
             issues, warnings = self._policy_check(row.configuration_json or {})
+            warnings.extend(self._catalog_warnings(row.configuration_json or {}))
             verdict = INVALID if issues else VALID
             details = {
                 "issues": issues,
@@ -249,13 +255,18 @@ class TemplateService:
                 "configuration_fingerprint": configuration_fingerprint(
                     template_id, row.configuration_json or {}),
                 "checks_performed": (
-                    "structure", "intent", "output_contract", "capability_duplicates"
+                    "structure", "intent", "output_contract", "capability_duplicates",
+                    "capability_catalog",
                 ),
-                "capability_catalog_checked": False,
+                "capability_catalog_checked": True,
                 "capability_catalog_note": (
-                    "the capability catalog is populated and governed in P-04 Stage 5; "
-                    "until then no capability key is cross-checked against it"
+                    "every allowed and restricted capability key was cross-checked "
+                    "against the code-defined catalog: a prohibited key is an issue, "
+                    "an unknown key is an issue, and a disabled key is a warning. "
+                    "This says nothing about whether an agent holds any of them - "
+                    "grants are separate and are governed by CapabilityService"
                 ),
+                "catalog_size": len(BUILTIN_CATALOG),
             }
             await repo.set_validation(row.id, verdict, details)
             await session.commit()
@@ -416,10 +427,60 @@ class TemplateService:
             duplicates = sorted({k for k in keys if keys.count(k) > 1})
             if duplicates:
                 issues.append(f"{field} lists duplicate keys: {', '.join(duplicates)}")
+        issues.extend(self._catalog_check(configuration))
         if not (configuration.get("allowed_capabilities") or []):
             warnings.append("the template grants no capability, so it can only be "
                             "assigned work that requires none")
         return issues, warnings
+
+    def _catalog_check(self, configuration: dict[str, Any]) -> list[str]:
+        """Cross-check capability keys against the catalog. Closes L-61.
+
+        Read from the code-level catalog rather than the table: the catalog is
+        defined in code and reconciled into the database at startup, so the code
+        is the authority and validating against it does not depend on a
+        reconciliation having already run.
+
+        A prohibited key in ``allowed_capabilities`` is an issue, not a warning —
+        a template that allows `spending.authorize` is a template that asks for
+        something no agent may ever hold, and publishing it would put that request
+        in front of an owner as though it were ordinary. The same key under
+        ``restricted_capabilities`` is fine: forbidding a prohibited capability is
+        redundant, not wrong. A key that exists but is disabled is a warning,
+        because a template may legitimately be written ahead of the subsystem that
+        will use it; it simply cannot be granted yet.
+        """
+        issues: list[str] = []
+        for key in configuration.get("allowed_capabilities") or []:
+            if key in PROHIBITED_CAPABILITIES:
+                entry = _CATALOG_BY_KEY.get(key)
+                why = entry.prohibited_reason if entry else (
+                    "it is on the code-level prohibition list")
+                issues.append(f"allowed_capabilities lists '{key}', which is "
+                              f"prohibited at approval level 3 and cannot be granted "
+                              f"to any agent: {why}")
+                continue
+            entry = _CATALOG_BY_KEY.get(key)
+            if entry is None:
+                issues.append(f"allowed_capabilities lists '{key}', which is not in "
+                              f"the capability catalog; the catalog is defined in "
+                              f"code, so an unknown key is a mistake rather than a "
+                              f"new capability")
+        for key in configuration.get("restricted_capabilities") or []:
+            if key not in _CATALOG_BY_KEY and key not in PROHIBITED_CAPABILITIES:
+                issues.append(f"restricted_capabilities lists '{key}', which is not "
+                              f"in the capability catalog")
+        return issues
+
+    def _catalog_warnings(self, configuration: dict[str, Any]) -> list[str]:
+        """Disabled capabilities a template asks for: grantable nowhere, yet."""
+        warnings: list[str] = []
+        for key in configuration.get("allowed_capabilities") or []:
+            entry = _CATALOG_BY_KEY.get(key)
+            if (entry is not None and not entry.enabled
+                    and key not in PROHIBITED_CAPABILITIES):
+                warnings.append(f"'{key}' is disabled in the catalog: {entry.description}")
+        return warnings
 
     def _assert_transition(self, current: str, target: str) -> None:
         if target not in TEMPLATE_TRANSITIONS.get(current, frozenset()):

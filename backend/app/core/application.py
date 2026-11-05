@@ -11,6 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from ..api.routes import (
+    agent_capabilities,
     agent_factory,
     agent_templates,
     agents,
@@ -263,8 +264,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for router in (
         auth.router, health.router, system.router, tasks.router, agents.router,
-        agent_templates.router, agent_factory.router, approvals.router,
-        events.router, intelligence.router, opportunities.router,
+        agent_templates.router, agent_factory.router,
+        agent_capabilities.router, approvals.router, events.router,
+        intelligence.router, opportunities.router,
     ):
         app.include_router(router, prefix="/api/v1")
     return app
