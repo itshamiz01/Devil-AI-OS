@@ -4,7 +4,24 @@
 
 ## 0. Sequencing finding (read first)
 
-**P-04 is not implemented.** It exists only as `docs/audits/P04_PRE_IMPLEMENTATION_AUDIT.md` and `P04_IMPLEMENTATION_PLAN.md` (commit `e17dbeb`, Stage 1 of 10). P-05 §2 and Stage 9 depend on P-04's agent registry extensions, capability registry, templates and lifecycle — **none of which exist as code**. Consequently P-05's capability-validation component has no persisted capability registry to consult today. This audit therefore plans P-05 against what exists (P-01–P-03) and marks every P-04 dependency explicitly; the owner must choose the sequencing (see §11).
+**Superseded 2026-11-05.** This finding was true when the audit was written and is
+no longer. P-04 Stages 1–6 are implemented at `862bd70`: the agent registry with an
+11-state lifecycle, versioned templates with validation verdicts, a creation engine
+with six deterministic decisions, a 29-entry capability catalog across four authority
+levels with governed grants, and an assignment ledger whose nine rules gate work
+before it is handed to an agent. **P-05's capability-validation component therefore
+has a real registry to consult** — `CapabilityService.check()` — and assignment rule 7
+already calls it, so the seam P-05's adapters need exists and is tested.
+
+What is still absent from P-04: Stage 7 (`resources.py` — budgets, the shared
+inference semaphore, backpressure) and Stage 8 (`monitoring.py`, `versioning.py` —
+health observation, metrics, suspension, configuration rollback). P-05's `scheduler.py`
+can use P-01's `SystemMonitor` directly, so Stage 7 is not a blocker for it; L-66/L-67
+record that nothing observes agent health or sets `IDLE` yet.
+
+**Owner decision 2026-11-05: build P-05 first, then P-06 in full.** That is §11's
+Option A with P-04 Stages 1–6 already in place, so capability checks consult a real
+registry and Stage 9 integration is genuine rather than stubbed.
 
 ## 1. Existing execution capabilities
 
@@ -19,11 +36,11 @@
 | Execution gating flags | `external_execution_enabled` / `financial_execution_enabled`, **default False** (P-01 phase flags) — the switches P-05 adapters must hang behind |
 | Work queue & idempotency | `TaskManager.submit…`, `tasks.idempotency_key`, `task_executions` |
 | Workflow schema precedent | `plans` / `plan_steps` with `depends_on`, `parallel_group`, `capability_id`, `risk`, `completion_criteria`, `validation_errors`, `supersedes_plan_id` |
-| Audit & events | `audit_events` (security-grade), `system_events` + 41-member `EVENT_TYPES` bus |
+| Audit & events | `audit_events` (security-grade), `system_events` + **58**-member `EVENT_TYPES` bus |
 | Emergency stop | `EmergencyController.activate/deactivate/is_active/load/state` + `TaskManager.apply_emergency_stop` |
-| Resource pressure | `SystemMonitor.snapshot/resource_pressure/admission_allowed`; ceilings `inference_max_concurrent`, `task_max_concurrency` |
+| Resource pressure | `app.monitoring.system_monitor.SystemMonitor` — verified to expose exactly `snapshot`, `resource_pressure`, `admission_allowed`; ceilings `inference_max_concurrent` (1) and `task_max_concurrency` (2) |
 | File integrity patterns | `backup.py` hashing/verification; atomic-ish snapshot-then-verify flow |
-| API conventions | `envelope()`, `require_permission`, `limit/offset`, structured errors; 53 paths / 58 ops today |
+| API conventions | `envelope()`, `require_permission`, `limit/offset`, structured errors subclassing `AppError` with a class-level `code`; **83 paths / 91 operations** |
 
 ## 3. Missing execution capabilities
 
@@ -31,7 +48,7 @@ Tool registry; execution policy engine; execution request/run/evidence records; 
 
 ## 4. Existing security controls
 
-Loopback-only bind with startup validation (`host`, `allow_remote_access`); owner authentication with session TTL and login rate limiting; server-side `require_permission` on every route; approval gating before sensitive tasks; deterministic emergency stop; prompt-injection detection (`PromptInjectionDetected`, `SourceRefused`); deny-all egress; no credential columns anywhere in the 34-table schema; phase flags defaulting to disabled.
+Loopback-only bind with startup validation (`host`, `allow_remote_access`); owner authentication with session TTL and login rate limiting; server-side `require_permission` on every route; approval gating before sensitive tasks; deterministic emergency stop; prompt-injection detection (`PromptInjectionDetected`, `SourceRefused`); deny-all egress; no credential columns anywhere in the **43**-table schema; phase flags defaulting to disabled (`external_execution_enabled` and `financial_execution_enabled` both verified `False`).
 
 ## 5. Vulnerabilities and limitations
 
@@ -43,7 +60,20 @@ Loopback-only bind with startup validation (`host`, `allow_remote_access`); owne
 
 ## 6. Existing agent-to-tool interfaces
 
-None. Agents today are rows in `agents` with a read-only API; nothing dispatches tools. P-02's `Orchestrator` converts plans into `TaskManager` submissions — that is the only agent→work path, and it is the seam P-05 should sit behind, not beside.
+No tool dispatch, but the agent→work path is no longer absent. Agents are created
+through `AgentFactory`, hold governed capability grants, and receive work through
+`AssignmentService.assign`, whose nine rules validate the task, the agent's state,
+delegation depth, business scope, held capabilities, template escalation and
+concurrency budget before a ledger row is written. P-02's `Orchestrator` converts
+plans into `TaskManager` submissions.
+
+So P-05 sits behind **two** existing seams, not beside either: an execution request
+should be tied to a task, and work reaching an agent has already passed assignment
+validation. What is still missing is the last hop — nothing turns an assignment into
+a tool invocation, because no adapter exists. `filesystem.read`, `filesystem.write`,
+`code.execute`, `execution.tool`, `external.network`, `browser.control` and
+`distribution.publish` are declared in the capability catalog and **disabled** pending
+this phase, which is the catalog already saying what P-05 owes.
 
 ## 7. Database requirements
 
@@ -51,7 +81,7 @@ The brief's ten logical tables reduce to **eight new tables**: `execution_reques
 
 ## 8. Required integrations
 
-P-01 tasks/approvals/emergency/permissions; P-02 `RiskLevel`, `ModelRouter`, prompt-injection handling; P-03 `HttpSourceAdapter` URL-validation precedent; **P-04 (absent)** capability registry, agent lifecycle, templates — Stage 9 cannot complete without it.
+P-01 tasks/approvals/emergency/permissions; P-02 `RiskLevel` (verified in `app.intelligence.engine` as `LOW, MODERATE, HIGH, CRITICAL`), `ModelRouter`, prompt-injection handling; P-03 `HttpSourceAdapter` URL-validation precedent; **P-04 (present through Stage 6)** capability catalog and `CapabilityService.check()`, agent lifecycle, versioned templates, creation decisions and the assignment ledger — so Stage 9 integration is genuine. Still absent: P-04 Stage 7 resource budgets and Stage 8 health observation.
 
 ## 9. Resource constraints
 
@@ -59,12 +89,23 @@ Sandbox (where tests run): 2 CPUs, 3.85 GiB RAM, no GPU. Target (brief): i7-4712
 
 ## 10. Compatibility risks
 
-Introducing `subprocess` is the first untrusted-process code in the codebase and must not weaken loopback/auth guarantees. New tables additive-only with `downgrade()`; `EVENT_TYPES` grows atomically; every new Settings key must pass `scripts/audit_config_docs.py`; the 521 existing tests must stay green; nothing may write outside managed workspace roots.
+Introducing `subprocess` is the first untrusted-process code in the codebase and must not weaken loopback/auth guarantees. New tables additive-only with `downgrade()`; `EVENT_TYPES` grows atomically; every new Settings key must pass `scripts/audit_config_docs.py`; the **838** existing tests must stay green (verified by collection at `3bc19ed`); nothing may write outside managed workspace roots; and the deliberately brittle chain-depth tripwire (`test_the_chain_is_nine_revisions_deep`) must be hand-bumped with the new revision's DDL review recorded in its docstring, never derived.
 
 ## 11. Proposed architecture and sequencing options
 
 `backend/app/execution/` as flat modules mirroring repository convention: `requests.py`, `policy.py`, `registry.py`, `adapters_fs.py`, `adapters_code.py`, `adapters_api.py`, `workflows.py`, `scheduler.py`, `evidence.py`, `recovery.py`, `schemas.py`; browser and desktop ship as **interface-only, disabled, documented** until verified on real hardware.
 
-- **Option A (recommended):** finish P-04 Stages 2–10 first, then P-05 — its capability checks then consult a real registry and Stage 9 is genuine.
-- **Option B:** build P-05 Stages 2–4 (core, policy, filesystem, code) against P-01 permission codes now, deferring Stage 9 and all agent-capability integration until P-04 lands; risk: two permission models to reconcile later.
-- **Option C:** P-05 fully now with stubbed P-04 seams — rejected: it would fake an integration, violating §30 and this project's evidence rules.
+- **Option A (recommended):** finish P-04 first, then P-05 — its capability checks
+  then consult a real registry and Stage 9 is genuine.
+- **Option B:** build P-05 Stages 2–4 against P-01 permission codes now, deferring
+  Stage 9 and all agent-capability integration; risk: two permission models to
+  reconcile later.
+- **Option C:** P-05 fully now with stubbed P-04 seams — rejected: it would fake an
+  integration, violating §30 and this project's evidence rules.
+
+**Chosen 2026-11-05: Option A**, and better than recommended — P-04 Stages 1–6 are
+already delivered, so Option A's benefit (a real capability registry) is available
+now without waiting for Stages 7–8, which P-05 does not need. Option B's risk of two
+permission models to reconcile does not arise: P-05 adds its seven codes to the same
+35-member catalog P-04 extended, add-only, owner-bootstrap, never in
+`SYSTEM_PERMISSIONS`.

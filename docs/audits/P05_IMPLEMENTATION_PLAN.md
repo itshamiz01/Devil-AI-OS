@@ -1,6 +1,52 @@
 # P-05 Implementation Plan: Universal Digital Execution Engine
 
-Companion to `P05_PRE_IMPLEMENTATION_AUDIT.md`. Conditional on the owner's sequencing choice (§11 of the audit); written so either Option A or B can proceed without rework.
+Companion to `P05_PRE_IMPLEMENTATION_AUDIT.md`. **Refreshed 2026-11-05** at
+`3bc19ed`: the owner chose Option A (P-05 first, then P-06 in full), and P-04
+Stages 1–6 are delivered, so the capability registry, agent lifecycle, versioned
+templates and assignment ledger this plan integrates with all exist as tested code.
+Counts below are the post-Stage-6 baseline, re-verified live rather than carried over
+from the 2026-11-04 draft.
+
+## 0. Unresolved contract inputs (blocking Stage 2)
+
+This plan was written from the P-05 brief, which is **not in the repository** —
+`docs/prompts/` holds only `P-00_EXECUTION_CONTRACT.md`. Several enumerations the
+plan depends on are therefore referenced by section number without their contents,
+and Stage 2 cannot be written honestly until they are supplied. What follows is the
+exact gap, itemised, with what *is* recoverable so the ask is as small as possible.
+
+**Recoverable from this plan and the audit — no input needed:**
+
+* The nine tables and the two deliberately not created (§3).
+* Risk mapping: Risk 0→`LOW`, 1→`MODERATE`, 2→`HIGH` (approval via `approvals`),
+  3→`CRITICAL` (hard reject, no approval path), over the existing
+  `app.intelligence.engine.RiskLevel` — verified live as exactly those four members.
+* The seven permission codes (§4) and the API operation counts: requests 5, tools 5,
+  files 6, code 3, api 1, workflows 8, monitoring/evidence/audit 4.
+* The staging order and which stages are disabled with reasons (§8).
+* The security controls (§6) and the adapter re-check list (§5).
+* The gating flags, verified live: `external_execution_enabled` and
+  `financial_execution_enabled`, both default `False`.
+
+**Not recoverable — required before Stage 2 can be written:**
+
+| Missing | Where it is referenced | Why it blocks |
+|---|---|---|
+| **The 14 execution outcomes.** Only three are named anywhere: `UNSUPPORTED_BY_ENVIRONMENT`, `COMPLETED_WITH_WARNINGS`, `REQUIRES_RECONCILIATION`. Eleven are not. | §1 (`schemas.py` — "request/run/outcome models, the 14 outcomes"), §2 | This is the return contract every adapter, every run row, every test and every API response carries. Inventing eleven status names would propagate through all eleven stages and every later phase that reads an execution result. |
+| **The tool lifecycle states** after `REGISTERED → AVAILABLE → …` | §1 (`registry.py`) | The registry's CHECK constraint and its health gates are built from this vocabulary. |
+| **The content of the 17-step execution lifecycle.** Only the step *boundaries* are recoverable (submit 1–9, scheduler 10–11, adapter 11–12, evidence 13, verify 14–16, audit 17), not what each step requires. | §2 | `requests.submit` must implement steps 1–9 in order; without them the ordering of validation, capability, risk and approval checks is a guess. |
+| **The 18 security assertions of §25.3** | §7 ("each map to a named test") | Stage 11's security test module is specified as one named test per assertion. |
+| **§26's performance rules** | audit §5.4 cites them as the reason browser automation is heavyweight | Needed to justify the concurrency caps and the disabled browser adapter with the brief's own rule rather than only mine. |
+
+**Deliberate decision:** Stage 2 will not proceed by inventing these. The P-04
+precedent is recorded in `docs/architecture/AGENT_ASSIGNMENTS.md` §1, where the nine
+assignment rules were missing from the repository: they were reconstructed from
+documented sources *and each rule was made to name its source*, so a difference from
+the owner's list is a visible documentation fix rather than a buried assumption. That
+worked because the governance document and the schema supplied enough evidence to
+derive nine defensible rules. Here the evidence supplies three outcome names out of
+fourteen, which is not enough to derive the rest — a guessed outcome vocabulary is
+worse than a stated gap, because every adapter and test would then encode the guess.
 
 ## 1. Architecture
 
@@ -12,7 +58,7 @@ The 17-step lifecycle of §4 maps onto: `requests.submit` (steps 1–9) → `sch
 
 ## 3. Database changes
 
-Additive migration after `72ee9705e18f` (+ any P-04 revision if Option A): `execution_requests`, `execution_tools`, `execution_runs`, `execution_evidence`, `execution_workspaces`, `browser_sessions`, `workflow_definitions`, `workflow_runs`, `workflow_step_runs`. **Not created:** `execution_approvals` (→ `approvals`), `execution_audit_events` (→ `audit_events`/`system_events`). Constraints: unique idempotency keys, CHECK on status enums, FKs to `tasks`/`agents`/`approvals`, indexes on request/run/agent, `server_default` on new NOT NULL columns, populated-DB round-trip test, implemented `downgrade()`.
+Additive migration after **`d577d056a63b`** (the P-04 Stage 6 head; the chain is nine revisions deep and becomes ten): `execution_requests`, `execution_tools`, `execution_runs`, `execution_evidence`, `execution_workspaces`, `browser_sessions`, `workflow_definitions`, `workflow_runs`, `workflow_step_runs`. **Not created:** `execution_approvals` (→ `approvals`), `execution_audit_events` (→ `audit_events`/`system_events`). Constraints: unique idempotency keys, CHECK on status enums, FKs to `tasks`/`agents`/`approvals`, indexes on request/run/agent, `server_default` on new NOT NULL columns, populated-DB round-trip test, implemented `downgrade()`.
 
 ## 4. API surface
 
@@ -28,7 +74,7 @@ Path validation by resolved-path containment (not prefix strings), symlink/junct
 
 ## 7. Testing strategy
 
-New modules `test_execution_requests.py`, `test_execution_policy.py`, `test_execution_fs.py`, `test_execution_code.py`, `test_execution_api.py`, `test_execution_workflows.py`, `test_execution_security.py`, `test_execution_api_routes.py`. Deterministic: `NoRuntimeProvider`, local `httpx.MockTransport`-style stubs or a loopback `uvicorn` test server for the API adapter, `tmp_path` workspaces. The 18 security assertions of §25.3 each map to a named test; symlink and traversal tests create real links in `tmp_path`; timeout test runs a sleeper and asserts termination. 521 pre-existing tests stay green at every stage commit.
+New modules `test_execution_requests.py`, `test_execution_policy.py`, `test_execution_fs.py`, `test_execution_code.py`, `test_execution_api.py`, `test_execution_workflows.py`, `test_execution_security.py`, `test_execution_api_routes.py`. Deterministic: `NoRuntimeProvider`, local `httpx.MockTransport`-style stubs or a loopback `uvicorn` test server for the API adapter, `tmp_path` workspaces. The 18 security assertions of §25.3 each map to a named test; symlink and traversal tests create real links in `tmp_path`; timeout test runs a sleeper and asserts termination. **838** pre-existing tests stay green at every stage commit (verified by collection).
 
 ## 8. Migration, rollback, staging
 
