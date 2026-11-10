@@ -1,31 +1,27 @@
+"""Retry policy: exponential backoff + eligibility (P-01 §7.4)."""
 from __future__ import annotations
 
-import asyncio
-import logging
-
-logger = logging.getLogger(__name__)
+from .models import NON_RETRYABLE_KINDS, ErrorKind
 
 
-class RetryScheduler:
-    def __init__(self, manager, poll_interval: float):
-        self.manager = manager
-        self.poll_interval = poll_interval
-        self._task: asyncio.Task | None = None
+def backoff_delay(attempt: int, base: float, maximum: float) -> float:
+    """Delay before retry number ``attempt`` (1-based)."""
+    if attempt < 1:
+        attempt = 1
+    return min(base * (2 ** (attempt - 1)), maximum)
 
-    async def start(self) -> None:
-        self._task = asyncio.create_task(self._run(), name="retry-scheduler")
 
-    async def _run(self) -> None:
-        while self.manager.accepting:
-            try:
-                await self.manager.promote_due_retries()
-                await self.manager.expire_stale_approvals()
-            except Exception:
-                logger.exception("Retry scheduler tick failed", extra={"component": "tasks"})
-            await asyncio.sleep(self.poll_interval)
+def is_retryable(kind: ErrorKind) -> bool:
+    return kind not in NON_RETRYABLE_KINDS
 
-    async def stop(self) -> None:
-        if self._task:
-            self._task.cancel()
-            try: await self._task
-            except asyncio.CancelledError: pass
+
+def classify_exception(exc: BaseException) -> ErrorKind:
+    from .models import TaskExecutionError
+
+    if isinstance(exc, TaskExecutionError):
+        return exc.kind
+    if isinstance(exc, TimeoutError):
+        return ErrorKind.TIMEOUT
+    if isinstance(exc, (ValueError, KeyError, TypeError)):
+        return ErrorKind.INVALID_INPUT
+    return ErrorKind.UNKNOWN

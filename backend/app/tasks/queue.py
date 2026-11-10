@@ -1,33 +1,51 @@
+"""Bounded queue accounting (P-01 §7.3).
+
+The durable queue is the ``tasks`` table (statuses queued/retry_pending);
+this helper enforces capacity/backpressure and reports ordering stats.
+Ordering itself (priority desc, FIFO within equal priority) is applied by
+``TaskRepository.due_tasks``.
+"""
 from __future__ import annotations
 
-import asyncio
-import itertools
-from dataclasses import dataclass, field
+from ..database.repositories.core import TaskRepository
+
+ACTIVE_STATUSES = ("queued", "retry_pending", "validating", "waiting_for_approval")
 
 
-@dataclass(order=True)
-class QueueItem:
-    priority: int
-    sequence: int
-    task_id: str = field(compare=False)
+class QueueStats:
+    def __init__(self, session_factory, capacity: int):
+        self._session_factory = session_factory
+        self.capacity = capacity
 
+    def depth(self) -> int:
+        session = self._session_factory()
+        try:
+            repo = TaskRepository(session)
+            return sum(repo.count_by_status(s) for s in ACTIVE_STATUSES)
+        finally:
+            session.close()
 
-class BoundedPriorityQueue:
-    def __init__(self, capacity: int):
-        self._queue: asyncio.PriorityQueue[QueueItem] = asyncio.PriorityQueue(maxsize=capacity)
-        self._counter = itertools.count()
+    def running(self) -> int:
+        session = self._session_factory()
+        try:
+            return TaskRepository(session).count_by_status("running")
+        finally:
+            session.close()
 
-    def put_nowait(self, priority: int, task_id: str) -> None:
-        self._queue.put_nowait(QueueItem(priority, next(self._counter), task_id))
+    def has_capacity(self) -> bool:
+        return self.depth() < self.capacity
 
-    async def get(self) -> QueueItem:
-        return await self._queue.get()
-
-    def task_done(self) -> None:
-        self._queue.task_done()
-
-    def qsize(self) -> int:
-        return self._queue.qsize()
-
-    def full(self) -> bool:
-        return self._queue.full()
+    def snapshot(self) -> dict:
+        session = self._session_factory()
+        try:
+            repo = TaskRepository(session)
+            by_status = {}
+            for status in ("created", "validating", "queued", "running", "completed", "failed",
+                           "cancelled", "paused", "waiting_for_approval", "retry_pending"):
+                count = repo.count_by_status(status)
+                if count:
+                    by_status[status] = count
+            return {"capacity": self.capacity, "depth": self.depth(),
+                    "running": by_status.get("running", 0), "by_status": by_status}
+        finally:
+            session.close()

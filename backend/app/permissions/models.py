@@ -1,46 +1,51 @@
+"""Principal and permission vocabulary (P-01 §9.1–9.2)."""
 from __future__ import annotations
 
-import hashlib
-import json
-from datetime import datetime
-from typing import Any, Literal
-
-from pydantic import BaseModel, ConfigDict, Field
+import enum
+from dataclasses import dataclass, field
 
 
-def canonical_payload_hash(action: str, resource: str, permissions: list[str], parameters: dict[str, Any]) -> str:
-    canonical = json.dumps({"action": action, "resource": resource, "permissions": sorted(permissions), "parameters": parameters}, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(canonical.encode()).hexdigest()
+class PrincipalType(str, enum.Enum):
+    OWNER = "owner"
+    SYSTEM = "system"
+    AGENT = "agent"
+    SERVICE = "service"
+    EXTERNAL = "external"
 
 
-class ApprovalCreateRequest(BaseModel):
-    action: str = Field(min_length=1, max_length=128)
-    resource: str = Field(min_length=1, max_length=256)
-    risk: Literal["low", "medium", "high", "critical"] = "medium"
-    reason: str = Field(min_length=1, max_length=2000)
-    requested_permissions: list[str] = Field(default_factory=list, max_length=32)
-    parameters: dict[str, Any] = Field(default_factory=dict)
-    ttl_seconds: int = Field(default=3600, ge=60, le=86400)
+class Permission(str, enum.Enum):
+    READ_SYSTEM_DATA = "read_system_data"
+    WRITE_SYSTEM_DATA = "write_system_data"
+    SUBMIT_TASKS = "submit_tasks"
+    CANCEL_TASKS = "cancel_tasks"
+    EXECUTE_TOOLS = "execute_tools"
+    READ_BUSINESS_DATA = "read_business_data"
+    MODIFY_BUSINESS_DATA = "modify_business_data"
+    ACCESS_SENSITIVE_DATA = "access_sensitive_data"
+    REQUEST_FINANCIAL_OPERATIONS = "request_financial_operations"
+    APPROVE_ACTIONS = "approve_actions"
+    MODIFY_SYSTEM_CONFIG = "modify_system_config"
+    MANAGE_AGENTS = "manage_agents"
 
 
-class ApprovalDecisionRequest(BaseModel):
-    decision: Literal["approved", "rejected"]
-    notes: str = Field(default="", max_length=2000)
+ALL_PERMISSIONS = [p.value for p in Permission]
 
 
-class ApprovalView(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+@dataclass(frozen=True)
+class Principal:
+    type: PrincipalType
     id: str
-    requester_id: str
-    action: str
-    resource: str
-    risk: str
+    name: str = ""
+
+    def __post_init__(self):
+        if not self.id:
+            raise ValueError("principal id must not be empty")
+
+
+@dataclass
+class AuthorizationDecision:
+    allowed: bool
     reason: str
-    requested_permissions: list[str]
-    payload_hash: str
-    status: str
-    approver_id: str | None
-    created_at: datetime
-    expires_at: datetime
-    decided_at: datetime | None
-    notes: str | None
+    matched_rule: str | None = None
+    requires_approval: bool = False
+    details: dict = field(default_factory=dict)
