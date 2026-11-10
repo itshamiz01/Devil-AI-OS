@@ -46,6 +46,7 @@ from .schemas import (
 __all__ = [
     "REGISTRY_ACTION",
     "BUILTIN_TOOLS",
+    "BUILTIN_CODE_TOOLS",
     "ToolNotFoundError",
     "ToolRegistrationError",
     "ToolTransitionError",
@@ -158,6 +159,39 @@ BUILTIN_FS_TOOLS: tuple[dict[str, Any], ...] = (
         "capability_requirements": ["filesystem.write"],
         "risk_level": 1,
         "required_approval_level": 0,
+        "supported_platforms": ["linux", "windows"],
+    },
+)
+
+#: Stage 4's code tool. One tool, one capability: `code.execute`. The single
+#: action is `run`, which executes a program in the allow-listed interpreter
+#: inside the agent's workspace. Risk 2 / approval 2: arbitrary code has a wider
+#: blast radius than a file write - it can read, write, fork and import anything
+#: the interpreter can reach - and §30 rule 22 says untrusted code must not run
+#: without a control this environment cannot provide (a real OS sandbox). What
+#: stands in for that control is the owner-approval gate: every code run is
+#: held for a human decision, and the `isolation_strength` field says plainly
+#: that the isolation behind it is a subprocess with a timeout, not a sandbox.
+#: Validation (gate 5) refuses to make this tool available unless the
+#: isolation_strength is declared - an undeclared strength is an unverified one.
+BUILTIN_CODE_TOOLS: tuple[dict[str, Any], ...] = (
+    {
+        "name": "code.execute",
+        "description": "Run a program in the allow-listed interpreter inside "
+                       "the agent's workspace, under a wall-clock timeout with "
+                       "capped output. Isolation is self-labelled weak: a "
+                       "subprocess with a timeout, gated by owner approval.",
+        "category": "code",
+        "adapter_type": "code",
+        "version": "1.0.0",
+        "supported_actions": ["run"],
+        "capability_requirements": ["code.execute"],
+        "risk_level": 2,
+        "required_approval_level": 2,
+        #: §30 rule 22: what isolation was *verified*, in words. The code
+        #: adapter reports this on every run; the registry stores it so the
+        #: validation gate can confirm it was declared rather than assumed.
+        "isolation_strength": "subprocess-with-timeout (weak)",
         "supported_platforms": ["linux", "windows"],
     },
 )
@@ -394,6 +428,37 @@ class ToolRegistry:
             repo = ExecutionToolRepo(session)
             for definition in BUILTIN_FS_TOOLS:
                 row = await repo.by_name_version(definition["name"], definition["version"])
+                if row is None:
+                    continue
+                # Already AVAILABLE from a previous start: the gate was run and
+                # passed, and the transition graph has no AVAILABLE ->
+                # VALIDATING edge, so re-running it would be an error rather
+                # than a no-op. Report the persisted state.
+                if row.status == "AVAILABLE":
+                    result[definition["name"]] = "AVAILABLE"
+                    continue
+                verdict = await self.validate_tool(row.id)
+                result[definition["name"]] = verdict.status
+
+    async def validate_builtin_code_tools(self) -> dict[str, str]:
+        """Run the validation gates over the code tool, once per start.
+
+        The code tool is registered at startup as REGISTERED and made
+        AVAILABLE here only if every gate passes - including gate 5, which
+        refuses to make a code tool available unless its `isolation_strength`
+        is declared (§30 rule 22: an undeclared strength is an unverified one).
+        Because this environment can run the interpreter but cannot verify a
+        real sandbox, the tool's declared strength is "subprocess-with-timeout
+        (weak)" and the Risk 2 / approval 2 class holds every run for an owner
+        decision. If validation fails the tool is DISABLED with the reasons
+        recorded, and the subsystem status reports it honestly.
+        """
+        result: dict[str, str] = {}
+        async with self.db.session_factory() as session:
+            repo = ExecutionToolRepo(session)
+            for definition in BUILTIN_CODE_TOOLS:
+                row = await repo.by_name_version(definition["name"],
+                                                 definition["version"])
                 if row is None:
                     continue
                 # Already AVAILABLE from a previous start: the gate was run and

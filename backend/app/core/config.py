@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
@@ -164,6 +165,14 @@ class Settings(BaseSettings):
     execution_workspace_root: Path = BASE_DIR / "data" / "workspaces"
     execution_fs_read_cap_bytes: int = Field(default=1_048_576, ge=1024, le=16_777_216)
     execution_fs_write_cap_bytes: int = Field(default=1_048_576, ge=1024, le=16_777_216)
+    # Stage 4 (code adapter): the code adapter runs a single allow-listed
+    # interpreter. Only this executable is ever spawned, and it is resolved at
+    # startup; a request cannot name a different interpreter, so "run code"
+    # cannot mean "run a binary of the requester's choosing". The interpreter
+    # defaults to the interpreter running the engine itself.
+    execution_code_interpreter: Path = Path(sys.executable)
+    execution_code_timeout_seconds: int = Field(default=20, ge=1, le=300)
+    execution_code_output_cap_bytes: int = Field(default=65536, ge=1024, le=1_048_576)
 
     @field_validator("host")
     @classmethod

@@ -181,11 +181,11 @@ def test_status_reports_the_stage_and_its_gaps(client):
     assert resp.status_code == 200
     body = resp.json()["data"]
     assert body["policy"] is True and body["tool_registry"] is True
-    # Stage 3: the filesystem adapter exists and drains; the code, api,
+    # Stage 4: the filesystem and code adapters exist and drain; the api,
     # document and data adapters still do not, and browser/desktop stay
     # disabled with their reasons.
     assert body["adapters"]["filesystem"] is True
-    assert body["adapters"]["code"] is False
+    assert body["adapters"]["code"] is True
     assert body["adapters"]["api"] is False
     assert body["adapters"]["browser"].startswith("disabled")
     assert body["scheduler"] is True

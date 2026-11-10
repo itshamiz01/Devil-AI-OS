@@ -28,8 +28,9 @@ from ..database.connection import Database
 from ..database.repositories import ExecutionRequestRepo, ExecutionToolRepo
 from ..events.bus import EventBus
 from .adapters_fs import FilesystemAdapter
+from .adapters_code import CodeAdapter
 from .policy import ExecutionPolicy
-from .registry import BUILTIN_FS_TOOLS, ToolRegistry
+from .registry import BUILTIN_CODE_TOOLS, BUILTIN_FS_TOOLS, ToolRegistry
 from .requests import ExecutionRequestService
 from .scheduler import ExecutionScheduler
 
@@ -57,13 +58,13 @@ class ExecutionServices:
         """What is assembled, and what is deliberately not yet."""
         return {
             "enabled": True,
-            "stage": "P-05 Stage 3 (execution core + filesystem adapter)",
+            "stage": "P-05 Stage 4 (execution core + filesystem and code adapters)",
             "policy": True,
             "tool_registry": True,
             "request_manager": True,
             "adapters": {
                 "filesystem": True,
-                "code": False,
+                "code": True,
                 "api": False,
                 "document": False,
                 "data": False,
@@ -92,14 +93,15 @@ def build_execution(settings: Settings, db: Database, bus: EventBus | None = Non
     registry = ToolRegistry(db, settings, bus=bus)
     requests = ExecutionRequestService(db, settings, policy=policy,
                                        approvals=approvals, bus=bus)
-    adapters = {"filesystem": FilesystemAdapter(db, settings, bus=bus)}
+    adapters = {"filesystem": FilesystemAdapter(db, settings, bus=bus),
+                "code": CodeAdapter(db, settings, bus=bus)}
     scheduler = ExecutionScheduler(db, settings, policy=policy,
                                    adapters=adapters, bus=bus)
     notes = [
-        "Stage 3 runs filesystem requests: submitted requests are policy-"
-        "checked, then drained by the scheduler, which executes them and "
-        "records the run. Requests for adapters that do not exist yet (code, "
-        "api) stay queued until Stages 4-7 land them",
+        "Stage 4 runs filesystem and code requests: submitted requests are "
+        "policy-checked, then drained by the scheduler, which executes them "
+        "and records the run. Requests for adapters that do not exist yet "
+        "(api, document, data) stay queued until Stages 5-7 land them",
         "risk is computed by the policy engine from the tool and the action; "
         "a request cannot declare its own risk class, and a prohibited action "
         "is refused with no approval path",
@@ -111,10 +113,17 @@ def build_execution(settings: Settings, db: Database, bus: EventBus | None = Non
         "display and no Windows UI Automation",
         "the execution capability entries in the P-04 catalog (filesystem.read, "
         "filesystem.write) are enabled by Stage 3 because the filesystem "
-        "adapter that exercises them exists; code.execute, execution.tool, "
+        "adapter that exercises them exists, and code.execute is enabled by "
+        "Stage 4 because the code adapter exists; execution.tool, "
         "external.network and browser.control remain disabled until their "
         "adapters land, so capability checks refuse them honestly rather than "
         "admitting work nobody can perform",
+        "the code adapter runs a single allow-listed interpreter inside the "
+        "agent's workspace under a wall-clock timeout with capped output, and "
+        "self-labels its isolation as 'subprocess-with-timeout (weak)': no OS "
+        "sandbox is verifiable here (§30 rule 22), so the code tool is Risk 2 "
+        "and requires owner approval on every run, and that human gate is the "
+        "control standing in for the isolation this environment cannot provide",
         "external execution is locked off by the P-01 settings validator "
         "(AUTONOMUS_EXTERNAL_EXECUTION_ENABLED cannot be enabled), so api and "
         "browser adapters fail policy in this build by construction",
@@ -136,6 +145,8 @@ async def initialize(services: ExecutionServices) -> dict[str, Any]:
     reconciled = await services.registry.reconcile_builtin_tools()
     fs_reconciled = await services.registry.reconcile_builtin_tools(BUILTIN_FS_TOOLS)
     await services.registry.validate_builtin_fs_tools()
+    code_reconciled = await services.registry.reconcile_builtin_tools(BUILTIN_CODE_TOOLS)
+    await services.registry.validate_builtin_code_tools()
     async with services.db.session_factory() as session:
         tools = await ExecutionToolRepo(session).count()
         requests = await ExecutionRequestRepo(session).count()
@@ -146,6 +157,8 @@ async def initialize(services: ExecutionServices) -> dict[str, Any]:
         "builtin_existing": reconciled["existing"],
         "fs_tools_created": fs_reconciled["created"],
         "fs_tools_existing": fs_reconciled["existing"],
+        "code_tools_created": code_reconciled["created"],
+        "code_tools_existing": code_reconciled["existing"],
         "requests": requests,
         "requests_queued": by_status.get("QUEUED", 0),
         "requests_awaiting_approval": by_status.get("AWAITING_APPROVAL", 0),

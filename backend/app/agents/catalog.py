@@ -151,8 +151,10 @@ BUILTIN_CATALOG: tuple[CapabilityDefinition, ...] = (
          "atomically and quarantines deletes; scope is the workspace name.",
          requires_scope=True),
     _cap("code.execute", "Execute code", "execution", _L2, "execute",
-         "Run generated code in a sandbox. Disabled: the code-execution adapter is "
-         "P-05, and its sandbox is self-labelled weak.", enabled=False),
+         "Run generated code in the allow-listed interpreter inside the agent's "
+         "workspace, under a wall-clock timeout with capped output. Isolation is "
+         "self-labelled weak (subprocess-with-timeout), so every run is Risk 2 and "
+         "held for owner approval (§30 rule 22).", requires_scope=True),
     _cap("browser.control", "Drive a browser", "execution", _L2, "execute",
          "Drive a browser session. Disabled: the browser adapter ships "
          "interface-only in P-05.", enabled=False),

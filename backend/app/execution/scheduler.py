@@ -214,6 +214,14 @@ class ExecutionScheduler:
         outcome = result.get("outcome", "COMPLETED")
         run.status = outcome
         run.result_summary = str(result)[:2000]
+        # An adapter that returns an exit code and resource usage (the code
+        # adapter does) gets those recorded on the run row rather than buried
+        # in the summary string: §6 wants what was executed and what it cost
+        # to be readable without parsing a serialised dict.
+        if "exit_code" in result:
+            run.exit_code = result.get("exit_code")
+        if "resource_usage" in result:
+            run.resource_usage = dict(result.get("resource_usage") or {})
         run.completed_at = utcnow()
         session.add(run)
         await repo.update(row, status=outcome, completed_at=utcnow())

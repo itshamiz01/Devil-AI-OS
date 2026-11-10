@@ -260,6 +260,9 @@ Architecture: [EXECUTION_POLICY_MODEL.md](EXECUTION_POLICY_MODEL.md)
 | POST | `/api/v1/execution/files/create_dir` | `execution.submit` | Create a directory inside a workspace |
 | POST | `/api/v1/execution/files/move` | `execution.submit` | Move a file within the workspace |
 | POST | `/api/v1/execution/files/delete` | `execution.submit` | Quarantine-reversible delete |
+| POST | `/api/v1/execution/code/run` | `execution.code.run` | Run a program in the allow-listed interpreter; runs synchronously when admitted |
+| GET | `/api/v1/execution/code/runs` | `execution.read` | The ledger of code runs and their outcomes |
+| GET | `/api/v1/execution/code/runs/{run_id}` | `execution.read` | One code run, with its exit code, output and isolation strength |
 
 Deliberate behaviours:
 
@@ -287,6 +290,16 @@ Deliberate behaviours:
   path, a drive letter, a symlink escaping the root, or a symlinked *parent*
   of a new file is refused with `FAILED` / `workspace_escape`. The boundary
   is the realpath'd workspace root, not a prefix string.
+* **Code runs in an allow-listed interpreter and self-label their isolation
+  as weak.** `POST /execution/code/run` spawns one executable (default: the
+  engine's own interpreter), never a binary the requester names; the child
+  gets a minimal environment (never the engine's secrets), capped output, and
+  a wall-clock timeout that kills the whole process group. Because no OS
+  sandbox is verifiable here (§30 rule 22), the code tool is Risk 2 and every
+  run is held for owner approval: an unapproved run returns at
+  `AWAITING_APPROVAL` and is not executed, and the run's `isolation_strength`
+  records `"subprocess-with-timeout (weak)"` so no stronger claim is made than
+  what was verified.
 * **Browser and desktop routes are not registered.** Their adapters cannot run
   in this environment; an endpoint that cannot work must not exist. The tools
   are in the registry, DISABLED, with the reasons recorded.
