@@ -1,0 +1,58 @@
+........................................................................ [  9%]
+........................................................................ [ 18%]
+........................................................................ [ 27%]
+........................................................................ [ 36%]
+........................................................................ [ 46%]
+........................................................................ [ 55%]
+........................................................................ [ 64%]
+........................................................................ [ 73%]
+........................................................................ [ 82%]
+........................................................................ [ 92%]
+.............................................................            [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/hatch/workspace/projects/autonomus-ai-os/backend/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_p12_security.py::test_unregistered_handler_is_rejected_at_validation
+  tests/test_p12_security.py:24: PytestWarning: The test <Function test_unregistered_handler_is_rejected_at_validation> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_unregistered_handler_is_rejected_at_validation(app_ops):
+
+tests/test_p12_security.py::test_unclassified_action_is_rejected_at_validation
+  tests/test_p12_security.py:36: PytestWarning: The test <Function test_unclassified_action_is_rejected_at_validation> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_unclassified_action_is_rejected_at_validation(app_ops):
+
+tests/test_p12_security.py::test_raw_llm_instruction_kind_is_rejected
+  tests/test_p12_security.py:42: PytestWarning: The test <Function test_raw_llm_instruction_kind_is_rejected> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_raw_llm_instruction_kind_is_rejected(app_ops):
+
+tests/test_p12_security.py::test_workflow_payload_cannot_carry_code
+  tests/test_p12_security.py:53: PytestWarning: The test <Function test_workflow_payload_cannot_carry_code> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_workflow_payload_cannot_carry_code(app_ops):
+
+tests/test_p12_security.py::test_settings_writes_are_owner_only
+  tests/test_p12_security.py:150: PytestWarning: The test <Function test_settings_writes_are_owner_only> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_settings_writes_are_owner_only(app_ops):
+
+tests/test_p13_integration.py::test_p13_migration_cycle
+  tests/test_p13_integration.py:18: PytestWarning: The test <Function test_p13_migration_cycle> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_p13_migration_cycle(tmp_path):
+
+tests/test_p13_integration.py::test_p13_metadata_registers_exactly_nineteen_new_tables
+  tests/test_p13_integration.py:43: PytestWarning: The test <Function test_p13_metadata_registers_exactly_nineteen_new_tables> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_p13_metadata_registers_exactly_nineteen_new_tables():
+
+tests/test_p13_integration.py::test_portfolio_http_round_trip
+  tests/test_p13_integration.py:279: PytestWarning: The test <Function test_portfolio_http_round_trip> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_portfolio_http_round_trip(client_portfolio):
+
+tests/test_p13_integration.py::test_portfolio_http_requires_auth
+  tests/test_p13_integration.py:301: PytestWarning: The test <Function test_portfolio_http_requires_auth> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_portfolio_http_requires_auth(client_portfolio):
+
+tests/test_p13_scenarios.py::test_scenario_17_command_center_displays_portfolio
+  tests/test_p13_scenarios.py:512: PytestWarning: The test <Function test_scenario_17_command_center_displays_portfolio> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_scenario_17_command_center_displays_portfolio(client_portfolio):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+781 passed, 11 warnings in 561.68s (0:09:21)

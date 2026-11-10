@@ -1,0 +1,33 @@
+== Expansion Feature 1 smoke: Identity & Device Security ==
+  [PASS] server ready 
+  [PASS] migration head is F01 (85b7a9805207)
+  [PASS] 226 physical tables (226)
+owner login succeeded on attempt 1
+  [PASS] enrol returns 201 
+  [PASS] new device is untrusted 
+  [PASS] device secret shown at enrolment 
+  [PASS] device list shows the device 
+  [PASS] list never leaks secret or hash 
+  [PASS] login refused while device untrusted 
+  [PASS] owner trusts the device 
+  [PASS] login refused with a bad device secret 
+  [PASS] device-bound login succeeds 
+  [PASS] bound token resolves 
+  [PASS] session list shows the device binding 
+  [PASS] recovery batch generated 
+  [PASS] recovery status counts only (no codes) 
+  [PASS] first use of a code verifies 
+  [PASS] the same code never verifies twice 
+  [PASS] rotation returns a fresh secret once 
+  [PASS] rotation killed the previously bound session 
+  [PASS] old secret refused after rotation 
+  [PASS] new secret binds a session 
+  [PASS] owner revokes the device 
+  [PASS] revocation killed the bound session 
+  [PASS] login refused for a revoked device 
+  [PASS] a revoked device cannot be trusted again 
+  [PASS] audit trail records the device lifecycle ([] missing)
+  [PASS] audit trail records recovery-code events 
+  [PASS] Command Center served at /app 
+
+== F01 SMOKE: 29 passed, 0 failed ==

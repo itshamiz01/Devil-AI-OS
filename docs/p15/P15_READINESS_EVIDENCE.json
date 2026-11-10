@@ -1,0 +1,509 @@
+{
+  "context": "fresh controlled-mode staging app, in-process; one manual sample, one verified P-10 backup, one baseline benchmark run, then readiness computed from live evidence",
+  "backup_verification": {
+    "id": "ae8dcaa7-704f-4e97-bd30-ee3422f05dc2",
+    "kind": "database",
+    "location": "/tmp/p15-evidence-yb9oxyh1/data/backups/autonomus-20261110T071229902703.db",
+    "sha256": "2fa02e6a385c6306ab16436595eb5b93fbadc817d333b658755e14113b1894ed",
+    "size_bytes": 3465216,
+    "table_count": 176,
+    "status": "verified",
+    "detail": "backup verified: integrity ok, manifest hash matches, security state readable",
+    "created_by": "owner:owner",
+    "created_at": "2026-11-10T07:12:29.918405",
+    "verified_at": "2026-11-10T07:12:29.941365"
+  },
+  "benchmark": {
+    "status": "completed",
+    "results": {
+      "timings_ms_median_of_3": {
+        "dashboard_overview": 21.68,
+        "dashboard_system_health": 8.32,
+        "financial_consolidated": 0.23,
+        "journal_page_query_50": 0.22,
+        "memory_records_page_50": 0.25,
+        "memory_search": 3.18
+      },
+      "comparison_vs_p14": {
+        "dashboard_overview": {
+          "p14_baseline_ms": 32.61,
+          "p15_ms": 21.68,
+          "ratio": 0.66
+        },
+        "dashboard_system_health": {
+          "p14_baseline_ms": 8.27,
+          "p15_ms": 8.32,
+          "ratio": 1.01
+        },
+        "financial_consolidated": {
+          "p14_baseline_ms": 23.61,
+          "p15_ms": 0.23,
+          "ratio": 0.01
+        },
+        "memory_search": {
+          "p14_baseline_ms": 147.45,
+          "p15_ms": 3.18,
+          "ratio": 0.02
+        },
+        "journal_page_query_50": {
+          "p14_baseline_ms": 1.17,
+          "p15_ms": 0.22,
+          "ratio": 0.19
+        }
+      },
+      "load_probe": {
+        "probe": "24 concurrent in-process dashboard overview reads",
+        "p50_ms": 7.9,
+        "p95_ms": 8.3,
+        "max_ms": 8.83
+      },
+      "recovery_probes": {
+        "circuit_breaker": {
+          "ok": true,
+          "detail": "P-12 CircuitBreaker opened at threshold, half-opened after cooldown, closed on success"
+        },
+        "retry_policy": {
+          "ok": true,
+          "detail": "classify(timeout) -> temporary_network_failure; backoff [0.5, 1.0, 2.0, 8.0]"
+        },
+        "event_bus_dead_letter": {
+          "ok": true,
+          "detail": "failing handler recorded as a dead letter on a throwaway bus instance"
+        }
+      },
+      "stress_observed": {
+        "induced": false,
+        "cpu_percent": 12.5,
+        "memory_percent": 95.7,
+        "disk_percent": 38.3,
+        "disk_free_gb": 0.31,
+        "provider_condition": {
+          "ollama": {
+            "available": false,
+            "detail": "ollama unavailable: ConnectError: All connection attempts failed"
+          },
+          "cloud": {
+            "available": false,
+            "detail": "cloud AI not enabled (AUTONOMUS_CLOUD_AI_ENABLED is off)"
+          }
+        },
+        "note": "In staging no Ollama process runs: provider unavailability is a real, observed outage condition; the deterministic planner remains available throughout."
+      },
+      "notes": [
+        "Read-path timings in-process (median of 3) on the staging database (labelled fixtures only); comparable to the P-14 baseline, not a production throughput claim.",
+        "Stress by resource exhaustion is NOT induced on the shared staging VM; observed headroom and the real staging provider condition are recorded instead."
+      ]
+    }
+  },
+  "readiness": {
+    "overall_score": 81.8,
+    "band": "Limited production candidate",
+    "classification": "READY FOR CONTROLLED PILOT \u2014 production classification withheld while external blockers stand",
+    "critical_gate_ok": true,
+    "categories": {
+      "performance": {
+        "key": "performance",
+        "weight": 15,
+        "score": 80.0,
+        "checks": [
+          {
+            "key": "benchmarks_recorded",
+            "label": "Benchmark run recorded",
+            "ok": true,
+            "points": 40.0,
+            "max_points": 40.0,
+            "detail": "latest benchmark run present",
+            "recommendation": null
+          },
+          {
+            "key": "benchmarks_within_tolerance",
+            "label": "Benchmark medians within tolerance of the P-14 baseline",
+            "ok": true,
+            "points": 30.0,
+            "max_points": 30.0,
+            "detail": "all compared medians within 2.0x of the P-14 baseline",
+            "recommendation": null
+          },
+          {
+            "key": "resources_under_thresholds",
+            "label": "Resources under thresholds",
+            "ok": false,
+            "points": 0.0,
+            "max_points": 20.0,
+            "detail": "violations: [{'resource': 'memory', 'value': 95.7, 'threshold': 90.0}]",
+            "recommendation": "Investigate the resource pressure; nonessential task admission is already blocked by the P-01 monitor."
+          },
+          {
+            "key": "history_tracking",
+            "label": "Performance history is being recorded",
+            "ok": true,
+            "points": 10.0,
+            "max_points": 10.0,
+            "detail": "1 performance sample(s) recorded",
+            "recommendation": null
+          }
+        ],
+        "failed_checks": [
+          "resources_under_thresholds"
+        ]
+      },
+      "reliability": {
+        "key": "reliability",
+        "weight": 20,
+        "score": 56.2,
+        "checks": [
+          {
+            "key": "components_healthy",
+            "label": "Component health states",
+            "ok": false,
+            "points": 31.25,
+            "max_points": 50.0,
+            "detail": "4/10 components ok",
+            "recommendation": "Resolve the degraded/down component checks."
+          },
+          {
+            "key": "no_major_open_incidents",
+            "label": "No open P0/P1 incidents",
+            "ok": false,
+            "points": 15.0,
+            "max_points": 30.0,
+            "detail": "open by severity: {'P0': 0, 'P1': 0, 'P2': 1, 'P3': 0}",
+            "recommendation": "Work the incident register; P0/P1 incidents block readiness."
+          },
+          {
+            "key": "task_failure_ratio",
+            "label": "Task failure ratio",
+            "ok": false,
+            "points": 10.0,
+            "max_points": 20.0,
+            "detail": "no finished tasks yet (neutral)",
+            "recommendation": "Inspect failed tasks and their recovery records."
+          }
+        ],
+        "failed_checks": [
+          "components_healthy",
+          "no_major_open_incidents",
+          "task_failure_ratio"
+        ]
+      },
+      "fault_tolerance_recovery": {
+        "key": "fault_tolerance_recovery",
+        "weight": 15,
+        "score": 70.5,
+        "checks": [
+          {
+            "key": "circuit_breakers_present",
+            "label": "Circuit breakers registered (P-12)",
+            "ok": false,
+            "points": 8.0,
+            "max_points": 25.0,
+            "detail": "no breaker has been exercised yet (P-12 registers per dependency target on first use)",
+            "recommendation": "Exercise a governed workflow so dependency breakers register."
+          },
+          {
+            "key": "no_open_breakers",
+            "label": "No circuit breaker open",
+            "ok": true,
+            "points": 25.0,
+            "max_points": 25.0,
+            "detail": "no breaker open",
+            "recommendation": null
+          },
+          {
+            "key": "startup_recovery_mechanism",
+            "label": "Startup recovery mechanism present",
+            "ok": true,
+            "points": 25.0,
+            "max_points": 25.0,
+            "detail": "interrupted tasks/workflows/executions are parked for operator review at startup (P-01/P-05/P-12); counts at last startup: {'mechanism_present': True, 'tasks_recovered_at_startup': 0, 'workflows_recovered_at_startup': 0, 'execution_interrupted_at_startup': 0}",
+            "recommendation": null
+          },
+          {
+            "key": "incident_recovery_rate",
+            "label": "Incident recovery rate",
+            "ok": false,
+            "points": 12.5,
+            "max_points": 25.0,
+            "detail": "incident recovery rate 0.50",
+            "recommendation": "Close the loop on open incidents with recorded recovery actions."
+          }
+        ],
+        "failed_checks": [
+          "circuit_breakers_present",
+          "incident_recovery_rate"
+        ]
+      },
+      "data_integrity_backup": {
+        "key": "data_integrity_backup",
+        "weight": 15,
+        "score": 100.0,
+        "checks": [
+          {
+            "key": "database_healthy",
+            "label": "Database connectivity healthy",
+            "ok": true,
+            "points": 25.0,
+            "max_points": 25.0,
+            "detail": "connectivity check passed",
+            "recommendation": null
+          },
+          {
+            "key": "database_integrity",
+            "label": "Database integrity check (PRAGMA integrity_check)",
+            "ok": true,
+            "points": 25.0,
+            "max_points": 25.0,
+            "detail": "PRAGMA integrity_check -> ['ok']",
+            "recommendation": null
+          },
+          {
+            "key": "backups_exist",
+            "label": "Backups exist (P-10 backup service)",
+            "ok": true,
+            "points": 20.0,
+            "max_points": 20.0,
+            "detail": "1 backup(s) recorded",
+            "recommendation": null
+          },
+          {
+            "key": "backup_verified_fresh",
+            "label": "Latest backup verified and fresh",
+            "ok": true,
+            "points": 30.0,
+            "max_points": 30.0,
+            "detail": "latest backup verified and within the policy window",
+            "recommendation": null
+          }
+        ],
+        "failed_checks": []
+      },
+      "security_governance": {
+        "key": "security_governance",
+        "weight": 15,
+        "score": 100.0,
+        "checks": [
+          {
+            "key": "audit_chain_verified",
+            "label": "P-10 audit chain verifies",
+            "ok": true,
+            "points": 40.0,
+            "max_points": 40.0,
+            "detail": "checked 0 sealed entries; unsealed tail: 4",
+            "recommendation": null
+          },
+          {
+            "key": "security_mode_normal",
+            "label": "Security operating mode is normal",
+            "ok": true,
+            "points": 20.0,
+            "max_points": 20.0,
+            "detail": "mode: normal",
+            "recommendation": null
+          },
+          {
+            "key": "no_open_security_alerts",
+            "label": "No open security alerts",
+            "ok": true,
+            "points": 20.0,
+            "max_points": 20.0,
+            "detail": "open alerts: 0",
+            "recommendation": null
+          },
+          {
+            "key": "financial_controls_delegated",
+            "label": "Financial emergency controls wired to P-10 (never duplicated)",
+            "ok": true,
+            "points": 20.0,
+            "max_points": 20.0,
+            "detail": "financial suspension state readable from the P-10 emergency service: suspended=False",
+            "recommendation": null
+          }
+        ],
+        "failed_checks": []
+      },
+      "observability": {
+        "key": "observability",
+        "weight": 10,
+        "score": 100.0,
+        "checks": [
+          {
+            "key": "samples_recording",
+            "label": "Performance samples recording",
+            "ok": true,
+            "points": 30.0,
+            "max_points": 30.0,
+            "detail": "1 sample(s)",
+            "recommendation": null
+          },
+          {
+            "key": "component_checks_visible",
+            "label": "Component checks visible in the Command Center feed",
+            "ok": true,
+            "points": 30.0,
+            "max_points": 30.0,
+            "detail": "10 component check(s) from the P-14 system-health surface",
+            "recommendation": null
+          },
+          {
+            "key": "dead_letters_visible",
+            "label": "Dead letters counted and visible",
+            "ok": true,
+            "points": 20.0,
+            "max_points": 20.0,
+            "detail": "operations open: 0, event total: 0",
+            "recommendation": null
+          },
+          {
+            "key": "structured_logging",
+            "label": "Structured logging configured (secrets redacted)",
+            "ok": true,
+            "points": 20.0,
+            "max_points": 20.0,
+            "detail": "log pipeline configured with secret redaction (P-01)",
+            "recommendation": null
+          }
+        ],
+        "failed_checks": []
+      },
+      "testing_validation": {
+        "key": "testing_validation",
+        "weight": 10,
+        "score": 80.0,
+        "checks": [
+          {
+            "key": "self_checks_pass",
+            "label": "In-system validation self-checks",
+            "ok": true,
+            "points": 60.0,
+            "max_points": 60.0,
+            "detail": "6/6 in-system self-checks pass",
+            "recommendation": null
+          },
+          {
+            "key": "benchmark_completed",
+            "label": "Benchmark suite completed",
+            "ok": true,
+            "points": 20.0,
+            "max_points": 20.0,
+            "detail": "a completed benchmark run is on record",
+            "recommendation": null
+          },
+          {
+            "key": "migration_at_head",
+            "label": "Database migration at the single head",
+            "ok": false,
+            "points": 0.0,
+            "max_points": 20.0,
+            "detail": "database revision None vs head d12e4d6cf5ef",
+            "recommendation": "Run migrations to the head revision."
+          }
+        ],
+        "failed_checks": [
+          "migration_at_head"
+        ]
+      }
+    },
+    "failed_checks": [
+      {
+        "category": "performance",
+        "check": "resources_under_thresholds",
+        "detail": "violations: [{'resource': 'memory', 'value': 95.7, 'threshold': 90.0}]"
+      },
+      {
+        "category": "reliability",
+        "check": "components_healthy",
+        "detail": "4/10 components ok"
+      },
+      {
+        "category": "reliability",
+        "check": "no_major_open_incidents",
+        "detail": "open by severity: {'P0': 0, 'P1': 0, 'P2': 1, 'P3': 0}"
+      },
+      {
+        "category": "reliability",
+        "check": "task_failure_ratio",
+        "detail": "no finished tasks yet (neutral)"
+      },
+      {
+        "category": "fault_tolerance_recovery",
+        "check": "circuit_breakers_present",
+        "detail": "no breaker has been exercised yet (P-12 registers per dependency target on first use)"
+      },
+      {
+        "category": "fault_tolerance_recovery",
+        "check": "incident_recovery_rate",
+        "detail": "incident recovery rate 0.50"
+      },
+      {
+        "category": "testing_validation",
+        "check": "migration_at_head",
+        "detail": "database revision None vs head d12e4d6cf5ef"
+      }
+    ],
+    "blockers": [
+      {
+        "key": "windows_unverified",
+        "scope": "external",
+        "detail": "Windows 10/11 operation is UNVERIFIED from this Linux staging (P-14 DEF-A1) \u2014 an owner-machine item."
+      },
+      {
+        "key": "real_llm_unexercised",
+        "scope": "external",
+        "detail": "No real LLM provider has ever been exercised (P-14 DEF-A2) \u2014 model panels report probe truth only."
+      }
+    ],
+    "recommendations": [
+      "Investigate the resource pressure; nonessential task admission is already blocked by the P-01 monitor.",
+      "Resolve the degraded/down component checks.",
+      "Work the incident register; P0/P1 incidents block readiness.",
+      "Inspect failed tasks and their recovery records.",
+      "Exercise a governed workflow so dependency breakers register.",
+      "Close the loop on open incidents with recorded recovery actions.",
+      "Run migrations to the head revision."
+    ]
+  },
+  "incidents_after_evaluation": {
+    "open_by_severity": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 1,
+      "P3": 0
+    },
+    "open_total": 1,
+    "acknowledged": 0,
+    "resolved": 1,
+    "total": 2,
+    "recovery_rate": 0.5
+  },
+  "stability": {
+    "windows": [
+      {
+        "target_hours": 24,
+        "status": "INCOMPLETE",
+        "sample_span_hours": 0.0,
+        "samples_in_window": 1,
+        "memory_percent_growth_first_vs_last_decile": null,
+        "note": "real recorded coverage only; the window completes when the sampler has genuinely run for its duration"
+      },
+      {
+        "target_hours": 72,
+        "status": "INCOMPLETE",
+        "sample_span_hours": 0.0,
+        "samples_in_window": 1,
+        "memory_percent_growth_first_vs_last_decile": null,
+        "note": "real recorded coverage only; the window completes when the sampler has genuinely run for its duration"
+      },
+      {
+        "target_hours": 168,
+        "status": "INCOMPLETE",
+        "sample_span_hours": 0.0,
+        "samples_in_window": 1,
+        "memory_percent_growth_first_vs_last_decile": null,
+        "note": "real recorded coverage only; the window completes when the sampler has genuinely run for its duration"
+      }
+    ],
+    "total_samples": 1,
+    "stuck_tasks": [],
+    "stuck_threshold_minutes": 120
+  }
+}

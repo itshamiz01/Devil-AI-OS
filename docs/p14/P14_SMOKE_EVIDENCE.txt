@@ -1,0 +1,22 @@
+=== AUTONOMUS P-14 STAGE B SMOKE (real uvicorn, controlled mode) ===
+server: http://127.0.0.1:36445/api/v1  data_dir: /home/hatch/workspace/projects/autonomus-ai-os/.tmp/p14-smoke-1794292877/data/data
+--- 1. Boundaries and schema
+  [PASS] portfolio list requires auth (401) (got 401)
+  [PASS] schema has the 172 model tables incl. event_dead_letters (Stage B migration table, DEF-I4) (got 172, dead_letters=True)
+  [PASS] owner login over HTTP (HTTP 200)
+--- 2. DEF-F1: portfolio finance gross is true
+[finance] HTTP 200 -> {"net_collected_minor": 1000000, "collected_minor": 1000000, "projected_minor": 0, "basis": "sums of the per-business P-07 flow figures above (same currency only); internal transfers excluded by P-07", "collected_vs_proj
+  [PASS] gross collected == net collected == ₹10,000 (P-13 smoke showed gross 0) (got gross=1000000, net=1000000)
+--- 3. DEF-I1/I2/I3: events persisted with envelope
+  [PASS] SecurityIncidentDetected persisted and listable (got 1 rows)
+  [PASS] event row carries the §6 envelope fields (keys: ['business_id', 'correlation_id', 'created_at', 'event_id', 'event_type', 'payload', 'processing_status', 'severity']...)
+  [PASS] financial events persisted (journal/revenue activity) (types seen: ['ApplicationStarted', 'ApplicationStopped', 'BusinessCreated', 'BusinessEligibilityDecided', 'BusinessLifecycleChanged', 'FinancialJournalPosted'])
+--- 4. DEF-A3/A5: system health surface
+  [PASS] system-health returns resource utilisation (A3) 
+  [PASS] system-health derives per-module health (A3) (modules: ['P-01', 'P-02', 'P-05', 'P-09', 'P-10', 'platform'])
+  [PASS] system-health exposes the dead-letter count (A3/I4) 
+  [PASS] ai_provider probe check present (A5) (state=unavailable)
+--- 5. Built Command Center at /app
+  [PASS] GET /app serves the built frontend 
+  [PASS] served bundle carries the Stage B System-health surface (A3) 
+=== SMOKE RESULT: 13 passed, 0 failed ===

@@ -1,0 +1,32 @@
+== Expansion Feature 3 smoke: Voice Assistant ==
+  [PASS] server ready 
+  [PASS] migration head is F03 (c41f7a9d03e6)
+  [PASS] 232 physical tables (232)
+owner login succeeded on attempt 1
+  [PASS] voice status reports API version 1.3.0 
+  [PASS] STT honestly requires owner configuration (requires_owner_configuration)
+  [PASS] TTS honestly requires owner configuration 
+  [PASS] DEF-A2 is stated on the status surface 
+  [PASS] the real local candidate is attached but unavailable 
+  [PASS] no fixture provider is attached 
+  [PASS] session created 
+  [PASS] audio uploaded and hashed 
+  [PASS] transcription refused honestly (422 + state) (HTTP 422)
+  [PASS] the refused attempt is recorded, not fabricated 
+  [PASS] manual entry labelled as fallback, not transcription 
+  [PASS] low-risk voice command executed via the plan pipeline (completed)
+  [PASS] spoken response honestly unavailable at completion 
+  [PASS] consequential command waits for on-screen confirmation 
+  [PASS] a spoken 'approve' confirms nothing 
+  [PASS] on-screen confirmation executes exactly what was shown 
+  [PASS] the stop phrase cancels the session's pending command 
+  [PASS] financial request classifies and stops at clarification 
+  [PASS] audit trail records voice events (['voice.audio_stored', 'voice.command_confirmation_required', 'voice.command_confirmed', 'voice.command_executed', 'voice.command_needs_clarification', 'voice.session_created', 'voice.stop_applied', 'voice.transcript_manual_entry', 'voice.transcription_unavailable'])
+  [PASS] OpenAPI reports version 1.3.0 
+  [PASS] confirm route carries x-required-permission=approve_actions 
+  [PASS] Command Center served at /app 
+  [PASS] audio files exist before deletion 
+  [PASS] session deletion succeeds 
+  [PASS] audio files removed by deletion 
+
+== F03 SMOKE: 28 passed, 0 failed ==

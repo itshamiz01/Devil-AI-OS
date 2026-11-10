@@ -1,0 +1,125 @@
+{
+  "environment": "Linux staging VM (shared vCPU), TestClient in-process \u2014 NOT owner Windows hardware",
+  "measurements": {
+    "/api/v1/health/live": {
+      "status": 200,
+      "samples_ms": [
+        2.91,
+        2.81,
+        2.28,
+        2.28,
+        2.14
+      ],
+      "median_ms": 2.28,
+      "max_ms": 2.91
+    },
+    "/api/v1/dashboard/overview": {
+      "status": 200,
+      "samples_ms": [
+        31.64,
+        19.67,
+        16.62,
+        15.88,
+        15.72
+      ],
+      "median_ms": 16.62,
+      "max_ms": 31.64
+    },
+    "/api/v1/dashboard/finance/summary": {
+      "status": 200,
+      "samples_ms": [
+        9.92,
+        7.39,
+        7.01,
+        7.4,
+        7.94
+      ],
+      "median_ms": 7.4,
+      "max_ms": 9.92
+    },
+    "/api/v1/financial/overview": {
+      "status": 200,
+      "samples_ms": [
+        9.26,
+        6.68,
+        5.77,
+        5.47,
+        5.92
+      ],
+      "median_ms": 5.92,
+      "max_ms": 9.26
+    },
+    "/api/v1/portfolio/portfolios": {
+      "status": 200,
+      "samples_ms": [
+        12.51,
+        8.55,
+        7.01,
+        7.99,
+        8.05
+      ],
+      "median_ms": 8.05,
+      "max_ms": 12.51
+    },
+    "/api/v1/operations/overview": {
+      "status": 200,
+      "samples_ms": [
+        23.37,
+        14.72,
+        11.02,
+        10.93,
+        11.74
+      ],
+      "median_ms": 11.74,
+      "max_ms": 23.37
+    },
+    "/api/v1/dashboard/security/summary": {
+      "status": 200,
+      "samples_ms": [
+        15.22,
+        11.16,
+        11.14,
+        10.69,
+        11.79
+      ],
+      "median_ms": 11.16,
+      "max_ms": 15.22
+    },
+    "/api/v1/business/businesses": {
+      "status": 200,
+      "samples_ms": [
+        11.46,
+        6.03,
+        5.99,
+        6.57,
+        6.18
+      ],
+      "median_ms": 6.18,
+      "max_ms": 11.46
+    },
+    "/api/v1/agents": {
+      "status": 200,
+      "samples_ms": [
+        10.27,
+        5.31,
+        4.56,
+        3.91,
+        3.83
+      ],
+      "median_ms": 4.56,
+      "max_ms": 10.27
+    },
+    "/api/v1/memory": {
+      "status": 200,
+      "samples_ms": [
+        13.09,
+        7.21,
+        7.07,
+        7.45,
+        8.07
+      ],
+      "median_ms": 7.45,
+      "max_ms": 13.09
+    }
+  }
+}

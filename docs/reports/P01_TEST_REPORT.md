@@ -1,64 +1,38 @@
-# P-01 Test Report
+# AUTONOMUS P-01 — TEST REPORT
 
-**Date:** 2026-11-03  
-**Environment:** Arena Linux sandbox, Python 3.13.16  
-**Result:** 32 passed, 0 failed, 0 skipped  
-**Evidence:** `docs/reports/P01_TEST_RESULTS.xml`
+**Suite:** `backend/tests/` (pytest 9.2.0, pytest-asyncio 1.4.1), run on the build VM (Linux, Python 3.12.3, venv inside the project).
 
-## Test categories
+**Totals: 76 tests — 76 passed, 0 failed, 0 skipped.** Runtime ≈ 50 s. One non-blocking warning: Starlette's TestClient deprecation notice about httpx (cosmetic, upstream).
 
-- Configuration validation: loopback default, remote host/flag rejection, phase execution flag rejection.
-- Authentication/API: public liveness, protected endpoints, login/logout/me, invalid login/token.
-- Tasks: submit/complete, echo, invalid payload, unknown handler, idempotency, cancellation, timeout retry, queue capacity, pause/resume, resource protection.
-- Permissions/approvals: approval create/decision, self-approval restriction, payload binding, agent permission denial.
-- Events/monitoring: persisted events/audit, system status/resources, readiness.
-- Unit: redaction, task state machine, priority queue ordering/capacity.
-- Recovery: restart marks RUNNING task INTERRUPTED; event subscriber failure isolated.
+## Coverage by area
 
-## Live smoke test
+| Area | Tests | What is proven |
+|---|---|---|
+| Unit — config/lifecycle/logging | 12 | validation failures (port, mode, concurrency>capacity, production without credential), secret redaction in dumps and log text, lifecycle transition legality |
+| Unit — task state machine & retry | 12 | valid/invalid transitions (incl. completed→running, cancelled→completed), exponential backoff + cap, retry eligibility (invalid_input/permission/security never retried) |
+| Unit — tasks engine | 14 | echo completion, unknown handler & invalid payload rejected at submission, permission-denied submission, idempotency dedupe, queue-capacity backpressure, priority ordering, transient retry to success (3 attempts recorded), no-retry on invalid input, timeout → failed/timeout, cancel queued, approval-gated task waits then runs |
+| Unit — approvals/permissions | 6 | lifecycle + parameter binding (changed params invalidate), expiry, hash stability, role defaults, explicit DB deny wins, DB allow grants |
+| Unit — events/monitoring | 7 | multi-subscriber delivery, subscriber failure isolation, flood limit drops, recursion depth guard, critical-event persistence with correlation ID, resource snapshot + threshold detection |
+| Integration — API | 11 | live public vs ready authenticated, task submit→execute→complete over HTTP with execution history, cancel, retry, approval workflow (double-decision 409), approval-gated task release, agents read-only (POST → 404/405), persisted events listing, pagination meta |
+| Integration — persistence | 3 | tasks/history survive restart; crashed RUNNING task recovered as PAUSED + recovery_required, attempt marked interrupted, **not** re-executed; Alembic upgrade head on fresh DB creates all tables |
+| Security | 13 | 401 unauthenticated on all protected routes, invalid token, wrong password, Service principal 403 on approval decision + task cancel, double-decision misuse, malformed inputs 422, code/command smuggling via handler name 422, path-traversal probe 404 without leakage, scrypt hashing/verification, secrets absent from the log file, agent/external permission-bypass attempts denied, permission checks audited |
+| Failure | 7 | DB-unavailable startup → lifecycle FAILED (no false health), DB death flips readiness, queue-full backpressure, threshold admission block (essential still admitted), timeout history, shutdown stops acceptance, live vs ready distinction |
+| Regression | 1 | logging survives programmatic Alembic migration (post-migration + shutdown lines present in the log file, secrets absent) |
 
-The backend was started with `python3 -m app.cli serve` on 127.0.0.1:8000. `/health/live` returned alive, `/health/ready` returned ready=true, and unauthenticated `/system/status` returned 401. Lifecycle events ApplicationStarted/Ready/Stopping/Stopped were persisted. The process was stopped after the smoke test.
+## Live smoke run (real uvicorn, loopback :8137–8139, temp SQLite DB)
 
-## Warnings
+1. `GET /health/live` → 200 `{"status":"alive","lifecycle_state":"degraded"}` (degraded: build-VM host memory 94.2% ≥ 90% threshold).
+2. `GET /health/ready` without credentials → **401**; with login token → 200 `degraded`, `database_healthy:true`, violations `[{memory 94.2 ≥ 90}]`.
+3. `POST /auth/login` (owner) → session token issued.
+4. Nonessential `core.echo_check` submission → **429 `resource_blocked`** (the §10.2 admission control firing on real host load).
+5. Same task with `essential:true` → created → **completed**, result `{"ok":true,"echo":{"message":"smoke-hello"}}`, 1 execution row `completed`.
+6. `core.wait` (8 s) task → cancel while running → response `cancellation_requested:true` → final status **cancelled**.
+7. SIGTERM → port closed; after the logging fix, the app log shows `application ready → graceful shutdown initiated → application stopped`.
 
-One Starlette/httpx deprecation warning remains. It does not indicate a failed test. Windows execution, Tauri, frontend, model inference and external side effects were not tested.
+## Defects found by testing and fixed (not hidden)
 
-
----
-
-## Addendum — P-01 continuation run (2026-11-03)
-
-The figures above are the historical record of the original P-01 run and are
-preserved unmodified. Note that its environment line ("Python 3.13.16") describes
-the sandbox used then; the current workspace runs **Python 3.11.2** (see
-`P00_REAUDIT_ENVIRONMENT.md` and `D-11`).
-
-**Current result: 67 passed, 0 failed, 0 skipped** (from a 43-test baseline).
-**Evidence:** `docs/reports/P01_CONTINUATION_TEST_RESULTS.xml` (`tests="67"`).
-The historical `P01_TEST_RESULTS.xml` (`tests="32"`) is left byte-identical.
-
-24 tests were added, in two new files:
-
-- `tests/test_emergency_stop.py` (11) — non-essential admission blocked while
-  essential work still executes; a reason is mandatory; health reports
-  `degraded` with `ready: true`; clearing restores admission; activation is
-  idempotent and preserves the original reason; activation and clearing are
-  audited; a non-owner principal is refused; queued non-essential work is paused
-  while essential work is untouched; **state survives a full application restart
-  and is never cleared automatically**; and an owner whose database predates the
-  `system.emergency` permission regains it at startup without any non-owner
-  principal being widened.
-- `tests/test_backup_restore.py` (13) — a backup produces a snapshot that passes
-  `PRAGMA integrity_check` and contains the required schema; backing up with no
-  database fails loudly; a corrupt file and a valid-but-wrong-schema SQLite file
-  are both rejected; restore recovers the backed-up state and discards later
-  writes; the displaced database is preserved and is itself valid; an
-  unverified backup is refused and leaves the live database untouched; restore
-  refuses while a live backend pid exists, tolerates a provably dead pid, and
-  honours an explicit override; retention prunes to the configured count.
-
-No existing assertion was weakened, removed or relaxed. The 43 prior tests pass
-unchanged.
-
-Still not tested, and not claimed: Windows execution, Tauri, frontend, model
-inference, external side effects, and real OS credential storage.
+1. Detached-instance errors on `task.executions` after session close → eager loading in the repository.
+2. `app_sessions.created_at` missing default → login inserts failed; default added (+ same hardening on audit/system events).
+3. Admission guard bound at construction time → late-bound closure so threshold state is read live.
+4. Worker cancellation wrote a spurious FAILED verdict → cancellation now leaves the row RUNNING for startup recovery (crash-recovery integration test written for exactly this).
+5. Alembic `fileConfig` clobbered app logging (post-migration INFO logs lost) → env fix + re-assertion + regression test.

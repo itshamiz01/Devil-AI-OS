@@ -1,0 +1,177 @@
+........................................................................ [  9%]
+........................................................................ [ 18%]
+........................................................................ [ 27%]
+........................................................................ [ 36%]
+........................................................................ [ 46%]
+........................................................................ [ 55%]
+........................................................................ [ 64%]
+..................F..............................F...................... [ 73%]
+....................................FF.................................. [ 82%]
+.............F.......................................................... [ 92%]
+.............................................................            [100%]
+=================================== FAILURES ===================================
+______________ test_p11_metadata_registers_exactly_two_new_tables ______________
+
+    def test_p11_metadata_registers_exactly_two_new_tables():
+        from app.database.models.base import Base
+        import app.database.models  # noqa: F401  (registers all models)
+    
+        assert "dashboard_preferences" in Base.metadata.tables
+        assert "dashboard_notification_states" in Base.metadata.tables
+        # 136 (P-10) + 2 = 138 model tables.
+        # P-12 disclosure: P-12 added 14 operations tables on top; the
+        # P-11 increment is still exactly these two tables, and the
+        # metadata total is now 152. Strictness preserved (exact count).
+        # P-13 disclosure: P-13 added 19 portfolio tables on top; the
+        # P-11/P-12 increments are unchanged and the metadata total is
+        # now 171. Strictness preserved (exact count).
+>       assert len(Base.metadata.tables) == 171
+E       AssertionError: assert 172 == 171
+E        +  where 172 = len(FacadeDict({'system_config': Table('system_config', MetaData(), Column('id', Integer(), table=<system_config>, primary...unction utcnow at 0x77f64f5053a0>), default=CallableColumnDefault(<function utcnow at 0x77f64f505300>)), schema=None)}))
+E        +    where FacadeDict({'system_config': Table('system_config', MetaData(), Column('id', Integer(), table=<system_config>, primary...unction utcnow at 0x77f64f5053a0>), default=CallableColumnDefault(<function utcnow at 0x77f64f505300>)), schema=None)}) = MetaData().tables
+E        +      where MetaData() = <class 'app.database.models.base.Base'>.metadata
+
+tests/test_p11_integration.py:99: AssertionError
+___________ test_p12_metadata_registers_exactly_fourteen_new_tables ____________
+
+    def test_p12_metadata_registers_exactly_fourteen_new_tables():
+        from app.database.models.base import Base
+        import app.database.models  # noqa: F401  (registers all models)
+    
+        # P-13 disclosure: 152 was the P-12 total (138 pre-P-12 + 14);
+        # P-13 added 19 portfolio tables, so the exact total is now 171.
+        # The P-12 increment is unchanged. Strictness preserved.
+>       assert len(Base.metadata.tables) == 171  # 152 pre-P-13 + 19
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 172 == 171
+E        +  where 172 = len(FacadeDict({'system_config': Table('system_config', MetaData(), Column('id', Integer(), table=<system_config>, primary...unction utcnow at 0x77f64f5053a0>), default=CallableColumnDefault(<function utcnow at 0x77f64f505300>)), schema=None)}))
+E        +    where FacadeDict({'system_config': Table('system_config', MetaData(), Column('id', Integer(), table=<system_config>, primary...unction utcnow at 0x77f64f5053a0>), default=CallableColumnDefault(<function utcnow at 0x77f64f505300>)), schema=None)}) = MetaData().tables
+E        +      where MetaData() = <class 'app.database.models.base.Base'>.metadata
+
+tests/test_p12_integration.py:184: AssertionError
+___________________________ test_p13_migration_cycle ___________________________
+
+tmp_path = PosixPath('/tmp/p14bt/test_p13_migration_cycle0')
+
+    def test_p13_migration_cycle(tmp_path):
+        from alembic import command
+        from alembic.config import Config
+    
+        db = tmp_path / "p13_cycle.db"
+        config = Config("alembic.ini")
+        config.set_main_option("sqlalchemy.url", f"sqlite:///{db}")
+        engine = create_engine(f"sqlite:///{db}")
+    
+        def count() -> int:
+            with engine.connect() as conn:
+                return conn.execute(text(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
+                )).scalar_one()
+    
+        command.upgrade(config, "head")
+>       assert count() == 172  # 153 at P-12 head + 19 P-13 tables
+        ^^^^^^^^^^^^^^^^^^^^^
+E       assert 173 == 172
+E        +  where 173 = <function test_p13_migration_cycle.<locals>.count at 0x77f63fa70360>()
+
+tests/test_p13_integration.py:34: AssertionError
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> b36fd80092d2, p01 initial core schema
+INFO  [alembic.runtime.migration] Running upgrade b36fd80092d2 -> c7a21f9e04b3, p02 intelligence schema (missions, plans, plan_steps, decision_records,
+model_profiles) — additive on top of the P-01 core schema.
+INFO  [alembic.runtime.migration] Running upgrade c7a21f9e04b3 -> a8ddb3e7260d, p03 opportunity discovery schema
+INFO  [alembic.runtime.migration] Running upgrade a8ddb3e7260d -> a694abea811f, p04 agent factory schema
+INFO  [alembic.runtime.migration] Running upgrade a694abea811f -> 6ffcc7e899fa, p05 universal execution engine schema
+INFO  [alembic.runtime.migration] Running upgrade 6ffcc7e899fa -> a8d7e0c717b4, p06 business creation engine
+INFO  [alembic.runtime.migration] Running upgrade a8d7e0c717b4 -> c3b5cdba2559, p07 financial intelligence engine
+INFO  [alembic.runtime.migration] Running upgrade c3b5cdba2559 -> 99902c03a197, p08 survival and scaling engine
+INFO  [alembic.runtime.migration] Running upgrade 99902c03a197 -> 7b13db7e9bfa, p09 memory and continuous learning engine
+INFO  [alembic.runtime.migration] Running upgrade 7b13db7e9bfa -> e37d00443d20, p10 security and governance engine
+INFO  [alembic.runtime.migration] Running upgrade e37d00443d20 -> 193731df4c37, p11 premium command center (dashboard-owned tables only)
+INFO  [alembic.runtime.migration] Running upgrade 193731df4c37 -> 3a77efe78faa, p12 autonomous operations engine
+INFO  [alembic.runtime.migration] Running upgrade 3a77efe78faa -> d02b4208d228, p13 multi-business coordination engine
+INFO  [alembic.runtime.migration] Running upgrade d02b4208d228 -> 4d41d6a6a605, p14 stage b integration and data repairs
+___________ test_p13_metadata_registers_exactly_nineteen_new_tables ____________
+
+    def test_p13_metadata_registers_exactly_nineteen_new_tables():
+        from app.database.models.base import Base
+        import app.database.models  # noqa: F401
+    
+>       assert len(Base.metadata.tables) == 171  # 152 pre-P-13 + 19
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 172 == 171
+E        +  where 172 = len(FacadeDict({'system_config': Table('system_config', MetaData(), Column('id', Integer(), table=<system_config>, primary...unction utcnow at 0x77f64f5053a0>), default=CallableColumnDefault(<function utcnow at 0x77f64f505300>)), schema=None)}))
+E        +    where FacadeDict({'system_config': Table('system_config', MetaData(), Column('id', Integer(), table=<system_config>, primary...unction utcnow at 0x77f64f5053a0>), default=CallableColumnDefault(<function utcnow at 0x77f64f505300>)), schema=None)}) = MetaData().tables
+E        +      where MetaData() = <class 'app.database.models.base.Base'>.metadata
+
+tests/test_p13_integration.py:45: AssertionError
+_____________________ test_p14_schema_metadata_table_count _____________________
+
+    def test_p14_schema_metadata_table_count():
+        """§4 database: model metadata is the audited 171 tables
+        (172nd is alembic_version in a migrated database)."""
+        from app.database.models import Base
+>       assert len(Base.metadata.tables) == 171, \
+            f"metadata has {len(Base.metadata.tables)} tables"
+E       AssertionError: metadata has 172 tables
+E       assert 172 == 171
+E        +  where 172 = len(FacadeDict({'system_config': Table('system_config', MetaData(), Column('id', Integer(), table=<system_config>, primary...unction utcnow at 0x77f64f5053a0>), default=CallableColumnDefault(<function utcnow at 0x77f64f505300>)), schema=None)}))
+E        +    where FacadeDict({'system_config': Table('system_config', MetaData(), Column('id', Integer(), table=<system_config>, primary...unction utcnow at 0x77f64f5053a0>), default=CallableColumnDefault(<function utcnow at 0x77f64f505300>)), schema=None)}) = MetaData().tables
+E        +      where MetaData() = <class 'app.database.models.base.Base'>.metadata
+
+tests/test_p14_audit.py:93: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/hatch/workspace/projects/autonomus-ai-os/backend/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_p12_security.py::test_unregistered_handler_is_rejected_at_validation
+  tests/test_p12_security.py:24: PytestWarning: The test <Function test_unregistered_handler_is_rejected_at_validation> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_unregistered_handler_is_rejected_at_validation(app_ops):
+
+tests/test_p12_security.py::test_unclassified_action_is_rejected_at_validation
+  tests/test_p12_security.py:36: PytestWarning: The test <Function test_unclassified_action_is_rejected_at_validation> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_unclassified_action_is_rejected_at_validation(app_ops):
+
+tests/test_p12_security.py::test_raw_llm_instruction_kind_is_rejected
+  tests/test_p12_security.py:42: PytestWarning: The test <Function test_raw_llm_instruction_kind_is_rejected> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_raw_llm_instruction_kind_is_rejected(app_ops):
+
+tests/test_p12_security.py::test_workflow_payload_cannot_carry_code
+  tests/test_p12_security.py:53: PytestWarning: The test <Function test_workflow_payload_cannot_carry_code> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_workflow_payload_cannot_carry_code(app_ops):
+
+tests/test_p12_security.py::test_settings_writes_are_owner_only
+  tests/test_p12_security.py:150: PytestWarning: The test <Function test_settings_writes_are_owner_only> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_settings_writes_are_owner_only(app_ops):
+
+tests/test_p13_integration.py::test_p13_migration_cycle
+  tests/test_p13_integration.py:18: PytestWarning: The test <Function test_p13_migration_cycle> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_p13_migration_cycle(tmp_path):
+
+tests/test_p13_integration.py::test_p13_metadata_registers_exactly_nineteen_new_tables
+  tests/test_p13_integration.py:41: PytestWarning: The test <Function test_p13_metadata_registers_exactly_nineteen_new_tables> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_p13_metadata_registers_exactly_nineteen_new_tables():
+
+tests/test_p13_integration.py::test_portfolio_http_round_trip
+  tests/test_p13_integration.py:274: PytestWarning: The test <Function test_portfolio_http_round_trip> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_portfolio_http_round_trip(client_portfolio):
+
+tests/test_p13_integration.py::test_portfolio_http_requires_auth
+  tests/test_p13_integration.py:296: PytestWarning: The test <Function test_portfolio_http_requires_auth> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_portfolio_http_requires_auth(client_portfolio):
+
+tests/test_p13_scenarios.py::test_scenario_17_command_center_displays_portfolio
+  tests/test_p13_scenarios.py:512: PytestWarning: The test <Function test_scenario_17_command_center_displays_portfolio> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_scenario_17_command_center_displays_portfolio(client_portfolio):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_p11_integration.py::test_p11_metadata_registers_exactly_two_new_tables
+FAILED tests/test_p12_integration.py::test_p12_metadata_registers_exactly_fourteen_new_tables
+FAILED tests/test_p13_integration.py::test_p13_migration_cycle - assert 173 =...
+FAILED tests/test_p13_integration.py::test_p13_metadata_registers_exactly_nineteen_new_tables
+FAILED tests/test_p14_audit.py::test_p14_schema_metadata_table_count - Assert...
+5 failed, 776 passed, 11 warnings in 595.43s (0:09:55)

@@ -1,0 +1,31 @@
+== Expansion Feature 2 smoke: Universal Integration Framework ==
+  [PASS] server ready 
+  [PASS] migration head is F02 (3f7a1c9e52b4)
+  [PASS] 228 physical tables (228)
+owner login succeeded on attempt 1
+  [PASS] framework reports API version 1.2.0 
+  [PASS] 18 connectors seeded (18)
+  [PASS] exactly one has an adapter 
+  [PASS] reference connector enabled + configured 
+  [PASS] Stripe honestly requires owner configuration 
+  [PASS] P-17 + P-18 surfaces registered 
+  [PASS] health check on the reference connector 
+  [PASS] echo invocation succeeds through the broker 
+  [PASS] invocation carries its broker decision 
+  [PASS] idempotent replay returns the recorded result 
+  [PASS] unconfigured Stripe invocation fails honestly (502) 
+  [PASS] schema-violating payload refused (422) 
+  [PASS] owner disables the reference connector 
+  [PASS] invocation while disabled fails honestly (502) 
+  [PASS] owner re-enables the reference connector 
+  [PASS] custom connector registers as a declaration 
+  [PASS] enabling an adapter-less connector is refused (422) 
+  [PASS] catalogue names the invoke permission 
+  [PASS] catalogue counts exactly 3 public operations 
+  [PASS] OpenAPI version is 1.2.0 
+  [PASS] OpenAPI carries x-required-permission 
+  [PASS] invocation ledger records success, duplicate, refusal (['duplicate', 'invalid_request', 'not_configured', 'success'])
+  [PASS] audit trail records framework events (['integration.connector_disabled', 'integration.connector_enabled', 'integration.connector_registered', 'integration.health_checked', 'integration.invoked'])
+  [PASS] Command Center served at /app 
+
+== F02 SMOKE: 27 passed, 0 failed ==
