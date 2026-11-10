@@ -1,0 +1,4150 @@
+{
+ "agent_assignments": {
+  "owner_module": "agents",
+  "columns": [
+   "id",
+   "agent_id",
+   "task_id",
+   "business_ref",
+   "objective",
+   "input_refs",
+   "required_capabilities",
+   "priority",
+   "deadline",
+   "timeout_seconds",
+   "expected_output",
+   "quality_requirements",
+   "retry_limit",
+   "parent_assignment_id",
+   "delegation_depth",
+   "assigned_by_type",
+   "assigned_by_id",
+   "status",
+   "rejection_reason",
+   "result_summary",
+   "output_validation",
+   "idempotency_key",
+   "started_at",
+   "completed_at",
+   "failure_reason",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "agent_capabilities": {
+  "owner_module": "agents",
+  "columns": [
+   "id",
+   "name",
+   "description",
+   "category",
+   "risk_level",
+   "approval_level",
+   "scope",
+   "action_class",
+   "mapped_permission",
+   "resource_requirements",
+   "expiry_rule",
+   "supported",
+   "enabled",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "agent_configuration_history": {
+  "owner_module": "agents",
+  "columns": [
+   "id",
+   "agent_id",
+   "configuration_version",
+   "configuration_snapshot",
+   "change_reason",
+   "changed_by_type",
+   "changed_by_id",
+   "approval_reference",
+   "created_at"
+  ]
+ },
+ "agent_creation_requests": {
+  "owner_module": "agents",
+  "columns": [
+   "id",
+   "requester_type",
+   "requester_id",
+   "requested_role",
+   "requested_template_id",
+   "business_ref",
+   "justification",
+   "requested_capabilities",
+   "resource_estimate",
+   "requirement",
+   "decision",
+   "decision_reasons",
+   "approval_status",
+   "approval_id",
+   "created_agent_id",
+   "reused_agent_id",
+   "proposed_template_id",
+   "idempotency_key",
+   "completed_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "agent_handoffs": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "from_agent_id",
+   "to_agent_id",
+   "task_ref",
+   "business_id",
+   "objective",
+   "work_completed",
+   "current_status",
+   "decisions",
+   "evidence",
+   "files_modified",
+   "outstanding",
+   "known_problems",
+   "required_permissions",
+   "next_actions",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "agent_health": {
+  "owner_module": "agents",
+  "columns": [
+   "id",
+   "agent_id",
+   "health_status",
+   "last_check",
+   "details"
+  ]
+ },
+ "agent_metrics": {
+  "owner_module": "agents",
+  "columns": [
+   "id",
+   "agent_id",
+   "metric_name",
+   "metric_value",
+   "measurement_type",
+   "recorded_at",
+   "details"
+  ]
+ },
+ "agent_permissions": {
+  "owner_module": "agents",
+  "columns": [
+   "id",
+   "agent_id",
+   "capability_id",
+   "scope",
+   "approval_level",
+   "approval_reference",
+   "granted_by_type",
+   "granted_by_id",
+   "granted_at",
+   "expires_at",
+   "revoked_at",
+   "status",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "agent_template_versions": {
+  "owner_module": "agents",
+  "columns": [
+   "id",
+   "template_id",
+   "version",
+   "configuration",
+   "validation_status",
+   "validation_errors",
+   "created_at",
+   "created_by_type",
+   "created_by_id"
+  ]
+ },
+ "agent_templates": {
+  "owner_module": "agents",
+  "columns": [
+   "id",
+   "name",
+   "category",
+   "description",
+   "status",
+   "current_version",
+   "published_version",
+   "created_by_type",
+   "created_by_id",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "agents": {
+  "owner_module": "core",
+  "columns": [
+   "id",
+   "name",
+   "role",
+   "parent_agent_id",
+   "business_ref",
+   "objective",
+   "model_profile",
+   "status",
+   "budget",
+   "agent_type",
+   "description",
+   "template_id",
+   "template_version",
+   "configuration_version",
+   "created_by_type",
+   "created_by_id",
+   "security_classification",
+   "last_activity_at",
+   "retired_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "allocation_recommendations": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "scenario",
+   "business_id",
+   "currency",
+   "proposed",
+   "rationale",
+   "expected_benefits",
+   "downside",
+   "liquidity_snapshot",
+   "payback_assumptions",
+   "status",
+   "approval_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "app_sessions": {
+  "owner_module": "core",
+  "columns": [
+   "id",
+   "token_hash",
+   "principal_type",
+   "principal_id",
+   "created_at",
+   "expires_at",
+   "revoked"
+  ]
+ },
+ "approvals": {
+  "owner_module": "core",
+  "columns": [
+   "id",
+   "requesting_principal_type",
+   "requesting_principal_id",
+   "action",
+   "resource",
+   "risk_classification",
+   "reason",
+   "requested_permissions",
+   "parameters",
+   "parameters_hash",
+   "status",
+   "approver_id",
+   "decision_at",
+   "decision_notes",
+   "expires_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "audit_events": {
+  "owner_module": "core",
+  "columns": [
+   "id",
+   "actor_type",
+   "actor_id",
+   "action",
+   "target_type",
+   "target_id",
+   "decision",
+   "reason",
+   "correlation_id",
+   "details",
+   "created_at"
+  ]
+ },
+ "autonomous_workflows": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "name",
+   "business_id",
+   "objective",
+   "description",
+   "origin",
+   "trigger_id",
+   "priority",
+   "priority_class",
+   "autonomy_level",
+   "execution_policy",
+   "budget_id",
+   "deadline",
+   "success_conditions",
+   "failure_conditions",
+   "verification_policy",
+   "status",
+   "current_version",
+   "definition",
+   "created_by_type",
+   "created_by_id",
+   "idempotency_key",
+   "correlation_id",
+   "started_at",
+   "completed_at",
+   "verified_outcome",
+   "failure_reason",
+   "learning_record_id",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "benchmark_runs": {
+  "owner_module": "reliability",
+  "columns": [
+   "id",
+   "started_at",
+   "finished_at",
+   "kind",
+   "status",
+   "results",
+   "notes",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "budgets": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "scope_type",
+   "scope_ref",
+   "business_id",
+   "parent_budget_id",
+   "name",
+   "owner_id",
+   "period_start",
+   "period_end",
+   "approved_minor",
+   "currency",
+   "approval_requirement",
+   "review_date",
+   "status",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_agent_assignments": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "business_id",
+   "agent_id",
+   "role_in_business",
+   "status",
+   "assigned_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_assets": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "business_id",
+   "asset_type",
+   "name",
+   "description",
+   "storage_reference",
+   "version",
+   "creation_method",
+   "creator_agent_id",
+   "approval_status",
+   "usage_rights_status",
+   "quality_status",
+   "content_hash",
+   "associated_product_id",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_assumptions": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "business_id",
+   "assumption",
+   "category",
+   "basis",
+   "status",
+   "impact_if_wrong",
+   "validation_method",
+   "owner",
+   "last_reviewed_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_blueprints": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "business_id",
+   "version",
+   "blueprint",
+   "generation_method",
+   "approval_status",
+   "approval_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_campaigns": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "business_id",
+   "name",
+   "objective",
+   "audience",
+   "channel",
+   "message",
+   "assets",
+   "budget",
+   "schedule",
+   "success_metrics",
+   "approval_status",
+   "status",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_channels": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "business_id",
+   "channel_type",
+   "platform",
+   "purpose",
+   "account_requirements",
+   "content_requirements",
+   "fees",
+   "approval_requirements",
+   "platform_gate",
+   "evaluation_status",
+   "publish_state",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_classifications": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "business_id",
+   "industry",
+   "revenue_model",
+   "market",
+   "geographic_exposure",
+   "capital_requirements_band",
+   "strategic_importance",
+   "notes",
+   "updated_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_creation_runs": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "business_id",
+   "workflow_definition_id",
+   "workflow_run_id",
+   "status",
+   "inputs_summary",
+   "started_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_decision_alternatives": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "decision_id",
+   "kind",
+   "summary",
+   "expected_cost_minor",
+   "expected_downside",
+   "score_bps",
+   "recommended",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_decisions": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "decision_type",
+   "trigger",
+   "status",
+   "autonomy_level",
+   "evidence",
+   "metrics",
+   "risk_assessment",
+   "expected_benefit",
+   "estimated_cost_minor",
+   "estimated_cost_currency",
+   "expected_downside",
+   "confidence",
+   "reversibility",
+   "time_horizon_days",
+   "score_bps",
+   "approval_id",
+   "expires_on",
+   "review_conditions",
+   "explanation",
+   "execution_key",
+   "executed_at",
+   "execution_outcome",
+   "intelligence_record_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_declarations": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "business_id",
+   "success_criteria",
+   "budget_cap_amount",
+   "budget_cap_minor",
+   "budget_currency",
+   "duration_days",
+   "min_test_volume",
+   "status",
+   "approval_id",
+   "verdict",
+   "declared_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_eligibility_evaluations": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "opportunity_id",
+   "decision",
+   "checks",
+   "validation_level",
+   "min_validation_level",
+   "evaluated_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_evidence": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "business_id",
+   "evidence_type",
+   "claim_supported",
+   "source",
+   "source_type",
+   "reliability",
+   "retrieved_at",
+   "freshness_status",
+   "associated_decision",
+   "limitations",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_experiments": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "name",
+   "status",
+   "hypothesis",
+   "problem",
+   "target_customer",
+   "expected_outcome",
+   "success_metric",
+   "failure_metric",
+   "minimum_evidence",
+   "max_duration_days",
+   "budget_id",
+   "approved_budget_minor",
+   "max_acceptable_loss_minor",
+   "currency",
+   "operational_requirements",
+   "required_agents",
+   "data_sources",
+   "evaluation_schedule",
+   "declaration_id",
+   "approval_id",
+   "owner_approved",
+   "started_on",
+   "stop_reason",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_health_dimensions": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "snapshot_id",
+   "business_id",
+   "dimension",
+   "status",
+   "score_bps",
+   "evidence",
+   "missing",
+   "freshness",
+   "confidence",
+   "notes",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_health_snapshots": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "classification",
+   "score_bps",
+   "currency",
+   "overlay_state",
+   "hard_gates",
+   "explanation",
+   "confidence",
+   "indicators",
+   "indicators_source",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_lifecycle_events": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "business_id",
+   "from_status",
+   "to_status",
+   "actor",
+   "reason",
+   "approval_id",
+   "details",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_lifecycle_overlays": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "from_state",
+   "to_state",
+   "p06_status",
+   "decision_id",
+   "evidence",
+   "approval_id",
+   "reason",
+   "actor",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_monitoring_events": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "kind",
+   "severity",
+   "source",
+   "payload",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_observations": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "kind",
+   "metrics",
+   "source",
+   "reliability",
+   "is_vanity",
+   "evidence_refs",
+   "observed_on",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_pause_controls": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "kind",
+   "active",
+   "reason",
+   "trigger",
+   "lifted_by",
+   "lifted_at",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_playbooks": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "business_id",
+   "version",
+   "daily_operations",
+   "weekly_reviews",
+   "customer_support",
+   "quality_control",
+   "incident_response",
+   "escalation",
+   "backup_recovery",
+   "performance_indicators",
+   "known_risks",
+   "improvement_procedures",
+   "asset_reference",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_portfolios": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "name",
+   "description",
+   "mission",
+   "status",
+   "survival_mode",
+   "survival_activated_by",
+   "survival_activated_at",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_products": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "business_id",
+   "name",
+   "product_type",
+   "description",
+   "target_customer",
+   "problem_solved",
+   "core_features",
+   "excluded_features",
+   "pricing",
+   "delivery_method",
+   "support_requirements",
+   "version",
+   "status",
+   "development_plan",
+   "quality_review",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_readiness_reviews": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "business_id",
+   "overall_status",
+   "dimensions",
+   "blockers",
+   "warnings",
+   "outstanding_requirements",
+   "evidence",
+   "declaration_comparison",
+   "disclaimer",
+   "reviewed_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_relationships": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "source_business_id",
+   "target_business_id",
+   "relationship_type",
+   "description",
+   "status",
+   "access_scope",
+   "agreement_ref",
+   "risk_classification",
+   "approval_id",
+   "decided_by",
+   "starts_on",
+   "ends_on",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_template_versions": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "template_id",
+   "version",
+   "definition",
+   "validation_status",
+   "validation_errors",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "business_templates": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "name",
+   "category",
+   "description",
+   "current_version",
+   "status",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "businesses": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "opportunity_id",
+   "name",
+   "slug",
+   "category",
+   "template_id",
+   "template_version",
+   "status",
+   "validation_level_at_creation",
+   "score_at_creation",
+   "risk_classification",
+   "eligibility_decision",
+   "eligibility_details",
+   "creation_approval_id",
+   "workspace_name",
+   "is_fixture",
+   "website_states",
+   "deployment_state",
+   "public_availability",
+   "launched_at",
+   "paused_from",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "capital_allocation_proposals": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "category",
+   "status",
+   "amount_minor",
+   "currency",
+   "source_kind",
+   "purpose",
+   "expected_result",
+   "max_loss_minor",
+   "score_bps",
+   "rationale",
+   "approval_id",
+   "review_on",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cash_balances": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "account_ref",
+   "balance_minor",
+   "currency",
+   "source",
+   "verification_status",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "closure_reviews": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "stage",
+   "reason",
+   "inventory",
+   "risk_notes",
+   "recommendation",
+   "approval_id",
+   "wind_down",
+   "decision_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "commercial_analyses": {
+  "owner_module": "opportunities",
+  "columns": [
+   "id",
+   "opportunity_id",
+   "revenue_model",
+   "currency",
+   "startup_costs",
+   "recurring_costs_monthly",
+   "variable_costs_per_sale",
+   "price_assumption",
+   "scenarios",
+   "break_even",
+   "budget",
+   "distribution",
+   "inputs_snapshot",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "commercial_assets": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "name",
+   "kind",
+   "owner_business_id",
+   "ownership_status",
+   "commercial_use_permitted",
+   "description",
+   "assessment",
+   "is_fixture",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "commercialization_proposals": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "asset_id",
+   "title",
+   "rationale",
+   "pricing_model",
+   "estimated_cost_minor",
+   "status",
+   "decision_reason",
+   "p03_opportunity_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "communication_messages": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "template_id",
+   "recipient_kind",
+   "recipient_id",
+   "channel",
+   "status",
+   "refusal_reason",
+   "dispatch_note",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "communication_templates": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "kind",
+   "name",
+   "subject",
+   "body",
+   "status",
+   "approval_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "competitor_profiles": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "name",
+   "market",
+   "market_report_id",
+   "products",
+   "pricing_notes",
+   "business_model",
+   "positioning",
+   "strengths",
+   "weaknesses",
+   "source_refs",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "competitors": {
+  "owner_module": "opportunities",
+  "columns": [
+   "id",
+   "opportunity_id",
+   "name",
+   "website",
+   "product",
+   "competitor_type",
+   "pricing_claim",
+   "pricing_evidence_id",
+   "features",
+   "strengths",
+   "weaknesses",
+   "positioning",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "content_items": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "campaign_id",
+   "kind",
+   "title",
+   "brief",
+   "body",
+   "status",
+   "review",
+   "scheduled_at",
+   "release_ref",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "country_assessments": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "country",
+   "region",
+   "criteria_scores",
+   "weights",
+   "total_score",
+   "entry_checklist",
+   "notes",
+   "status",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "crm_customers": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "display_name",
+   "contact",
+   "dedupe_key",
+   "p07_customer_ref",
+   "segment",
+   "lifecycle_stage",
+   "consent_status",
+   "preferences",
+   "acquisition_campaign_id",
+   "acquisition_channel",
+   "source_lead_id",
+   "health_score",
+   "health_factors",
+   "health_computed_at",
+   "is_fixture",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cross_business_opportunities": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "category",
+   "title",
+   "description",
+   "business_ids",
+   "evidence",
+   "evaluation",
+   "evidence_status",
+   "confidence",
+   "status",
+   "origin",
+   "decided_by",
+   "decision_note",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cross_business_permissions": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "source_business_id",
+   "target_business_id",
+   "grantee_agent_id",
+   "purpose",
+   "authorized_data",
+   "permitted_actions",
+   "status",
+   "expires_at",
+   "approval_id",
+   "granted_by",
+   "revoked_by",
+   "revoked_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "customer_personas": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "segment",
+   "needs",
+   "problems",
+   "motivations",
+   "budget_sensitivity",
+   "product_category",
+   "objections",
+   "discovery_channels",
+   "buying_journey",
+   "demographics",
+   "evidence",
+   "is_fixture",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "customer_segments": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "name",
+   "kind",
+   "business_id",
+   "description",
+   "needs",
+   "attributes",
+   "international_checklist",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_communications": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "customer_id",
+   "kind",
+   "channel",
+   "body",
+   "status",
+   "dedupe_key",
+   "requires_approval",
+   "approval_id",
+   "related_ref",
+   "dispatch_note",
+   "is_fixture",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_feedback": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "customer_id",
+   "kind",
+   "score",
+   "comment",
+   "source",
+   "related_ref",
+   "is_fixture",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_fulfillments": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "customer_id",
+   "kind",
+   "title",
+   "status",
+   "status_source",
+   "revenue_id",
+   "order_ref",
+   "tracking_ref",
+   "due_at",
+   "delivered_at",
+   "milestones",
+   "assigned_to",
+   "acceptance",
+   "is_fixture",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_health_snapshots": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "customer_id",
+   "classification",
+   "score",
+   "factors",
+   "evidence",
+   "confidence",
+   "recommended_action",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_incidents": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "kind",
+   "severity",
+   "status",
+   "related_kind",
+   "related_id",
+   "customer_id",
+   "detail",
+   "detected_by",
+   "resolved_at",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_knowledge_articles": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "title",
+   "content",
+   "category",
+   "version",
+   "source",
+   "approval_status",
+   "review_status",
+   "approved_by",
+   "is_fixture",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_lifecycle_templates": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "business_model",
+   "name",
+   "stages",
+   "is_default",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_onboardings": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "customer_id",
+   "template_id",
+   "template_source",
+   "steps",
+   "status",
+   "assistance_needed",
+   "started_at",
+   "completed_at",
+   "is_fixture",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_quality_reviews": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "ticket_id",
+   "dimensions",
+   "method",
+   "notes",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_resolutions": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "customer_id",
+   "ticket_id",
+   "incident_id",
+   "problem_class",
+   "root_cause_group",
+   "action_kind",
+   "status",
+   "basis",
+   "revenue_id",
+   "p07_refund_id",
+   "p07_spending_request_id",
+   "approval_id",
+   "rationale",
+   "outcome",
+   "verified",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_sla_policies": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "category",
+   "first_response_minutes",
+   "resolution_minutes",
+   "source",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_success_tasks": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "customer_id",
+   "kind",
+   "title",
+   "status",
+   "due_at",
+   "source",
+   "related_ref",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_support_answers": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "customer_id",
+   "ticket_id",
+   "question",
+   "answer_text",
+   "article_refs",
+   "confidence_class",
+   "escalated",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_ticket_messages": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "ticket_id",
+   "author_kind",
+   "body",
+   "internal",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "cx_tickets": {
+  "owner_module": "experience",
+  "columns": [
+   "id",
+   "business_id",
+   "customer_id",
+   "category",
+   "subject",
+   "description",
+   "priority",
+   "priority_factors",
+   "status",
+   "assigned_to",
+   "related_ref",
+   "first_response_at",
+   "resolved_at",
+   "closed_at",
+   "reopened_count",
+   "escalation_level",
+   "escalation_workflow_id",
+   "is_fixture",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "dashboard_notification_states": {
+  "owner_module": "dashboard",
+  "columns": [
+   "id",
+   "principal_key",
+   "notification_id",
+   "is_read",
+   "is_dismissed",
+   "read_at",
+   "dismissed_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "dashboard_preferences": {
+  "owner_module": "dashboard",
+  "columns": [
+   "id",
+   "principal_key",
+   "preferences",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "decision_outcomes": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "decision_id",
+   "experiment_id",
+   "problem",
+   "evidence_at_decision",
+   "expected_outcome",
+   "actual_outcome",
+   "actuals",
+   "cost_minor",
+   "decision_quality",
+   "failure_kind",
+   "lesson",
+   "future_implications",
+   "forecast_error",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "decision_records": {
+  "owner_module": "intelligence",
+  "columns": [
+   "id",
+   "mission_id",
+   "plan_id",
+   "step_id",
+   "decision_type",
+   "actor",
+   "reason",
+   "evidence",
+   "correlation_id",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "disputes": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "revenue_record_id",
+   "business_id",
+   "amount_minor",
+   "currency",
+   "reason",
+   "kind",
+   "status",
+   "external_ref",
+   "opened_date",
+   "journal_entry_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "economic_decisions": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "business_id",
+   "opportunity_id",
+   "objective",
+   "supporting_evidence",
+   "financial_assumptions",
+   "expected_benefits",
+   "potential_losses",
+   "alternatives",
+   "confidence",
+   "required_permissions",
+   "recommended_action",
+   "outcome",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "economic_opportunities": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "title",
+   "kind",
+   "source_kind",
+   "stage",
+   "description",
+   "market_report_id",
+   "p03_opportunity_id",
+   "business_id",
+   "market_tag",
+   "factor_scores",
+   "total_score",
+   "confidence",
+   "classification_band",
+   "evidence",
+   "estimated_investment_minor",
+   "gate_override",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "event_dead_letters": {
+  "owner_module": "core",
+  "columns": [
+   "id",
+   "event_id",
+   "event_type",
+   "handler",
+   "error",
+   "payload",
+   "created_at"
+  ]
+ },
+ "evidence_records": {
+  "owner_module": "opportunities",
+  "columns": [
+   "id",
+   "opportunity_id",
+   "source_id",
+   "claim",
+   "supporting_content",
+   "category",
+   "classification",
+   "evidence_kind",
+   "topic_key",
+   "independence_group",
+   "source_url",
+   "retrieval_timestamp",
+   "publication_date",
+   "extraction_method",
+   "freshness_status",
+   "recorded_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "exchange_rates": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "from_currency",
+   "to_currency",
+   "rate",
+   "source",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "execution_browser_sessions": {
+  "owner_module": "execution",
+  "columns": [
+   "id",
+   "agent_id",
+   "browser_type",
+   "allowed_domains",
+   "permission_profile",
+   "status",
+   "current_url",
+   "last_activity",
+   "expires_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "execution_evidence": {
+  "owner_module": "execution",
+  "columns": [
+   "id",
+   "run_id",
+   "request_id",
+   "evidence_type",
+   "reference",
+   "content_hash",
+   "verification_status",
+   "details",
+   "created_at"
+  ]
+ },
+ "execution_requests": {
+  "owner_module": "execution",
+  "columns": [
+   "id",
+   "agent_id",
+   "task_id",
+   "business_ref",
+   "tool_id",
+   "tool_name",
+   "adapter_type",
+   "action_name",
+   "parameters",
+   "input_refs",
+   "required_capabilities",
+   "requested_scope",
+   "risk_level",
+   "priority",
+   "timeout_seconds",
+   "retry_policy",
+   "expected_outcome",
+   "approval_id",
+   "standing_authorization_id",
+   "idempotency_key",
+   "status",
+   "requested_action",
+   "approved_action",
+   "executed_action",
+   "verified_outcome",
+   "verification_status",
+   "result_summary",
+   "error_category",
+   "submitted_by_type",
+   "submitted_by_id",
+   "workflow_run_id",
+   "workflow_step_id",
+   "expires_at",
+   "started_at",
+   "completed_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "execution_runs": {
+  "owner_module": "execution",
+  "columns": [
+   "id",
+   "request_id",
+   "worker_id",
+   "attempt_number",
+   "status",
+   "started_at",
+   "completed_at",
+   "duration_ms",
+   "exit_code",
+   "result",
+   "result_summary",
+   "error_category",
+   "resource_usage"
+  ]
+ },
+ "execution_standing_authorizations": {
+  "owner_module": "execution",
+  "columns": [
+   "id",
+   "tool_name",
+   "action_name",
+   "scope_pattern",
+   "agent_id",
+   "role",
+   "limits",
+   "max_uses",
+   "uses",
+   "expires_at",
+   "revoked_at",
+   "status",
+   "created_by_type",
+   "created_by_id",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "execution_tools": {
+  "owner_module": "execution",
+  "columns": [
+   "id",
+   "name",
+   "description",
+   "category",
+   "version",
+   "adapter_type",
+   "actions",
+   "input_schema",
+   "output_schema",
+   "required_capabilities",
+   "risk_level",
+   "approval_level",
+   "supported_os",
+   "resource_requirements",
+   "timeout_default",
+   "retry_eligible",
+   "idempotency_supported",
+   "status",
+   "health_status",
+   "health_details",
+   "config_ref",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "execution_workflow_definitions": {
+  "owner_module": "execution",
+  "columns": [
+   "id",
+   "name",
+   "version",
+   "description",
+   "definition",
+   "required_capabilities",
+   "status",
+   "validation_errors",
+   "created_by_type",
+   "created_by_id",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "execution_workflow_runs": {
+  "owner_module": "execution",
+  "columns": [
+   "id",
+   "definition_id",
+   "workflow_name",
+   "workflow_version",
+   "requesting_agent_id",
+   "task_id",
+   "status",
+   "current_step",
+   "checkpoint",
+   "inputs",
+   "result",
+   "submitted_by_type",
+   "submitted_by_id",
+   "started_at",
+   "completed_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "execution_workflow_step_runs": {
+  "owner_module": "execution",
+  "columns": [
+   "id",
+   "workflow_run_id",
+   "step_id",
+   "execution_request_id",
+   "status",
+   "input_ref",
+   "output_ref",
+   "error_details",
+   "started_at",
+   "completed_at"
+  ]
+ },
+ "execution_workspaces": {
+  "owner_module": "execution",
+  "columns": [
+   "id",
+   "name",
+   "owner_type",
+   "owner_id",
+   "kind",
+   "root_path",
+   "permission_scope",
+   "status",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "expansion_strategies": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "title",
+   "horizon",
+   "kind",
+   "objective",
+   "business_id",
+   "opportunity_id",
+   "financial_requirements",
+   "timeline",
+   "required_resources",
+   "dependencies",
+   "expected_outcomes",
+   "kpis",
+   "risks",
+   "exit_conditions",
+   "status",
+   "approval_id",
+   "gate_override",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "expense_records": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "category",
+   "kind",
+   "amount_minor",
+   "currency",
+   "expense_date",
+   "vendor",
+   "description",
+   "recurrence_type",
+   "cost_behavior",
+   "directness",
+   "payment_status",
+   "payment_source",
+   "evidence",
+   "verification_status",
+   "project_ref",
+   "experiment_ref",
+   "budget_id",
+   "approval_status",
+   "approval_id",
+   "agent_id",
+   "task_id",
+   "execution_request_id",
+   "recurring_group_key",
+   "is_internal_transfer",
+   "journal_entry_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "experiment_evaluations": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "experiment_id",
+   "business_id",
+   "classification",
+   "actual_outcome",
+   "observed_metric_value",
+   "actuals",
+   "actuals_source",
+   "unexpected_findings",
+   "lessons",
+   "recommended_next_step",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "experiment_proposals": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "title",
+   "hypothesis",
+   "target_market",
+   "business_id",
+   "opportunity_id",
+   "market_tag",
+   "budget_ceiling_minor",
+   "duration_days",
+   "problem",
+   "target_customer",
+   "expected_outcome",
+   "minimum_evidence",
+   "evaluation_schedule",
+   "max_acceptable_loss_minor",
+   "success_metrics",
+   "failure_metrics",
+   "risk_assessment",
+   "stop_conditions",
+   "status",
+   "approval_id",
+   "p08_experiment_id",
+   "outcome",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "financial_accounts": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "code",
+   "name",
+   "account_type",
+   "subtype",
+   "currency",
+   "is_system",
+   "is_active",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "financial_alerts": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "alert_type",
+   "severity",
+   "title",
+   "impact",
+   "evidence",
+   "detection_method",
+   "recommended_action",
+   "human_review_required",
+   "status",
+   "dedupe_key",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "financial_forecasts": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "forecast_type",
+   "method",
+   "period_label",
+   "period_start",
+   "period_end",
+   "values",
+   "assumptions",
+   "confidence",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "financial_periods": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "period_type",
+   "label",
+   "start_date",
+   "end_date",
+   "status",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "financial_profiles": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "base_currency",
+   "reporting_currency",
+   "reporting_period",
+   "business_model",
+   "status",
+   "is_fixture",
+   "source",
+   "p06_payload",
+   "estimates",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "financial_reserves": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "reserve_type",
+   "balance_minor",
+   "target_minor",
+   "currency",
+   "status",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "financial_scenarios": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "scenario_type",
+   "display_label",
+   "assumptions",
+   "results",
+   "risks",
+   "confidence",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "funnel_events": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "campaign_id",
+   "stage",
+   "count",
+   "period_start",
+   "period_end",
+   "source",
+   "is_fixture",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "growth_brand_profiles": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "brand_name",
+   "identity",
+   "tone_of_voice",
+   "colors",
+   "typography",
+   "logo_refs",
+   "messaging_guidelines",
+   "prohibited_claims",
+   "product_information",
+   "assets",
+   "updated_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "growth_channel_evaluations": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "channel_key",
+   "category",
+   "evaluation",
+   "factor_scores",
+   "expected_value_score",
+   "status",
+   "notes",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "growth_experiments": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "campaign_id",
+   "title",
+   "hypothesis",
+   "control_description",
+   "test_description",
+   "primary_metric",
+   "minimum_evaluation",
+   "duration_days",
+   "budget_ceiling_minor",
+   "max_acceptable_loss_minor",
+   "status",
+   "approval_id",
+   "p08_experiment_id",
+   "observations",
+   "result",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "growth_interactions": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "subject_kind",
+   "subject_id",
+   "kind",
+   "summary",
+   "outcome",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "growth_leads": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "contact",
+   "dedupe_key",
+   "source_kind",
+   "source_channel",
+   "campaign_id",
+   "consent_status",
+   "lawful_basis",
+   "segment",
+   "interest",
+   "score",
+   "score_factors",
+   "score_band",
+   "stage",
+   "assigned_to",
+   "converted_customer_id",
+   "is_fixture",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "ideal_customer_profiles": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "kind",
+   "segment",
+   "criteria",
+   "factor_scores",
+   "priority_score",
+   "rationale",
+   "is_fixture",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "internal_cost_allocations": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "service_id",
+   "charged_business_id",
+   "providing_business_id",
+   "kind",
+   "amount_minor",
+   "currency",
+   "period",
+   "status",
+   "note",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "invoices": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "number",
+   "revenue_record_id",
+   "customer_ref",
+   "amount_minor",
+   "currency",
+   "status",
+   "issued_date",
+   "due_date",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "journal_entries": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "period_id",
+   "entry_date",
+   "description",
+   "reference",
+   "source_type",
+   "source_id",
+   "kind",
+   "reversal_of_id",
+   "idempotency_key",
+   "is_internal_transfer",
+   "counterpart_business_id",
+   "approval_id",
+   "reason",
+   "posted_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "journal_lines": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "entry_id",
+   "account_id",
+   "debit_minor",
+   "credit_minor",
+   "currency",
+   "memo",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "lead_suppressions": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "dedupe_key",
+   "reason",
+   "source",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "learning_records": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "source_type",
+   "source_ref",
+   "business_id",
+   "project_ref",
+   "hypothesis",
+   "expected_outcome",
+   "actual_outcome",
+   "metrics",
+   "causes",
+   "alternative_explanations",
+   "lesson",
+   "confidence",
+   "applicability_scope",
+   "limitations",
+   "evidence_refs",
+   "observations",
+   "review_status",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "market_analyses": {
+  "owner_module": "opportunities",
+  "columns": [
+   "id",
+   "opportunity_id",
+   "customer_segment",
+   "geographic_market",
+   "problem_analysis",
+   "demand_indicators",
+   "market_size",
+   "saturation",
+   "gaps",
+   "inputs_snapshot",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "market_reports": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "title",
+   "sector",
+   "classification",
+   "description",
+   "target_customers",
+   "demand_indicators",
+   "competitor_notes",
+   "revenue_models",
+   "startup_requirements",
+   "operating_costs",
+   "acquisition_challenges",
+   "legal_regulatory",
+   "risks",
+   "evidence_sources",
+   "confidence",
+   "figures_label",
+   "p03_opportunity_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "marketing_campaigns": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "name",
+   "code",
+   "objective",
+   "purpose",
+   "strategy_id",
+   "channel_evaluation_id",
+   "channel_key",
+   "target_audience",
+   "start_date",
+   "end_date",
+   "budget_ceiling_minor",
+   "currency",
+   "expected_results",
+   "creative_asset_refs",
+   "landing_page",
+   "conversion_event",
+   "status",
+   "approval_id",
+   "gate_override",
+   "auto_pause_rules",
+   "spend_request_ids",
+   "paused_reason",
+   "is_fixture",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "marketing_strategies": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "title",
+   "approach",
+   "kind",
+   "sections",
+   "status",
+   "approval_id",
+   "gate_override",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "memory_consolidations": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "title",
+   "summary_memory_id",
+   "source_memory_ids",
+   "business_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "memory_contradictions": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "memory_a_id",
+   "memory_b_id",
+   "field",
+   "status",
+   "resolution",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "memory_deletion_receipts": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "memory_id",
+   "requested_by",
+   "status",
+   "index_sync_verified",
+   "detail",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "memory_embeddings": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "memory_id",
+   "model_name",
+   "dim",
+   "vector",
+   "content_hash",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "memory_entities": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "entity_type",
+   "entity_ref",
+   "name",
+   "business_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "memory_exports": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "requested_by",
+   "business_id",
+   "record_ids",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "memory_ingestion_jobs": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "source_type",
+   "source_ref",
+   "candidate_title",
+   "status",
+   "reason",
+   "memory_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "memory_records": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "layer",
+   "category",
+   "title",
+   "content",
+   "subject",
+   "predicate",
+   "truth_class",
+   "status",
+   "confidence",
+   "confidence_bps",
+   "importance_bps",
+   "source_type",
+   "source_ref",
+   "source_actor",
+   "business_id",
+   "project_ref",
+   "agent_id",
+   "task_ref",
+   "decision_ref",
+   "evidence_refs",
+   "access_scope",
+   "sensitivity",
+   "retention_policy",
+   "freshness_days",
+   "expires_at",
+   "version",
+   "supersedes_id",
+   "superseded_by_id",
+   "content_hash",
+   "verified_at",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "memory_relationships": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "from_entity_id",
+   "to_entity_id",
+   "relation",
+   "business_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "memory_retrieval_logs": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "requester",
+   "query_digest",
+   "query_len",
+   "result_ids",
+   "degraded",
+   "result_count",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "memory_review_tasks": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "memory_id",
+   "reason",
+   "status",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "memory_versions": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "memory_id",
+   "version",
+   "title",
+   "content",
+   "change_reason",
+   "changed_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "missions": {
+  "owner_module": "intelligence",
+  "columns": [
+   "id",
+   "text",
+   "creator_type",
+   "creator_id",
+   "status",
+   "mode",
+   "matched_template",
+   "correlation_id",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "model_profiles": {
+  "owner_module": "intelligence",
+  "columns": [
+   "id",
+   "name",
+   "task_classes",
+   "provider",
+   "model_id",
+   "enabled",
+   "limits",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "new_venture_proposals": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "concept",
+   "target_customer",
+   "customer_problem",
+   "market_evidence",
+   "business_model",
+   "category",
+   "template",
+   "competitive_position",
+   "expected_costs",
+   "funding_requirements",
+   "revenue_scenarios",
+   "risk_analysis",
+   "portfolio_synergy",
+   "cannibalization_risk",
+   "recommended_experiment",
+   "overlap_check",
+   "opportunity_id",
+   "status",
+   "decided_by",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "operations_approval_links": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "workflow_id",
+   "task_id",
+   "approval_id",
+   "purpose",
+   "action",
+   "parameters_hash",
+   "status",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "operations_assignments": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "workflow_id",
+   "task_id",
+   "agent_id",
+   "previous_agent_id",
+   "selection_reason",
+   "selection_evidence",
+   "status",
+   "handoff",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "operations_autonomy_policies": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "scope_type",
+   "scope_ref",
+   "agent_ref",
+   "level",
+   "action_caps",
+   "set_by",
+   "reason",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "operations_dead_letter": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "workflow_id",
+   "task_id",
+   "failure_category",
+   "reason",
+   "context",
+   "status",
+   "resolution",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "operations_decisions": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "workflow_id",
+   "task_id",
+   "business_id",
+   "category",
+   "subject",
+   "rationale",
+   "evidence",
+   "policy_checks",
+   "authorization_result",
+   "confidence",
+   "approval_required",
+   "decided_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "operations_recovery_records": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "workflow_id",
+   "task_id",
+   "failure_category",
+   "action",
+   "attempt",
+   "outcome",
+   "detail",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "operations_reports": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "kind",
+   "business_id",
+   "period_start",
+   "period_end",
+   "payload",
+   "generated_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "operations_triggers": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "name",
+   "trigger_type",
+   "business_id",
+   "workflow_template",
+   "schedule",
+   "event_type",
+   "threshold",
+   "status",
+   "next_fire_at",
+   "last_fire_at",
+   "last_fire_key",
+   "fire_count",
+   "missed_count",
+   "created_by_type",
+   "created_by_id",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "operations_workflow_checkpoints": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "workflow_id",
+   "execution_id",
+   "state",
+   "completed_steps",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "operations_workflow_events": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "workflow_id",
+   "task_id",
+   "event_type",
+   "actor",
+   "payload",
+   "correlation_id",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "operations_workflow_executions": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "workflow_id",
+   "attempt_number",
+   "trigger_source",
+   "status",
+   "started_at",
+   "finished_at",
+   "detail",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "operations_workflow_tasks": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "workflow_id",
+   "step_key",
+   "name",
+   "objective",
+   "description",
+   "kind",
+   "action_class",
+   "substrate",
+   "depends_on",
+   "assigned_agent_id",
+   "required_capabilities",
+   "priority",
+   "deadline",
+   "estimated_effort",
+   "budget_ref",
+   "permission_requirements",
+   "input_data",
+   "expected_output",
+   "acceptance_criteria",
+   "verification_method",
+   "retry_policy",
+   "status",
+   "attempts",
+   "idempotency_key",
+   "substrate_ref",
+   "result",
+   "verification_status",
+   "verification_detail",
+   "error",
+   "started_at",
+   "completed_at",
+   "next_attempt_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "operations_workflow_versions": {
+  "owner_module": "operations",
+  "columns": [
+   "id",
+   "workflow_id",
+   "version",
+   "definition",
+   "change_reason",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "opportunities": {
+  "owner_module": "opportunities",
+  "columns": [
+   "id",
+   "name",
+   "slug",
+   "description",
+   "category",
+   "target_customer",
+   "geography",
+   "problem_statement",
+   "proposed_solution",
+   "revenue_model",
+   "discovery_method",
+   "status",
+   "validation_level",
+   "brief_id",
+   "mission_id",
+   "duplicate_of_id",
+   "capability_fit",
+   "compliance",
+   "last_researched_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "opportunity_history": {
+  "owner_module": "opportunities",
+  "columns": [
+   "id",
+   "opportunity_id",
+   "event_type",
+   "from_status",
+   "to_status",
+   "actor",
+   "reason",
+   "details",
+   "created_at"
+  ]
+ },
+ "opportunity_scores": {
+  "owner_module": "opportunities",
+  "columns": [
+   "id",
+   "opportunity_id",
+   "scoring_version",
+   "dimensions",
+   "dimension_reasons",
+   "weights",
+   "weighted_score",
+   "evidence_quality",
+   "risk_classification",
+   "hard_rejection",
+   "recommendation",
+   "inputs_snapshot",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "orders": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "external_ref",
+   "customer_ref",
+   "amount_minor",
+   "currency",
+   "status",
+   "channel",
+   "order_date",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "owner_memory_preferences": {
+  "owner_module": "memory",
+  "columns": [
+   "id",
+   "key",
+   "value",
+   "kind",
+   "updated_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "partnerships": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "partner_name",
+   "kind",
+   "stage",
+   "evaluation",
+   "contact_proposal",
+   "approval_id",
+   "referral_code",
+   "notes",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "payment_events": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "provider_id",
+   "external_event_id",
+   "event_type",
+   "business_id",
+   "external_ref",
+   "amount_minor",
+   "currency",
+   "payload",
+   "payload_hash",
+   "signature_valid",
+   "status",
+   "journal_entry_id",
+   "revenue_record_id",
+   "provenance",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "payment_providers": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "name",
+   "adapter_key",
+   "status",
+   "webhook_secret_env",
+   "capabilities",
+   "config",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "performance_samples": {
+  "owner_module": "reliability",
+  "columns": [
+   "id",
+   "sampled_at",
+   "source",
+   "cpu_percent",
+   "memory_percent",
+   "disk_percent",
+   "queue_depth",
+   "queue_running",
+   "db_latency_ms",
+   "database_healthy",
+   "metrics",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "permissions": {
+  "owner_module": "core",
+  "columns": [
+   "id",
+   "principal_type",
+   "principal_id",
+   "permission",
+   "effect",
+   "resource",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "plan_steps": {
+  "owner_module": "intelligence",
+  "columns": [
+   "id",
+   "plan_id",
+   "order_index",
+   "name",
+   "tool_name",
+   "payload",
+   "expectation",
+   "task_class",
+   "essential",
+   "timeout_seconds",
+   "status",
+   "task_id",
+   "verification_status",
+   "verification_detail"
+  ]
+ },
+ "plans": {
+  "owner_module": "intelligence",
+  "columns": [
+   "id",
+   "mission_id",
+   "version",
+   "planner",
+   "model_profile",
+   "status",
+   "plan_hash",
+   "approval_id",
+   "rationale",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "portfolio_agent_assignments": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "agent_id",
+   "scope_type",
+   "business_id",
+   "task_ref",
+   "required_capabilities",
+   "allowed_tools",
+   "allowed_data",
+   "budget_scope",
+   "permission_level",
+   "status",
+   "expires_at",
+   "assigned_by",
+   "revoked_by",
+   "revoked_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "portfolio_business_memberships": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "business_id",
+   "status",
+   "strategic_priority",
+   "group_labels",
+   "notes",
+   "registered_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "portfolio_objectives": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "title",
+   "description",
+   "horizon",
+   "targets",
+   "status",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "portfolio_recommendations": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "kind",
+   "title",
+   "strategic_objective",
+   "affected_business_ids",
+   "evidence",
+   "expected_benefit",
+   "estimated_cost",
+   "potential_revenue_impact",
+   "operational_requirements",
+   "financial_implications",
+   "legal_considerations",
+   "risks",
+   "assumptions",
+   "confidence",
+   "approval_requirements",
+   "proposed_next_steps",
+   "evidence_status",
+   "status",
+   "origin",
+   "decided_by",
+   "decision_note",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "portfolio_reports": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "report_type",
+   "title",
+   "period",
+   "currency",
+   "payload",
+   "data_complete",
+   "generated_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "portfolio_risk_assessments": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "scope",
+   "business_id",
+   "currency",
+   "overall_level",
+   "findings",
+   "data_complete",
+   "assessed_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "portfolio_workflow_participations": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_workflow_id",
+   "business_id",
+   "role",
+   "contributes",
+   "authorization_status",
+   "sub_workflow_id",
+   "deliverables",
+   "asset_ownership",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "portfolio_workflows": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "name",
+   "objective",
+   "status",
+   "success_criteria",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "product_requirements": {
+  "owner_module": "business",
+  "columns": [
+   "id",
+   "product_id",
+   "requirement_type",
+   "description",
+   "priority",
+   "acceptance_criteria",
+   "status",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "provider_payouts": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "provider_id",
+   "business_id",
+   "external_ref",
+   "amount_minor",
+   "currency",
+   "status",
+   "period_start",
+   "period_end",
+   "received_date",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "readiness_snapshots": {
+  "owner_module": "reliability",
+  "columns": [
+   "id",
+   "computed_at",
+   "overall_score",
+   "band",
+   "classification",
+   "critical_gate_ok",
+   "categories",
+   "failed_checks",
+   "blockers",
+   "recommendations",
+   "evidence",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "reconciliation_items": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "session_id",
+   "external_ref",
+   "external_amount_minor",
+   "external_currency",
+   "external_date",
+   "description",
+   "matched_type",
+   "matched_id",
+   "match_method",
+   "classification",
+   "discrepancy",
+   "resolution",
+   "status",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "reconciliation_sessions": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "source_type",
+   "source_ref",
+   "period_start",
+   "period_end",
+   "status",
+   "summary",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "recovery_plans": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "status",
+   "root_cause",
+   "failure_kind",
+   "financial_impact",
+   "corrective_actions",
+   "responsible_agents",
+   "budget_minor",
+   "currency",
+   "timeline_days",
+   "expected_outcome",
+   "success_thresholds",
+   "failure_thresholds",
+   "escalation_rules",
+   "review_on",
+   "outcome",
+   "approval_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "refunds": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "revenue_record_id",
+   "business_id",
+   "amount_minor",
+   "currency",
+   "reason",
+   "source",
+   "external_ref",
+   "refund_date",
+   "journal_entry_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "reinvestment_plans": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "business_id",
+   "currency",
+   "figures_snapshot",
+   "shares",
+   "amounts_minor",
+   "status",
+   "approval_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "reliability_incidents": {
+  "owner_module": "reliability",
+  "columns": [
+   "id",
+   "severity",
+   "component",
+   "kind",
+   "title",
+   "detail",
+   "status",
+   "detected_at",
+   "acknowledged_at",
+   "resolved_at",
+   "root_cause",
+   "response",
+   "recovery_actions",
+   "preventive",
+   "evidence",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "research_briefs": {
+  "owner_module": "opportunities",
+  "columns": [
+   "id",
+   "title",
+   "objective",
+   "budget_amount",
+   "budget_minor",
+   "currency",
+   "geography",
+   "categories",
+   "constraints",
+   "creator_type",
+   "creator_id",
+   "mission_id",
+   "status",
+   "correlation_id",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "research_sessions": {
+  "owner_module": "opportunities",
+  "columns": [
+   "id",
+   "opportunity_id",
+   "objective",
+   "stage",
+   "status",
+   "task_id",
+   "sources_examined",
+   "findings_summary",
+   "failure_reason",
+   "started_at",
+   "completed_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "research_sources": {
+  "owner_module": "opportunities",
+  "columns": [
+   "id",
+   "source_key",
+   "name",
+   "url",
+   "source_type",
+   "access_method",
+   "auth_required",
+   "rate_limit",
+   "reliability_classification",
+   "usage_restrictions",
+   "independence_group",
+   "origin",
+   "enabled",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "resource_allocation_proposals": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "status",
+   "requested_agents",
+   "recommended_agents",
+   "workload",
+   "alternatives",
+   "rationale",
+   "approval_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "resource_allocations": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "business_id",
+   "resource_kind",
+   "units",
+   "status",
+   "rationale",
+   "discretionary",
+   "expires_at",
+   "decided_by",
+   "released_reason",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "resource_quotas": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "portfolio_id",
+   "business_id",
+   "resource_kind",
+   "quota_units",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "revenue_records": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "category",
+   "classification",
+   "lifecycle_status",
+   "verification_status",
+   "amount_minor",
+   "currency",
+   "transaction_date",
+   "source",
+   "external_ref",
+   "invoice_id",
+   "order_id",
+   "subscription_id",
+   "customer_ref",
+   "channel",
+   "product_ref",
+   "evidence",
+   "creation_method",
+   "is_internal_transfer",
+   "journal_entry_id",
+   "description",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "risk_assessments": {
+  "owner_module": "economy",
+  "columns": [
+   "id",
+   "computed_at",
+   "scope",
+   "detectors",
+   "scenarios",
+   "inputs_snapshot",
+   "recommendations",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "sales_opportunities": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "lead_id",
+   "customer_id",
+   "product",
+   "estimated_value_minor",
+   "currency",
+   "stage",
+   "probability",
+   "expected_close_date",
+   "assigned_to",
+   "next_action",
+   "lost_reason",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "scaling_assessments": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "status",
+   "stage",
+   "category",
+   "satisfied",
+   "unsatisfied",
+   "hard_gates",
+   "confidence",
+   "financial_impact",
+   "capacity_requirements",
+   "downside_scenario",
+   "approval_requirements",
+   "snapshot_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "scaling_plans": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "assessment_id",
+   "status",
+   "budget_id",
+   "current_amount_minor",
+   "proposed_amount_minor",
+   "currency",
+   "increment_ratio_bps",
+   "clamped",
+   "success_conditions",
+   "stop_conditions",
+   "approval_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_agent_restrictions": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "agent_id",
+   "restriction",
+   "reason",
+   "status",
+   "imposed_by",
+   "released_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_alerts": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "rule",
+   "severity",
+   "subject",
+   "detail",
+   "status",
+   "dedupe_key",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_audit_chain": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "seq",
+   "audit_event_id",
+   "previous_hash",
+   "entry_hash",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_backup_records": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "kind",
+   "location",
+   "sha256",
+   "size_bytes",
+   "table_count",
+   "status",
+   "detail",
+   "created_by",
+   "verified_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_broker_decisions": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "principal_type",
+   "principal_id",
+   "permission",
+   "action",
+   "resource",
+   "business_ref",
+   "task_id",
+   "risk_level",
+   "allowed",
+   "reason",
+   "gates",
+   "capability_id",
+   "approval_id",
+   "correlation_id",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_capabilities": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "holder_type",
+   "holder_id",
+   "permission",
+   "resource",
+   "business_ref",
+   "task_id",
+   "issued_by",
+   "reason",
+   "status",
+   "expires_at",
+   "revoked_at",
+   "revoked_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_data_classifications": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "resource_ref",
+   "classification",
+   "business_ref",
+   "owner_principal",
+   "retention_days",
+   "notes",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_emergency_events": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "from_mode",
+   "to_mode",
+   "financial_suspension",
+   "actor",
+   "reason",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_incidents": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "title",
+   "category",
+   "severity",
+   "description",
+   "status",
+   "related_ref",
+   "created_by",
+   "resolution",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_login_attempts": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "username",
+   "success",
+   "throttled",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_policy_versions": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "version",
+   "previous_settings",
+   "new_settings",
+   "changed_keys",
+   "actor",
+   "reason",
+   "approval_id",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_secret_access_events": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "secret_name",
+   "actor",
+   "purpose",
+   "outcome",
+   "detail",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_secret_metadata": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "name",
+   "reference",
+   "backend",
+   "purpose",
+   "classification",
+   "status",
+   "expires_at",
+   "last_rotated_at",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "security_threat_register": {
+  "owner_module": "security",
+  "columns": [
+   "id",
+   "code",
+   "title",
+   "description",
+   "entry_point",
+   "affected_assets",
+   "likelihood",
+   "impact",
+   "risk_level",
+   "preventive_controls",
+   "detection_controls",
+   "recovery_procedure",
+   "verification_test",
+   "status",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "seo_records": {
+  "owner_module": "growth",
+  "columns": [
+   "id",
+   "business_id",
+   "kind",
+   "title",
+   "data",
+   "source",
+   "period_start",
+   "period_end",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "shared_service_access": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "service_id",
+   "business_id",
+   "status",
+   "scope",
+   "units_reserved",
+   "approval_id",
+   "expires_at",
+   "granted_by",
+   "revoked_by",
+   "revoked_at",
+   "requested_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "shared_service_usage": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "access_id",
+   "service_id",
+   "business_id",
+   "units",
+   "note",
+   "recorded_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "shared_services": {
+  "owner_module": "portfolio",
+  "columns": [
+   "id",
+   "name",
+   "description",
+   "provider",
+   "service_kind",
+   "supported_categories",
+   "capacity_units",
+   "cost_model",
+   "security_classification",
+   "access_policy",
+   "sla",
+   "status",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "spending_requests": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "budget_id",
+   "requester_type",
+   "requester_id",
+   "amount_minor",
+   "currency",
+   "category",
+   "purpose",
+   "kind",
+   "required_level",
+   "status",
+   "approval_id",
+   "decision_reason",
+   "decided_by",
+   "expense_record_id",
+   "agent_id",
+   "task_id",
+   "project_ref",
+   "experiment_ref",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "subscriptions": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "customer_ref",
+   "plan_ref",
+   "amount_minor",
+   "currency",
+   "interval",
+   "status",
+   "started_date",
+   "current_period_end",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "survival_forecasts": {
+  "owner_module": "survival",
+  "columns": [
+   "id",
+   "business_id",
+   "kind",
+   "scenario",
+   "period_label",
+   "assumptions",
+   "inputs",
+   "expected",
+   "confidence",
+   "p07_forecast_id",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "system_config": {
+  "owner_module": "core",
+  "columns": [
+   "id",
+   "key",
+   "value",
+   "description",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "system_events": {
+  "owner_module": "core",
+  "columns": [
+   "id",
+   "event_id",
+   "event_type",
+   "source",
+   "correlation_id",
+   "task_id",
+   "severity",
+   "payload",
+   "created_at",
+   "business_id",
+   "workflow_id",
+   "processing_status"
+  ]
+ },
+ "task_cost_records": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "project_ref",
+   "agent_id",
+   "task_id",
+   "execution_request_id",
+   "category",
+   "estimated_minor",
+   "approved_limit_minor",
+   "actual_minor",
+   "currency",
+   "cost_kind",
+   "approval_requirement",
+   "status",
+   "notes",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "task_executions": {
+  "owner_module": "core",
+  "columns": [
+   "id",
+   "task_id",
+   "attempt_number",
+   "status",
+   "started_at",
+   "finished_at",
+   "duration_ms",
+   "result",
+   "error"
+  ]
+ },
+ "tasks": {
+  "owner_module": "core",
+  "columns": [
+   "id",
+   "name",
+   "description",
+   "category",
+   "handler_name",
+   "payload",
+   "priority",
+   "status",
+   "creator_type",
+   "creator_id",
+   "assigned_agent_id",
+   "started_at",
+   "completed_at",
+   "deadline",
+   "retry_count",
+   "max_retries",
+   "timeout_seconds",
+   "progress",
+   "result",
+   "error",
+   "cancellation_requested",
+   "requires_approval",
+   "essential",
+   "approval_id",
+   "idempotency_key",
+   "next_attempt_at",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "tax_records": {
+  "owner_module": "financial",
+  "columns": [
+   "id",
+   "business_id",
+   "jurisdiction",
+   "category",
+   "period_label",
+   "estimated_liability_minor",
+   "collected_minor",
+   "payable_minor",
+   "paid_minor",
+   "currency",
+   "due_date",
+   "rate",
+   "status",
+   "professional_review_required",
+   "notes",
+   "created_by",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "validation_records": {
+  "owner_module": "opportunities",
+  "columns": [
+   "id",
+   "opportunity_id",
+   "level",
+   "criteria_met",
+   "criteria_missing",
+   "evidence_ids",
+   "reviewer",
+   "decision",
+   "notes",
+   "created_at",
+   "updated_at"
+  ]
+ }
+}

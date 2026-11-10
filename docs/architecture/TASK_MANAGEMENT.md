@@ -1,49 +1,29 @@
-# P-01 Task Management
+# Task Management (P-01 §7) — as implemented
 
-Implemented task states: CREATED, VALIDATING, QUEUED, RUNNING, COMPLETED, FAILED, CANCELLED, PAUSED, WAITING_FOR_APPROVAL, RETRY_PENDING. Transitions are validated by `ALLOWED_TRANSITIONS`.
+## Model
 
-## Queue and execution
+The durable `tasks` table is the queue. Fields per §7.2: UUID, name, description, category, handler name, validated payload (JSON), priority (0–100), status, creator principal, optional assigned agent, timestamps (UTC), deadline, retry count/max, timeout, progress/result/error (JSON), cancellation flag, approval requirement, essential flag, approval link, unique idempotency key, next-attempt time. Every attempt writes a `task_executions` row (attempt number, status, duration, result/error).
 
-- Bounded in-memory priority queue backed by persistent task records.
-- FIFO within equal priority via sequence counter.
-- Configurable capacity and worker concurrency.
-- Only registered safe handlers execute: `system.noop`, `system.echo`, `system.wait`.
-- Handler payloads are validated with Pydantic.
-- Timeout, cancellation, retry backoff and execution history are implemented.
+## State machine
 
-## Recovery
+`created → validating → queued → running → completed`, with `failed / cancelled / paused / waiting_for_approval / retry_pending`. Transitions are whitelisted (`tasks/models.TRANSITIONS`) and enforced in `TaskManager.transition` — e.g. completed→running, cancelled→completed and failed→completed all raise `InvalidStateTransitionError` (409). `running → paused` exists solely for startup recovery.
 
-On startup, RUNNING/VALIDATING tasks are marked FAILED with `INTERRUPTED` error details. QUEUED tasks are re-enqueued. Due RETRY_PENDING tasks are promoted. Approval-gated tasks are reconciled against their approval record. Idempotency keys prevent duplicate submissions with the same payload.
+## Execution — governed handlers only (Rule 4)
 
-## Approval gating
+Tasks execute **only** through `HandlerRegistry` names. Payloads can never carry code, commands or callables; unknown handlers and schema-invalid payloads are rejected at submission (422). Built-ins: `core.noop`, `core.echo_check` (typed echo), `core.health_snapshot` (monitor resources + DB health), `core.wait` (bounded 0–10 s sleep; exists so timeout/cancellation are testable through the same governed path).
 
-A task submitted with `approval_required=true` is gated instead of queued:
+## Queue semantics
 
-- The task and its approval are created in **one transaction**, so a task in
-  `WAITING_FOR_APPROVAL` always has a decisionable approval. Its `resource` is
-  the task id and its `action` is `task.execute`.
-- The approval is bound to a canonical hash of the task's handler, name and
-  payload. A gate whose hash no longer matches the task never releases it.
-- Risk is `medium`, deliberately below the `high`/`critical` band that blocks
-  self-approval: in P-01 the owner is both submitter and the only holder of
-  `approvals.decide`, so a higher band would make every gate undecidable.
-  Raising it requires a second approver principal to exist first.
-- `ApprovalGranted` releases the task to `QUEUED`; `ApprovalRejected` cancels it.
-  Both are also applied by a periodic sweep and at startup, so a decision is
-  honoured even if its event was lost or made while the process was down.
-- Gates that are expired, missing or no longer matching close the task with
-  `APPROVAL_EXPIRED`, `APPROVAL_MISSING` or `APPROVAL_BINDING_MISMATCH` in
-  `error_details`. The TTL is `AUTONOMUS_TASK_APPROVAL_TTL_SECONDS`.
-- A closed gate always ends in `CANCELLED`, never `FAILED`: `FAILED -> QUEUED`
-  is a legal transition, so a rejected or expired gate must not be retryable
-  into execution without a fresh approval.
+Due tasks are claimed in priority order (higher first), FIFO within equal priority, up to `max_concurrency`. Capacity counts queued+retry_pending+validating+waiting_for_approval; submission beyond `queue_capacity` fails with 429 `queue_full` (backpressure — nothing accumulates unboundedly in RAM; the DB is the queue). When resource thresholds are exceeded, nonessential submissions fail with 429 `resource_blocked`; essential tasks are still admitted.
 
-Approvals still do not authorize external side effects; no external execution
-handler exists in P-01.
+## Retry
 
-## Limitations
+Exponential backoff `min(base · 2^(attempt-1), max)`. Error classification: invalid_input / permission_denied / security are **never** auto-retried; timeout / transient / unknown are retried while `retry_count < max_retries`, via `retry_pending` with `next_attempt_at`. Manual retry from FAILED resets the cycle. Owner-rejected and permission-denied work is never retried.
 
-Manual retry is allowed only for FAILED tasks within retry limits. A cancelled
-gate cannot be retried; resubmit the task to obtain a new approval. If the owner
-cancels a gated task directly, its approval is left to expire by TTL rather than
-being withdrawn; a later decision on it is a safe no-op.
+## Cancellation, pause, approval gating
+
+Cancelling a queued task cancels it immediately; cancelling a running task sets `cancellation_requested` and the execution ends `cancelled` when the handler returns (handlers are bounded; cooperative cancellation is the P-01 model). Pause works from queued/retry_pending; resume re-queues. `requires_approval` tasks park in `waiting_for_approval`; the API opens a parameter-bound approval and only a verified approval releases them to queued.
+
+## Persistence & recovery
+
+All state is in SQLite; a restart preserves completed/failed history exactly. Recovery (see CORE_OS_ARCHITECTURE.md) marks interrupted RUNNING tasks PAUSED + `recovery_required` and never blindly re-executes them; submission idempotency keys prevent duplicate effects from client retries.

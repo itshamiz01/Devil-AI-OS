@@ -1,0 +1,130 @@
+METADATA TABLES: 223 (physical DB adds alembic_version)
+
+TABLES BY OWNING MODEL MODULE:
+  models.agents: 9 tables
+  models.business: 18 tables
+  models.core: 10 tables
+  models.dashboard: 2 tables
+  models.economy: 14 tables
+  models.execution: 10 tables
+  models.experience: 15 tables
+  models.financial: 27 tables
+  models.growth: 18 tables
+  models.intelligence: 5 tables
+  models.memory: 15 tables
+  models.operations: 14 tables
+  models.opportunities: 11 tables
+  models.portfolio: 19 tables
+  models.reliability: 4 tables
+  models.security: 14 tables
+  models.survival: 18 tables
+
+MONEY-TOKEN SCAN: 50 of 223 tables have >=1 hit
+  owned by models.financial (P-07): 20
+  owned by other modules: 30
+
+  NON-P-07 tables with money-token columns (owner: columns):
+    allocation_recommendations (models.economy): currency
+    business_channels (models.business): fees
+    business_classifications (models.economy): revenue_model
+    business_decision_alternatives (models.survival): expected_cost_minor
+    business_decisions (models.survival): estimated_cost_minor, estimated_cost_currency
+    business_declarations (models.business): budget_cap_amount, budget_cap_minor, budget_currency
+    business_experiments (models.survival): approved_budget_minor, max_acceptable_loss_minor, currency
+    business_health_snapshots (models.survival): currency
+    capital_allocation_proposals (models.survival): amount_minor, currency, max_loss_minor
+    commercial_analyses (models.opportunities): revenue_model, currency, price_assumption
+    commercialization_proposals (models.economy): estimated_cost_minor
+    cx_fulfillments (models.experience): revenue_id
+    cx_resolutions (models.experience): revenue_id
+    decision_outcomes (models.survival): cost_minor
+    economic_opportunities (models.economy): estimated_investment_minor
+    experiment_proposals (models.economy): budget_ceiling_minor, max_acceptable_loss_minor
+    growth_experiments (models.growth): budget_ceiling_minor, max_acceptable_loss_minor
+    internal_cost_allocations (models.portfolio): charged_business_id, amount_minor, currency
+    market_reports (models.economy): revenue_models
+    marketing_campaigns (models.growth): budget_ceiling_minor, currency
+    new_venture_proposals (models.portfolio): revenue_scenarios
+    opportunities (models.opportunities): revenue_model
+    portfolio_recommendations (models.portfolio): potential_revenue_impact
+    portfolio_reports (models.portfolio): currency
+    portfolio_risk_assessments (models.portfolio): currency
+    recovery_plans (models.survival): budget_minor, currency
+    reinvestment_plans (models.economy): currency, amounts_minor
+    research_briefs (models.opportunities): budget_amount, budget_minor, currency
+    sales_opportunities (models.growth): estimated_value_minor, currency
+    scaling_plans (models.survival): current_amount_minor, proposed_amount_minor, currency
+
+  journal/ledger columns anywhere outside models.financial:
+    NONE
+
+  'collected'/'balance' columns outside models.financial:
+    NONE
+
+API SURFACE (OpenAPI 3.1.0, info version 0.1.0): 642 paths, 762 operations
+  security schemes: {"HTTPBearer": {"type": "http", "scheme": "bearer"}}
+
+  ROUTE GROUPS (paths / operations):
+    /agent-capabilities: 1 paths, 1 operations
+    /agent-factory: 13 paths, 14 operations
+    /agent-templates: 9 paths, 11 operations
+    /agents: 18 paths, 20 operations
+    /approvals: 3 paths, 4 operations
+    /auth: 2 paths, 2 operations
+    /business: 29 paths, 37 operations
+    /dashboard: 17 paths, 18 operations
+    /decisions: 1 paths, 1 operations
+    /economy: 46 paths, 58 operations
+    /events: 1 paths, 1 operations
+    /execution: 33 paths, 37 operations
+    /experience: 53 paths, 66 operations
+    /financial: 71 paths, 83 operations
+    /growth: 64 paths, 73 operations
+    /health: 3 paths, 3 operations
+    /memory: 36 paths, 40 operations
+    /missions: 3 paths, 4 operations
+    /models: 3 paths, 3 operations
+    /operations: 30 paths, 35 operations
+    /opportunities: 22 paths, 28 operations
+    /plans: 4 paths, 4 operations
+    /portfolio: 58 paths, 73 operations
+    /reliability: 13 paths, 17 operations
+    /research: 1 paths, 1 operations
+    /security: 50 paths, 57 operations
+    /sources: 2 paths, 3 operations
+    /survival: 48 paths, 59 operations
+    /system: 2 paths, 2 operations
+    /tasks: 6 paths, 7 operations
+
+  PUBLIC operations (no bearer security): 3
+    GET /api/v1/health/live
+    POST /api/v1/auth/login
+    POST /api/v1/financial/payments/webhooks/{provider}
+
+PERMISSION ALIASES PER ROUTE MODULE (source scan):
+  agent_factory: (no require_permission aliases)
+  agents: (no require_permission aliases)
+  approvals: (no require_permission aliases)
+  auth: (no require_permission aliases)
+  business: READ=Permission.READ_BUSINESS_DATA; WRITE=Permission.MODIFY_BUSINESS_DATA; APPROVE=Permission.APPROVE_ACTIONS
+  dashboard: READ="read_system_data"
+  economy: READ=Permission.READ_BUSINESS_DATA; WRITE=Permission.MODIFY_BUSINESS_DATA; GOVERN=Permission.APPROVE_ACTIONS
+  events: (no require_permission aliases)
+  execution: (no require_permission aliases)
+  experience: READ=Permission.READ_BUSINESS_DATA; WRITE=Permission.MODIFY_BUSINESS_DATA; GOVERN=Permission.APPROVE_ACTIONS
+  financial: READ=Permission.READ_BUSINESS_DATA; WRITE=Permission.MODIFY_BUSINESS_DATA; APPROVE=Permission.APPROVE_ACTIONS
+  growth: READ=Permission.READ_BUSINESS_DATA; WRITE=Permission.MODIFY_BUSINESS_DATA; GOVERN=Permission.APPROVE_ACTIONS
+  health: (no require_permission aliases)
+  intelligence: (no require_permission aliases)
+  memory: READ=Permission.READ_BUSINESS_DATA; WRITE=Permission.MODIFY_BUSINESS_DATA; APPROVE=Permission.APPROVE_ACTIONS
+  operations: READ=Permission.READ_BUSINESS_DATA; WRITE=Permission.MODIFY_BUSINESS_DATA; GOVERN=Permission.APPROVE_ACTIONS
+  opportunities: (no require_permission aliases)
+  portfolio: READ=Permission.READ_BUSINESS_DATA; WRITE=Permission.MODIFY_BUSINESS_DATA; GOVERN=Permission.APPROVE_ACTIONS
+  reliability: READ="read_system_data"; WRITE="modify_system_config"
+  security: READ="read_system_data"; CONFIG="modify_system_config"
+  survival: READ=Permission.READ_BUSINESS_DATA; WRITE=Permission.MODIFY_BUSINESS_DATA; APPROVE=Permission.APPROVE_ACTIONS
+  system: (no require_permission aliases)
+  tasks: (no require_permission aliases)
+
+Permission enum members: 12
+modules binding a permission by raw string literal: ['dashboard', 'reliability', 'reliability', 'security', 'security']

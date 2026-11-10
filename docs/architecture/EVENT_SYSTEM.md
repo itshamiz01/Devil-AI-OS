@@ -1,7 +1,12 @@
-# P-01 Event System
+# Event System (P-01 §8) — as implemented
 
-The internal event bus is asynchronous and bounded. Events have ID, type, timestamp, source, correlation ID, optional task ID, severity and payload. System events are persisted to SQLite. Subscriber exceptions are isolated and logged. The bus rejects unknown event types and applies backpressure when full.
+In-process async `EventBus` (`app/events/`); no distributed broker in this phase. Event model: unique ID, type, UTC timestamp, source component, correlation ID, optional task ID, validated payload dict, severity.
 
-Implemented event types (21) include application lifecycle, task lifecycle, approval, permission denial, system warning/error, database unavailable, resource threshold, and the two emergency-stop types `EmergencyActivated` / `EmergencyDeactivated` added beyond the P-01 §8 initial list of 19 so that a security-critical state change is observable through the same bus (ADR-0013). Critical audit records are written separately by permission/task/approval services and do not depend only on in-memory event delivery.
+**Types:** ApplicationStarted/Ready/Stopping/Stopped, TaskCreated/Queued/Started/ProgressUpdated/Completed/Failed/Cancelled, ApprovalRequested/Granted/Rejected, PermissionDenied, SystemWarning, SystemError, DatabaseUnavailable, ResourceThresholdExceeded.
 
-This is not a distributed broker. Recursive flooding is bounded by queue capacity and subscriber limits, but P-01 does not implement a distributed outbox.
+**Guarantees (all unit-tested):**
+- Multiple subscribers per type plus a `*` wildcard.
+- **Subscriber failure isolation** — a raising subscriber is logged and counted; other subscribers still receive the event; the publisher never crashes.
+- **Recursion guard** — publish depth is tracked with a context variable; beyond `event_max_depth` (default 3) events are dropped and counted.
+- **Flood protection** — a per-second rate limit (default 200/s); excess events are dropped and counted (`bus.dropped_count`), never queued in memory.
+- **Critical persistence** — a built-in subscriber writes the critical set (approvals, permission denials, warnings/errors, DB-unavailable, resource-threshold, task failures, app start/stop) to `system_events`, deduplicated by event ID, independently of in-memory delivery. `GET /api/v1/events` exposes exactly this persisted set.

@@ -1,0 +1,62 @@
+=== Gate 2 backup & restore drill ===
+scratch root: /tmp/g2drill
+
+[1] source application booted; db = //tmp/g2drill/src/test.db
+    source: tables=224 integrity=ok alembic=218ddd92a0aa
+      system_config: 17 rows
+      security_policy_versions: 1 rows
+      audit_events: 0 rows
+      app_sessions: 0 rows
+      permissions: 0 rows
+      agents: 0 rows
+      tasks: 0 rows
+  [PASS] source db has 224 physical tables (got 224)
+  [PASS] source db at migration head 218ddd92a0aa 
+
+[2] create_backup (owner principal, service layer)
+    A: status=created tables=224 size=4628480 sha256=1a6d5458fbe26043...
+  [PASS] backup A created 
+  [PASS] backup A inventory = 224 tables 
+    verify A: status=verified detail=backup verified: integrity ok, manifest hash matches, security state readable
+  [PASS] backup A verifies 
+  [PASS] non-owner backup refused 
+
+[3] negative control: corrupt backup A's file, re-verify
+    verify A after tamper: status=verify_failed detail=backup file hash does not match its manifest
+  [PASS] tampered backup FAILS verification 
+
+[4] backup B + restore_preview (hash-bound approval guard)
+  [PASS] backup B verifies 
+    plan: executed=False snapshot=381aa6c3... steps=5
+  [PASS] restore_preview executes nothing itself 
+  [PASS] restore_preview took a pre-restore snapshot 
+  [PASS] mis-bound approval refused 
+    backup B contents: tables=224 integrity=ok
+      system_config: 17 rows
+      security_policy_versions: 1 rows
+      audit_events: 3 rows
+      app_sessions: 0 rows
+      permissions: 0 rows
+      agents: 0 rows
+      tasks: 0 rows
+
+[5] source application stopped (playbook §5 step 1)
+    live DB copied aside; backup B copied into place (//tmp/g2drill/restored/test.db)
+    restored application started
+  [PASS] restored app reports database healthy 
+    restored: tables=224 integrity=ok alembic=218ddd92a0aa
+      system_config: backup=17 restored=17
+      security_policy_versions: backup=1 restored=1
+      audit_events: backup=3 restored=3
+      app_sessions: backup=0 restored=0
+      permissions: backup=0 restored=0
+      agents: backup=0 restored=0
+      tasks: backup=0 restored=0
+  [PASS] restored table count = 224 
+  [PASS] restored integrity ok 
+  [PASS] sentinel row counts match backup (excl. audit_events, which the restored boot appends to) system_config: 17->17; security_policy_versions: 1->1; app_sessions: 0->0; permissions: 0->0; agents: 0->0; tasks: 0->0
+  [PASS] audit_events in restored DB >= backup (boot appended, none lost) (3 -> 3)
+  [PASS] owner login succeeds against restored DB 
+  [PASS] restored session resolves to the owner principal 
+
+=== DRILL RESULT: 18 passed, 0 failed ===

@@ -1,0 +1,96 @@
+backend regression: files=76 chunks=13 chunk_size=6
+started: 2026-11-10T12:08:14+00:00
+--- chunk 0: tests/test_f01_integration.py tests/test_f01_security.py tests/test_f01_unit.py tests/test_failure.py tests/test_integration_api.py tests/test_integration_persistence.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+51 passed, 1 warning in 41.76s
+tmp after chunk 0: 31% used, 358M avail
+--- chunk 1: tests/test_logging_regression.py tests/test_p02_integration.py tests/test_p02_security.py tests/test_p02_unit.py tests/test_p03_integration.py tests/test_p03_security.py
+=========================== short test summary info ============================
+FAILED tests/test_p02_integration.py::test_p02_migration_creates_tables_on_fresh_db
+FAILED tests/test_p03_integration.py::test_p03_migration_head_and_tables_on_fresh_db
+2 failed, 62 passed, 1 warning in 55.37s
+tmp after chunk 1: 31% used, 358M avail
+--- chunk 2: tests/test_p03_unit.py tests/test_p04_integration.py tests/test_p04_resources.py tests/test_p04_security.py tests/test_p04_unit.py tests/test_p05_integration.py
+=========================== short test summary info ============================
+FAILED tests/test_p04_integration.py::test_p04_migration_cycle_and_legacy_row_preserved
+FAILED tests/test_p05_integration.py::test_p05_migration_cycle - AssertionErr...
+2 failed, 106 passed, 1 warning in 60.52s (0:01:00)
+tmp after chunk 2: 31% used, 358M avail
+--- chunk 3: tests/test_p05_resources.py tests/test_p05_security.py tests/test_p05_unit.py tests/test_p06_integration.py tests/test_p06_scenarios.py tests/test_p06_security.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+85 passed, 1 warning in 92.13s (0:01:32)
+tmp after chunk 3: 31% used, 358M avail
+--- chunk 4: tests/test_p06_unit.py tests/test_p07_integration.py tests/test_p07_scenarios.py tests/test_p07_security.py tests/test_p07_unit.py tests/test_p08_integration.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+78 passed, 1 warning in 60.66s (0:01:00)
+tmp after chunk 4: 31% used, 358M avail
+--- chunk 5: tests/test_p08_scenarios.py tests/test_p08_security.py tests/test_p08_unit.py tests/test_p09_integration.py tests/test_p09_scenarios.py tests/test_p09_security.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+78 passed, 1 warning in 110.98s (0:01:50)
+tmp after chunk 5: 9% used, 469M avail
+--- chunk 6: tests/test_p09_unit.py tests/test_p10_integration.py tests/test_p10_scenarios.py tests/test_p10_security.py tests/test_p10_unit.py tests/test_p11_integration.py
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_p11_integration.py::test_p11_metadata_registers_exactly_two_new_tables
+1 failed, 113 passed, 1 warning in 88.19s (0:01:28)
+tmp after chunk 6: 9% used, 469M avail
+--- chunk 7: tests/test_p12_integration.py tests/test_p12_recovery.py tests/test_p12_scenarios.py tests/test_p12_security.py tests/test_p12_unit.py tests/test_p13_integration.py
+FAILED tests/test_p12_integration.py::test_p12_metadata_registers_exactly_fourteen_new_tables
+FAILED tests/test_p13_integration.py::test_p13_migration_cycle - assert 226 =...
+FAILED tests/test_p13_integration.py::test_p13_metadata_registers_exactly_nineteen_new_tables
+3 failed, 74 passed, 10 warnings in 51.16s
+tmp after chunk 7: 9% used, 469M avail
+--- chunk 8: tests/test_p13_scenarios.py tests/test_p13_security.py tests/test_p13_unit.py tests/test_p14_audit.py tests/test_p14_e2e.py tests/test_p14_financial.py
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_p14_audit.py::test_p14_schema_metadata_table_count - Assert...
+1 failed, 62 passed, 2 warnings in 63.92s (0:01:03)
+tmp after chunk 8: 9% used, 469M avail
+--- chunk 9: tests/test_p14_orchestration.py tests/test_p14_security.py tests/test_p14_stageb_repairs.py tests/test_p15_integration.py tests/test_p15_security.py tests/test_p15_unit.py
+=========================== short test summary info ============================
+FAILED tests/test_p15_integration.py::test_p15_migration_cycle - assert 226 =...
+FAILED tests/test_p15_integration.py::test_p15_metadata_registers_exactly_four_new_tables
+2 failed, 68 passed, 6 warnings in 51.75s
+tmp after chunk 9: 9% used, 469M avail
+--- chunk 10: tests/test_p16_integration.py tests/test_p16_scenarios.py tests/test_p16_security.py tests/test_p16_unit.py tests/test_p17_integration.py tests/test_p17_scenarios.py
+=========================== short test summary info ============================
+FAILED tests/test_p16_integration.py::test_p16_migration_cycle - AssertionErr...
+FAILED tests/test_p16_integration.py::test_p16_metadata_registers_exactly_fourteen_new_tables
+2 failed, 78 passed, 1 warning in 65.52s (0:01:05)
+tmp after chunk 10: 9% used, 469M avail
+--- chunk 11: tests/test_p17_security.py tests/test_p17_unit.py tests/test_p18_integration.py tests/test_p18_scenarios.py tests/test_p18_security.py tests/test_p18_unit.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+61 passed, 1 warning in 37.82s
+tmp after chunk 11: 9% used, 469M avail
+--- chunk 12: tests/test_security.py tests/test_unit_core.py tests/test_unit_events_monitoring.py tests/test_unit_tasks.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+54 passed, 1 warning in 28.59s
+tmp after chunk 12: 9% used, 469M avail
+finished: 2026-11-10T12:23:20+00:00
+DONE
+
+--- F01 pin advancement + re-run (final code) ---
+First pass above: 970 passed / 13 failed. All 13 failures were the
+exact-pin assertions the additive F01 migration necessarily
+advances (alembic head 218ddd92a0aa -> 85b7a9805207 in
+p02/p03/p04/p05/p16 integration; physical 224 -> 226 and metadata
+223 -> 225 counts in p11/p12/p13/p14/p15/p16). Zero unexpected
+failures. Each pin was advanced with an Expansion F01 disclosure
+comment, strictness preserved (the established house pattern).
+Re-run of exactly the ten affected files, two pruned chunks:
+  chunk A (p02/p03/p04/p05/p11 integration): 84 passed
+  chunk B (p12/p13 integration, p14 audit, p15/p16 integration): 73 passed
+FINAL BACKEND TOTAL ON FINAL CODE: 983 passed / 0 failed
+(953 P-18 baseline + 30 new F01 tests).

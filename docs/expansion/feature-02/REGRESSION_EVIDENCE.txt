@@ -1,0 +1,50 @@
+tmpfs           512M   58M  455M  12% /tmp
+files: 79
+chunk 1 (6 files): 2 failed, 62 passed, 1 warning in 49.74s
+tmpfs           512M   58M  455M  12% /tmp
+chunk 2 (6 files): 1 failed, 37 passed, 1 warning in 60.08s (0:01:00)
+tmpfs           512M   58M  455M  12% /tmp
+chunk 3 (6 files): 2 failed, 100 passed, 1 warning in 87.03s (0:01:27)
+tmpfs           512M   58M  455M  12% /tmp
+chunk 4 (6 files): 1 failed, 105 passed, 1 warning in 81.96s (0:01:21)
+tmpfs           512M   58M  455M  12% /tmp
+chunk 5 (6 files): 73 passed, 1 warning in 92.71s (0:01:32)
+tmpfs           512M   58M  455M  12% /tmp
+chunk 6 (6 files): 77 passed, 1 warning in 109.90s (0:01:49)
+tmpfs           512M   58M  455M  12% /tmp
+chunk 7 (6 files): 88 passed, 1 warning in 92.33s (0:01:32)
+tmpfs           512M   58M  455M  12% /tmp
+chunk 8 (6 files): 2 failed, 87 passed, 1 warning in 96.02s (0:01:36)
+tmpfs           512M   58M  455M  12% /tmp
+chunk 9 (6 files): 2 failed, 84 passed, 11 warnings in 54.30s
+tmpfs           512M   58M  455M  12% /tmp
+chunk 10 (6 files): 1 failed, 67 passed, 1 warning in 79.87s (0:01:19)
+tmpfs           512M   58M  455M  12% /tmp
+chunk 11 (6 files): 4 failed, 73 passed, 6 warnings in 67.70s (0:01:07)
+tmpfs           512M   58M  455M  12% /tmp
+chunk 12 (6 files): 70 passed, 1 warning in 51.95s
+tmpfs           512M   58M  455M  12% /tmp
+chunk 13 (6 files): 60 passed, 1 warning in 34.69s
+tmpfs           512M   58M  455M  12% /tmp
+chunk 14 (1 files): 19 passed, 1 warning in 16.92s
+tmpfs           512M   58M  455M  12% /tmp
+FINAL BACKEND TOTAL ON FINAL CODE: 1002 passed, 15 failed/errors across 14 chunks
+
+RESOLUTION OF THE 15 FIRST-PASS FAILURES: every one was an exact
+migration-head / table-count pin in an earlier suite, advanced by
+F02's additive migration (head 85b7a9805207 -> 3f7a1c9e52b4;
+physical tables 226 -> 228; metadata tables 225 -> 227):
+test_f01_integration (head + counts), test_f01_unit (metadata),
+test_p02_integration (head), test_p03_integration (head),
+test_p04_integration (head x2), test_p05_integration (head),
+test_p11_integration (metadata), test_p12_integration (metadata),
+test_p13_integration (counts + metadata), test_p14_audit
+(metadata), test_p15_integration (counts + metadata),
+test_p16_integration (head + counts + metadata). Each pin was
+advanced with an "Expansion F02 disclosure" comment, strictness
+preserved (exact values, no ranges), per the F01 precedent.
+Re-runs of the 12 affected files on final code: 74 passed + 100
+passed, 0 failed.
+FINAL BACKEND TOTAL: 1017 passed, 0 failed (983 pre-F02 + 34 new
+F02 tests). Frontend: 58 passed, 0 failed (55 + 3 new) and a
+clean strict TypeScript build (tsc --noEmit && vite build).

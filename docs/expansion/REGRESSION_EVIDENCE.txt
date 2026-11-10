@@ -1,0 +1,86 @@
+backend regression: files=73 chunks=13 chunk_size=6
+started: 2026-11-10T11:23:48+00:00
+--- chunk 0: tests/test_failure.py tests/test_integration_api.py tests/test_integration_persistence.py tests/test_logging_regression.py tests/test_p02_integration.py tests/test_p02_security.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+38 passed, 1 warning in 53.20s
+tmp after chunk 0: 3% used, 501M avail
+--- chunk 1: tests/test_p02_unit.py tests/test_p03_integration.py tests/test_p03_security.py tests/test_p03_unit.py tests/test_p04_integration.py tests/test_p04_resources.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+102 passed, 1 warning in 68.82s (0:01:08)
+tmp after chunk 1: 3% used, 501M avail
+--- chunk 2: tests/test_p04_security.py tests/test_p04_unit.py tests/test_p05_integration.py tests/test_p05_resources.py tests/test_p05_security.py tests/test_p05_unit.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+106 passed, 1 warning in 75.63s (0:01:15)
+tmp after chunk 2: 4% used, 497M avail
+--- chunk 3: tests/test_p06_integration.py tests/test_p06_scenarios.py tests/test_p06_security.py tests/test_p06_unit.py tests/test_p07_integration.py tests/test_p07_scenarios.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+73 passed, 1 warning in 89.90s (0:01:29)
+tmp after chunk 3: 8% used, 475M avail
+--- chunk 4: tests/test_p07_security.py tests/test_p07_unit.py tests/test_p08_integration.py tests/test_p08_scenarios.py tests/test_p08_security.py tests/test_p08_unit.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+77 passed, 1 warning in 100.09s (0:01:40)
+tmp after chunk 4: 8% used, 475M avail
+--- chunk 5: tests/test_p09_integration.py tests/test_p09_scenarios.py tests/test_p09_security.py tests/test_p09_unit.py tests/test_p10_integration.py tests/test_p10_scenarios.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+88 passed, 1 warning in 82.13s (0:01:22)
+tmp after chunk 5: 8% used, 475M avail
+--- chunk 6: tests/test_p10_security.py tests/test_p10_unit.py tests/test_p11_integration.py tests/test_p12_integration.py tests/test_p12_recovery.py tests/test_p12_scenarios.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+89 passed, 1 warning in 77.18s (0:01:17)
+tmp after chunk 6: 8% used, 475M avail
+--- chunk 7: tests/test_p12_security.py tests/test_p12_unit.py tests/test_p13_integration.py tests/test_p13_scenarios.py tests/test_p13_security.py tests/test_p13_unit.py
+    def test_scenario_17_command_center_displays_portfolio(client_portfolio):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+86 passed, 11 warnings in 49.44s
+tmp after chunk 7: 8% used, 475M avail
+--- chunk 8: tests/test_p14_audit.py tests/test_p14_e2e.py tests/test_p14_financial.py tests/test_p14_orchestration.py tests/test_p14_security.py tests/test_p14_stageb_repairs.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+68 passed, 1 warning in 69.42s (0:01:09)
+tmp after chunk 8: 8% used, 475M avail
+--- chunk 9: tests/test_p15_integration.py tests/test_p15_security.py tests/test_p15_unit.py tests/test_p16_integration.py tests/test_p16_scenarios.py tests/test_p16_security.py
+    def test_no_money_columns_in_p15_tables():
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+77 passed, 6 warnings in 61.63s (0:01:01)
+tmp after chunk 9: 8% used, 475M avail
+--- chunk 10: tests/test_p16_unit.py tests/test_p17_integration.py tests/test_p17_scenarios.py tests/test_p17_security.py tests/test_p17_unit.py tests/test_p18_integration.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+70 passed, 1 warning in 46.67s
+tmp after chunk 10: 8% used, 475M avail
+--- chunk 11: tests/test_p18_scenarios.py tests/test_p18_security.py tests/test_p18_unit.py tests/test_security.py tests/test_unit_core.py tests/test_unit_events_monitoring.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+60 passed, 1 warning in 24.05s
+tmp after chunk 11: 8% used, 475M avail
+--- chunk 12: tests/test_unit_tasks.py
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+19 passed, 1 warning in 15.44s
+tmp after chunk 12: 8% used, 475M avail
+finished: 2026-11-10T11:38:53+00:00
+DONE
+
+=== FRONTEND (Gate 2 review, 2026-11-10) ===
+npm test (vitest run): Test Files 15 passed (15); Tests 52 passed (52)
+npx tsc --noEmit: exit 0 (strict TypeScript clean)

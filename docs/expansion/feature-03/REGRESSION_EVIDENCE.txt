@@ -1,0 +1,76 @@
+Expansion Feature 3 (Voice Assistant) — full backend regression evidence
+========================================================================
+Date: 2026-11-10. Final code. Baseline: F02 final state (backend
+1017 passed / 0 failed, frontend 58/58, migration head 3f7a1c9e52b4,
+228 physical tables).
+
+Method: C-locale-sorted list of 82 backend test files, run in 16
+chunks with per-chunk tmpfs basetemps deleted after each chunk;
+from chunk 9 onward, per-FILE processes with per-file basetemps
+removed immediately (see the environment note below). /tmp is a
+512 MB tmpfs; df showed 34% used before and after the run.
+
+First attempt (8 chunks of ~10 files): 7 failed, 102 passed,
+13 errors in the first chunk — the 7 failures were the EXPECTED
+stale exact pins (F01/F02 migration-cycle head+count, F01 metadata
+count, F02 registry/version asserts, OpenAPI version,
+APP_VERSION); the 13 errors were SQLAlchemy fixture-setup errors
+in test_failure.py / test_integration_api.py from basetemp
+accumulation inside one long process (both files pass standalone
+and in a two-file run: 18 passed). All pins were then advanced
+with F03 disclosure comments (strictness preserved) across
+test_f01_integration, test_f01_unit, test_f02_integration,
+test_f02_unit, test_p02_integration, test_p03_integration,
+test_p04_integration, test_p05_integration, test_p11_integration,
+test_p12_integration, test_p13_integration, test_p14_audit,
+test_p15_integration, test_p16_integration, and the full suite
+re-run:
+
+chunk 1:  64 passed, 0 failed
+chunk 2:  58 passed, 0 failed
+chunk 3:  20 passed, 0 failed
+chunk 4:  102 passed, 0 failed
+chunk 5:  77 passed, 0 failed
+chunk 6:  77 passed, 0 failed
+chunk 7:  62 passed, 0 failed
+chunk 8:  66 passed, 0 failed
+chunk 9 (combined attempt): 93 passed, 6 errors — all six were
+  sqlalchemy.exc.OperationalError "database or disk is full" at
+  PRAGMA journal_mode=WAL during fixture setup (tmpfs basetemp
+  accumulation within the process; environment failure, not a
+  code failure). Re-run per-file:
+    test_p09_security.py    12 passed
+    test_p09_unit.py        21 passed
+    test_p10_integration.py 11 passed
+    test_p10_scenarios.py   18 passed
+    test_p10_security.py    16 passed
+    test_p10_unit.py        21 passed
+  chunk 9 per-file total: 99 passed, 0 failed
+chunk 10 (per-file): 62 passed, 0 failed
+chunk 11 (per-file): 76 passed, 0 failed
+chunk 12 (per-file): 62 passed, 0 failed
+chunk 13 (per-file): 66 passed, 0 failed
+chunk 14 (per-file): 51 passed, 0 failed
+chunk 15 (per-file): 48 passed, 0 failed
+chunk 16 (per-file): 67 passed, 0 failed
+
+BACKEND TOTAL: 1057 passed, 0 failed
+(1017 F02 baseline + 40 new F03 tests: 14 unit, 15 integration,
+11 security — tests/test_f03_unit.py, test_f03_integration.py,
+test_f03_security.py, tests/f03_support.py.)
+
+Frontend: 62 passed / 0 failed (58 baseline + 4 new Voice tests in
+frontend/src/views/Voice.test.tsx); strict TypeScript clean
+(tsc --noEmit); production build succeeded (vite build, dist/
+rebuilt).
+
+Live smoke: backend/scripts/f03_smoke.py ->
+docs/reports/F03_SMOKE_EVIDENCE.txt: 28 passed, 0 failed
+(real uvicorn subprocess, fresh database auto-migrated to
+c41f7a9d03e6, 232 physical tables, owner login attempt 1 behind
+the /health/ready gate). First smoke run: 27 passed / 1 failed —
+the one failure was the smoke's own audit expectation (it
+expected a voice.transcribed event in a scenario where every
+transcription is honestly refused; the recorded event is
+voice.transcription_unavailable). Expectation corrected to the
+events the scenario genuinely produces; re-run 28/28.

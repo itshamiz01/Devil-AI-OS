@@ -1,0 +1,22 @@
+{
+  "volumes": {
+    "businesses": 100,
+    "journal_entries": 10000,
+    "journal_lines": 20000,
+    "memory_records": 10000
+  },
+  "seed_seconds": 2.41,
+  "timings_ms_median_of_3": {
+    "dashboard_overview": 32.61,
+    "dashboard_system_health": 8.27,
+    "financial_consolidated": 23.61,
+    "business_list_page50": 2.17,
+    "memory_search": 147.45,
+    "journal_page_query_50": 1.17
+  },
+  "notes": [
+    "Seed data inserted directly as ORM rows (labelled is_fixture where the model supports it); it measures read-path behaviour at volume, not workflow throughput.",
+    "Memory rows bypass the ingestion/vector path, so the semantic candidate set is empty; the timed search exercises the governed keyword/scan path over the record table.",
+    "SQLite on Linux staging (this VM); Windows numbers remain an owner-machine activity (DEF-A1)."
+  ]
+}
