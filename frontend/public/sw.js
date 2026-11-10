@@ -1,7 +1,7 @@
 /* AUTONOMUS Command Center service worker.
    Shell caching only: API calls are never cached (the backend is the authority). */
 const CACHE = "autonomus-shell-v1";
-const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
+const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
