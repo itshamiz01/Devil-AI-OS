@@ -1,41 +1,46 @@
 from __future__ import annotations
 
+import os
+import sys
 from logging.config import fileConfig
 from pathlib import Path
-import sys
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-BACKEND_DIR = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(BACKEND_DIR))
+from alembic import context
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
 from app.database.models import Base  # noqa: E402
 
 config = context.config
-if config.config_file_name:
-    fileConfig(config.config_file_name)
+if config.config_file_name is not None and os.environ.get("ALEMBIC_QUIET") is None:
+    try:
+        # Never disable or re-level the host application's loggers: when
+        # migrations run programmatically inside the app, alembic.ini's
+        # logging section must not clobber the app pipeline.
+        fileConfig(config.config_file_name, disable_existing_loggers=False)
+    except Exception:
+        pass
+
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True, dialect_opts={"paramstyle": "named"})
+    context.configure(url=url, target_metadata=target_metadata, literal_binds=True,
+                      dialect_opts={"paramstyle": "named"}, render_as_batch=True)
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_migrations_online() -> None:
-    connectable = engine_from_config(config.get_section(config.config_ini_section, {}), prefix="sqlalchemy.", poolclass=pool.NullPool)
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.", poolclass=pool.NullPool)
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            # Batch mode rewrites ALTERs as table rebuilds, which SQLite needs
-            # because it cannot drop or alter many column constraints in place.
-            # Postgres supports them natively, and rebuilding there would be
-            # both slower and lossier, so batch is dialect-conditional.
-            render_as_batch=connection.dialect.name == "sqlite",
-        )
+        context.configure(connection=connection, target_metadata=target_metadata,
+                          render_as_batch=True)
         with context.begin_transaction():
             context.run_migrations()
 

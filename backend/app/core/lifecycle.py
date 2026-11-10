@@ -1,29 +1,51 @@
+"""Application lifecycle states (P-01 §4)."""
 from __future__ import annotations
 
-import time
-from enum import Enum
+import enum
 
 
-class LifecycleState(str, Enum):
-    STARTING = "STARTING"
-    READY = "READY"
-    DEGRADED = "DEGRADED"
-    STOPPING = "STOPPING"
-    STOPPED = "STOPPED"
-    FAILED = "FAILED"
+class AppState(str, enum.Enum):
+    STARTING = "starting"
+    READY = "ready"
+    DEGRADED = "degraded"
+    STOPPING = "stopping"
+    STOPPED = "stopped"
+    FAILED = "failed"
 
 
-class Lifecycle:
-    def __init__(self):
-        self.state = LifecycleState.STOPPED
-        self.started_at: float | None = None
-        self.error: str | None = None
+class LifecycleManager:
+    """Tracks the application state; transitions are explicit and validated."""
 
-    def set(self, state: LifecycleState, error: str | None = None) -> None:
-        self.state = state
-        self.error = error
-        if state in {LifecycleState.READY, LifecycleState.DEGRADED} and self.started_at is None:
-            self.started_at = time.monotonic()
+    _TRANSITIONS: dict[AppState, set[AppState]] = {
+        AppState.STARTING: {AppState.READY, AppState.DEGRADED, AppState.FAILED, AppState.STOPPING},
+        AppState.READY: {AppState.DEGRADED, AppState.STOPPING, AppState.FAILED},
+        AppState.DEGRADED: {AppState.READY, AppState.STOPPING, AppState.FAILED},
+        AppState.STOPPING: {AppState.STOPPED, AppState.FAILED},
+        AppState.STOPPED: {AppState.STARTING},
+        AppState.FAILED: {AppState.STARTING, AppState.STOPPING},
+    }
 
-    def uptime_seconds(self) -> float:
-        return 0.0 if self.started_at is None else round(time.monotonic() - self.started_at, 3)
+    def __init__(self) -> None:
+        self._state = AppState.STOPPED
+        self.degraded_reasons: list[str] = []
+
+    @property
+    def state(self) -> AppState:
+        return self._state
+
+    def transition(self, target: AppState, reason: str | None = None) -> AppState:
+        if target == self._state:
+            return self._state
+        allowed = self._TRANSITIONS.get(self._state, set())
+        if target not in allowed:
+            raise ValueError(f"Invalid lifecycle transition {self._state} -> {target}")
+        self._state = target
+        if target == AppState.DEGRADED and reason:
+            self.degraded_reasons.append(reason)
+        if target == AppState.READY:
+            self.degraded_reasons.clear()
+        return self._state
+
+    @property
+    def is_ready(self) -> bool:
+        return self._state in (AppState.READY, AppState.DEGRADED)

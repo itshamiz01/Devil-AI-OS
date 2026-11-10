@@ -1,30 +1,41 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, Field
 
-from ...core.exceptions import UnauthorizedError
-from ..dependencies import get_principal, get_services
-from ..schemas.common import LoginRequest, PrincipalView, envelope
+from ...core.application import Application
+from ...core.exceptions import AuthenticationError
+from ...permissions.models import Principal
+from ..dependencies import correlation_id, get_application, get_principal
+from ..schemas.common import ok
 
-router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-@router.post("/login")
-async def login(request: Request, body: LoginRequest):
-    services = get_services(request)
-    client_key = request.client.host if request.client else "unknown"
-    token, expires = await services.auth.login(body.username, body.password, client_key)
-    return envelope({"access_token": token, "token_type": "bearer", "expires_at": expires.isoformat()})
+router = APIRouter(tags=["auth"])
 
 
-@router.post("/logout")
-async def logout(request: Request, principal=Depends(get_principal)):
-    auth_header = request.headers.get("authorization", "")
-    token = auth_header.removeprefix("Bearer ").strip()
-    await get_services(request).auth.logout(token)
-    return envelope({"logged_out": True})
+class LoginIn(BaseModel):
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=1)
+    # Expansion Feature 1 (Identity & Device Security): optional
+    # device binding. When either field is presented, verification
+    # is mandatory and fail-closed (see AuthService._device_gate).
+    device_id: str | None = None
+    device_secret: str | None = None
 
 
-@router.get("/me")
-async def me(principal=Depends(get_principal)):
-    return envelope(PrincipalView.model_validate(principal).model_dump(mode="json"))
+@router.post("/auth/login")
+async def login(body: LoginIn, request: Request,
+                application: Application = Depends(get_application)):
+    token = application.auth.login(body.username, body.password,
+                                   device_id=body.device_id,
+                                   device_secret=body.device_secret)
+    if token is None:
+        raise AuthenticationError("invalid username or password")
+    return ok({"access_token": token, "token_type": "bearer",
+               "principal": f"owner:{body.username}"}, correlation_id(request))
+
+
+@router.get("/auth/me")
+async def me(request: Request, principal: Principal = Depends(get_principal),
+             application: Application = Depends(get_application)):
+    return ok({"principal_type": principal.type.value, "principal_id": principal.id,
+               "auth_mode": application.auth.auth_mode}, correlation_id(request))

@@ -1,60 +1,38 @@
+"""Shared API contract (P-01 §15): envelope, errors, pagination."""
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any
+from typing import Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
-
-class LoginRequest(BaseModel):
-    username: str = Field(min_length=1, max_length=128)
-    password: str = Field(min_length=1, max_length=256)
+T = TypeVar("T")
 
 
-class PrincipalView(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: str
-    kind: str
-    name: str
-    active: bool
+class ErrorBody(BaseModel):
+    code: str
+    message: str
+    details: dict = Field(default_factory=dict)
 
 
-class AgentView(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: str
-    principal_id: str | None
-    name: str
-    role: str
-    status: str
-    metadata_json: dict[str, Any]
-    created_at: datetime
-    updated_at: datetime
+class PageMeta(BaseModel):
+    total: int
+    limit: int
+    offset: int
 
 
-class EventView(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: str
-    event_type: str
-    source: str
-    correlation_id: str | None
-    task_id: str | None
-    severity: str
-    payload: dict[str, Any]
-    created_at: datetime
+class Envelope(BaseModel, Generic[T]):
+    success: bool = True
+    data: T | None = None
+    error: ErrorBody | None = None
+    correlation_id: str | None = None
+    meta: PageMeta | None = None
 
 
-class AuditView(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: str
-    event_type: str
-    principal_id: str | None
-    resource: str
-    action: str
-    outcome: str
-    correlation_id: str | None
-    payload: dict[str, Any]
-    created_at: datetime
+def ok(data, correlation_id: str | None = None, meta: PageMeta | None = None) -> dict:
+    return {"success": True, "data": data, "error": None,
+            "correlation_id": correlation_id, "meta": meta.model_dump() if meta else None}
 
 
-def envelope(data: Any, **meta: Any) -> dict:
-    return {"data": data, "meta": meta}
+def page(rows: list, total: int, limit: int, offset: int, correlation_id: str | None = None) -> dict:
+    return ok(rows, correlation_id=correlation_id,
+              meta=PageMeta(total=total, limit=limit, offset=offset))

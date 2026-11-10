@@ -1,60 +1,57 @@
+"""Typed application exceptions mapped to the API error envelope."""
 from __future__ import annotations
 
-from typing import Any
 
+class AutonomusError(Exception):
+    status_code = 500
+    code = "internal_error"
 
-class AppError(Exception):
-    status_code = 400
-    code = "app_error"
-
-    def __init__(self, message: str, details: dict[str, Any] | None = None):
+    def __init__(self, message: str, details: dict | None = None):
         super().__init__(message)
         self.message = message
         self.details = details or {}
 
 
-class UnauthorizedError(AppError):
-    status_code = 401
-    code = "unauthorized"
+class ConfigurationError(AutonomusError):
+    status_code = 500
+    code = "configuration_error"
 
 
-class ForbiddenError(AppError):
-    status_code = 403
-    code = "forbidden"
+class ValidationError(AutonomusError):
+    status_code = 422
+    code = "validation_error"
 
 
-class NotFoundError(AppError):
+class NotFoundError(AutonomusError):
     status_code = 404
     code = "not_found"
 
 
-class ConflictError(AppError):
+class AuthenticationError(AutonomusError):
+    status_code = 401
+    code = "unauthorized"
+
+
+class PermissionDeniedError(AutonomusError):
+    status_code = 403
+    code = "permission_denied"
+
+
+class InvalidStateTransitionError(AutonomusError):
     status_code = 409
-    code = "conflict"
+    code = "invalid_state_transition"
 
 
-class QueueFullError(AppError):
+class QueueFullError(AutonomusError):
     status_code = 429
     code = "queue_full"
 
 
-class InvalidTransitionError(AppError):
+class ResourceBlockedError(AutonomusError):
+    status_code = 429
+    code = "resource_blocked"
+
+
+class ApprovalError(AutonomusError):
     status_code = 409
-    code = "invalid_task_transition"
-
-
-class ResourceProtectedError(AppError):
-    status_code = 503
-    code = "resource_protected"
-
-
-class EmergencyBlockedError(AppError):
-    """Raised when the owner's emergency stop refuses non-essential work.
-
-    503 rather than 403: the principal *is* authorized, the system is simply
-    halted. Callers should treat it as retryable-after-clearing, not as a
-    permission failure, and it must never be retried automatically.
-    """
-
-    status_code = 503
-    code = "emergency_stop_active"
+    code = "approval_error"
