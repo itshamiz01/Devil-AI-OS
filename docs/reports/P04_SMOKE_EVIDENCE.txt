@@ -1,0 +1,630 @@
+=== AUTONOMUS P-04 SMOKE RUN (real uvicorn, supervised mode) ===
+server env: AUTONOMUS_MODE=supervised, fresh SQLite DB (auto-migrate on),
+AUTONOMUS_BLOCK_NONESSENTIAL_ON_THRESHOLD=false (test-harness setting,
+mirrors the automated suite; live host pressure is still REPORTED by
+GET /agent-factory/resources below). No LLM is configured or used.
+login: owner OK
+
+--- GET /agent-factory/status (factory seeded at startup)
+HTTP 200
+{
+  "success": true,
+  "data": {
+    "total_agents": 0,
+    "agents_by_status": {},
+    "active_agents": 0,
+    "pending_approval_requests": 0,
+    "creation_enabled": true,
+    "assignments_enabled": true,
+    "safe_mode": false,
+    "system_mode": "supervised",
+    "limits": {
+      "max_total_agents": 12,
+      "max_active_agents": 8,
+      "max_agents_per_business": 4,
+      "max_child_agents_per_parent": 3,
+      "max_delegation_depth": 3,
+      "max_concurrent_inference_requests": 1,
+      "creation_rate_limit_per_hour": 10
+    },
+    "resource_pressure": {
+      "level": 1,
+      "violations": [
+        {
+          "resource": "memory",
+          "value": 95.1,
+          "threshold": 90.0
+        }
+      ],
+      "queue": {
+        "capacity": 100,
+        "depth": 0,
+        "running": 0,
+        "by_status": {}
+      },
+      "blocking_enabled": false
+    },
+    "backpressure_actions": [
+      "stop_nonessential_agent_creation",
+      "queue_low_priority_assignments",
+      "report_resource_pressure_to_owner"
+    ],
+    "shared_inference": {
+      "router_bindings": 1,
+      "inference_active": 0,
+      "note": "one shared P-02 model router for all logical agents; no per-agent instances"
+    }
+  },
+  "error": null,
+  "correlation_id": "ea291399-991e-4ac9-a15e-083b68c4be88",
+  "meta": null
+}
+
+--- GET /agent-factory/resources (live host pressure, honestly reported)
+HTTP 200
+{
+  "success": true,
+  "data": {
+    "host": {
+      "available": true,
+      "cpu_percent": 0.0,
+      "memory_percent": 95.1,
+      "memory_available_mb": 391.4,
+      "memory_total_mb": 7934.5,
+      "disk_percent": 22.3,
+      "disk_free_gb": 0.39,
+      "disk_total_gb": 0.5,
+      "process_count": 9
+    },
+    "pressure": {
+      "level": 1,
+      "violations": [
+        {
+          "resource": "memory",
+          "value": 95.1,
+          "threshold": 90.0
+        }
+      ],
+      "queue": {
+        "capacity": 100,
+        "depth": 0,
+        "running": 0,
+        "by_status": {}
+      },
+      "blocking_enabled": false
+    },
+    "backpressure_actions": [
+      "stop_nonessential_agent_creation",
+      "queue_low_priority_assignments",
+      "report_resource_pressure_to_owner"
+    ],
+    "agents": {
+      "total": 0,
+      "by_status": {}
+    },
+    "queue": {
+      "capacity": 100,
+      "depth": 0,
+      "running": 0,
+      "by_status": {}
+    },
+    "inference": {
+      "active": 0,
+      "limit": 1,
+      "measurement_type": "estimated",
+      "note": "inference is shared; per-agent figures are estimates"
+    },
+    "cpu_ram_measurement": "measured (host, via P-01 SystemMonitor/psutil)"
+  },
+  "error": null,
+  "correlation_id": "48cea9ab-9a05-4d0c-ac4f-f0e39b6d74f0",
+  "meta": null
+}
+
+--- SCENARIO A — POST /agent-factory/create {role: research_agent}
+HTTP 201
+{
+  "success": true,
+  "data": {
+    "id": "2b349bd5-4d3b-435b-9704-9df05e30b32c",
+    "requester": {
+      "type": "owner",
+      "id": "owner"
+    },
+    "requested_role": "research_agent",
+    "requested_template_id": "3004762e-7c8e-49f8-bb24-ed25e7ddf0f2",
+    "business_ref": "smoke-business",
+    "justification": "smoke: research capacity needed",
+    "requested_capabilities": [],
+    "resource_estimate": {},
+    "decision": "CREATE_AGENT",
+    "decision_reasons": [
+      "no existing agent can serve the requirement; a published, valid template matches; capabilities and resources are within policy; creation is justified"
+    ],
+    "approval_status": "not_required",
+    "approval_id": null,
+    "created_agent_id": "3d90f6c9-e5f0-4f95-9927-10d09f7912f6",
+    "reused_agent_id": null,
+    "proposed_template_id": null,
+    "created_at": "2026-11-08T22:53:41.001615",
+    "completed_at": "2026-11-08T22:53:41.039271"
+  },
+  "error": null,
+  "correlation_id": "8b1824e5-69b0-4f47-8ed3-fa125dcfcb9d",
+  "meta": null
+}
+
+--- GET /agents/3d90f6c9-e5f0-4f95-9927-10d09f7912f6 (ACTIVE, pinned to template v1)
+HTTP 200
+{
+  "success": true,
+  "data": {
+    "id": "3d90f6c9-e5f0-4f95-9927-10d09f7912f6",
+    "name": "Research Agent (2b349bd5)",
+    "role": "research_agent",
+    "parent_agent_id": null,
+    "business_ref": "smoke-business",
+    "objective": "smoke: research capacity needed",
+    "model_profile": null,
+    "status": "active",
+    "budget": {
+      "max_concurrent_tasks": 1,
+      "max_task_seconds": 300,
+      "max_retries": 1,
+      "max_inference_requests_per_task": 4,
+      "max_child_agents": 2,
+      "max_queue_occupancy": 10,
+      "memory_budget_mb": 256
+    },
+    "created_at": "2026-11-08T22:53:41.006425",
+    "agent_type": "intelligence",
+    "description": "Investigate assigned research questions and return evidence-backed findings.",
+    "template_id": "3004762e-7c8e-49f8-bb24-ed25e7ddf0f2",
+    "template_version": 1,
+    "configuration_version": 1,
+    "security_classification": "internal",
+    "last_activity_at": "2026-11-08T22:53:41.041299",
+    "retired_at": null
+  },
+  "error": null,
+  "correlation_id": "a42b3b3c-331d-4c68-a501-cbbd941f5194",
+  "meta": null
+}
+
+--- GET /agents/{id}/permissions (template capabilities granted)
+HTTP 200
+{
+  "success": true,
+  "data": {
+    "agent_id": "3d90f6c9-e5f0-4f95-9927-10d09f7912f6",
+    "grants": [
+      {
+        "id": "47d66155-c03a-44a1-ac3c-1a8b3bcbd97d",
+        "capability": "internal_database_read",
+        "capability_id": "a63375d2-ef6f-472a-831b-9ad14d2fc83d",
+        "scope": null,
+        "approval_level": 0,
+        "approval_reference": null,
+        "status": "granted",
+        "granted_at": "2026-11-08T22:53:41.019920",
+        "expires_at": null,
+        "revoked_at": null
+      },
+      {
+        "id": "3025070b-58ad-4ea9-958a-37db68a5eba8",
+        "capability": "internal_reasoning",
+        "capability_id": "78453f8a-85d0-473b-bb19-706f744377c9",
+        "scope": null,
+        "approval_level": 0,
+        "approval_reference": null,
+        "status": "granted",
+        "granted_at": "2026-11-08T22:53:41.027033",
+        "expires_at": null,
+        "revoked_at": null
+      },
+      {
+        "id": "1d81309f-e84c-4ced-9c53-724ea825c4f4",
+        "capability": "memory_read",
+        "capability_id": "2caea833-fc10-46ba-8a86-cf76c7079da1",
+        "scope": null,
+        "approval_level": 0,
+        "approval_reference": null,
+        "status": "granted",
+        "granted_at": "2026-11-08T22:53:41.030719",
+        "expires_at": null,
+        "revoked_at": null
+      }
+    ],
+    "effective_capabilities": [
+      "internal_database_read",
+      "internal_reasoning",
+      "memory_read"
+    ]
+  },
+  "error": null,
+  "correlation_id": "66ad3b96-7e30-4758-983d-2ca47d66abdc",
+  "meta": null
+}
+
+--- SCENARIO B — identical creation request again (reuse expected)
+HTTP 201
+{
+  "success": true,
+  "data": {
+    "id": "8336bae9-3ca8-4481-ab4f-d12a82e7f8df",
+    "requester": {
+      "type": "owner",
+      "id": "owner"
+    },
+    "requested_role": "research_agent",
+    "requested_template_id": null,
+    "business_ref": null,
+    "justification": null,
+    "requested_capabilities": [],
+    "resource_estimate": {},
+    "decision": "REUSE_EXISTING_AGENT",
+    "decision_reasons": [
+      "existing agent 3d90f6c9-e5f0-4f95-9927-10d09f7912f6 (role research_agent) is assignable, holds the required capabilities and has free capacity; creating a duplicate is unnecessary"
+    ],
+    "approval_status": "not_required",
+    "approval_id": null,
+    "created_agent_id": null,
+    "reused_agent_id": "3d90f6c9-e5f0-4f95-9927-10d09f7912f6",
+    "proposed_template_id": null,
+    "created_at": "2026-11-08T22:53:41.075342",
+    "completed_at": "2026-11-08T22:53:41.074976"
+  },
+  "error": null,
+  "correlation_id": "60ae0a2c-d3ee-4afa-b670-a2c7eb54d903",
+  "meta": null
+}
+
+--- POST /agents/{id}/assign (real P-01 task, output contract)
+HTTP 201
+{
+  "success": true,
+  "data": {
+    "id": "84310f02-a369-4e54-b3bc-6eaa5505f2f4",
+    "agent_id": "3d90f6c9-e5f0-4f95-9927-10d09f7912f6",
+    "task_id": "728d3342-ac63-4cd3-ab26-49ff29e3ec35",
+    "business_ref": null,
+    "objective": "echo a smoke marker",
+    "input_refs": [],
+    "required_capabilities": [],
+    "priority": 5,
+    "timeout_seconds": 30.0,
+    "expected_output": {
+      "required_fields": [
+        "echo"
+      ]
+    },
+    "quality_requirements": {},
+    "retry_limit": 0,
+    "parent_assignment_id": null,
+    "delegation_depth": 0,
+    "status": "assigned",
+    "rejection_reason": null,
+    "result_summary": null,
+    "output_validation": {},
+    "failure_reason": null,
+    "assigned_by": {
+      "type": "owner",
+      "id": "owner"
+    },
+    "started_at": "2026-11-08T22:53:41.100595",
+    "completed_at": null,
+    "created_at": "2026-11-08T22:53:41.101897"
+  },
+  "error": null,
+  "correlation_id": "0dd48b75-2ba3-4a99-ba76-ca1440d3808d",
+  "meta": null
+}
+
+--- GET /agents/{id}/assignments (assignment settled)
+{
+  "id": "84310f02-a369-4e54-b3bc-6eaa5505f2f4",
+  "agent_id": "3d90f6c9-e5f0-4f95-9927-10d09f7912f6",
+  "task_id": "728d3342-ac63-4cd3-ab26-49ff29e3ec35",
+  "business_ref": null,
+  "objective": "echo a smoke marker",
+  "input_refs": [],
+  "required_capabilities": [],
+  "priority": 5,
+  "timeout_seconds": 30.0,
+  "expected_output": {
+    "required_fields": [
+      "echo"
+    ]
+  },
+  "quality_requirements": {},
+  "retry_limit": 0,
+  "parent_assignment_id": null,
+  "delegation_depth": 0,
+  "status": "completed",
+  "rejection_reason": null,
+  "result_summary": "True",
+  "output_validation": {
+    "valid": true,
+    "missing_fields": [],
+    "checked_fields": [
+      "echo"
+    ]
+  },
+  "failure_reason": null,
+  "assigned_by": {
+    "type": "owner",
+    "id": "owner"
+  },
+  "started_at": "2026-11-08T22:53:41.100595",
+  "completed_at": "2026-11-08T22:53:41.146022",
+  "created_at": "2026-11-08T22:53:41.101897"
+}
+
+--- SCENARIO C — POST /agents/{id}/permissions/request {web_research, Level 2}
+HTTP 200
+{
+  "success": true,
+  "data": {
+    "status": "approval_required",
+    "capability": "web_research",
+    "agent_id": "3d90f6c9-e5f0-4f95-9927-10d09f7912f6",
+    "approval_id": "53e663bc-8a47-451c-a17f-5db03218478d",
+    "supported": true,
+    "note": "the agent does NOT hold this capability while approval is outstanding"
+  },
+  "error": null,
+  "correlation_id": "7d779eb3-ff12-4304-b4bc-f26c3f0fd95a",
+  "meta": null
+}
+verified: agent does NOT hold web_research while approval is pending
+
+--- POST /agents/{id}/permissions/approve (owner decides)
+HTTP 200
+{
+  "success": true,
+  "data": {
+    "status": "granted",
+    "approval_id": "53e663bc-8a47-451c-a17f-5db03218478d",
+    "capability": "web_research",
+    "grant_id": "a0ff51b9-975b-4d18-bb38-834fc1034723"
+  },
+  "error": null,
+  "correlation_id": "1a3ad2e6-c525-4d89-a58f-8c6d895c81f4",
+  "meta": null
+}
+verified: web_research granted only AFTER the owner's decision
+
+--- SCENARIO D — max_total_agents=1 set by owner; second agent creation
+HTTP 201
+{
+  "success": true,
+  "data": {
+    "id": "0d347b8e-36da-466f-8273-ef54726f5611",
+    "requester": {
+      "type": "owner",
+      "id": "owner"
+    },
+    "requested_role": "market_analysis_agent",
+    "requested_template_id": "f92e35d1-e593-44da-81d2-3fdcf438d5d6",
+    "business_ref": null,
+    "justification": null,
+    "requested_capabilities": [],
+    "resource_estimate": {},
+    "decision": "QUEUE_FOR_LATER",
+    "decision_reasons": [
+      "total agent limit reached (1/1)"
+    ],
+    "approval_status": "not_required",
+    "approval_id": null,
+    "created_agent_id": null,
+    "reused_agent_id": null,
+    "proposed_template_id": null,
+    "created_at": "2026-11-08T22:53:41.210746",
+    "completed_at": "2026-11-08T22:53:41.210348"
+  },
+  "error": null,
+  "correlation_id": "2aeb017f-3811-4a42-b6af-609641ee1113",
+  "meta": null
+}
+settings restored: max_total_agents=12
+
+--- SCENARIO H — POST /agent-factory/emergency-stop {scope: all}
+HTTP 200
+{
+  "success": true,
+  "data": {
+    "scope": "all",
+    "agents_suspended": [
+      "3d90f6c9-e5f0-4f95-9927-10d09f7912f6"
+    ],
+    "tasks_cancelled": [],
+    "capabilities_revoked": [],
+    "safe_mode": true,
+    "reason": "smoke emergency stop"
+  },
+  "error": null,
+  "correlation_id": "462cf09e-a08a-4c97-ba1c-64f86dc91f16",
+  "meta": null
+}
+
+--- assignment attempt during safe mode (rejected deterministically)
+HTTP 409
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "ASSIGNMENT_REJECTED",
+    "message": "assignment rejected for agent 3d90f6c9-e5f0-4f95-9927-10d09f7912f6",
+    "details": {
+      "error_category": "ASSIGNMENT_REJECTED",
+      "failures": [
+        {
+          "rule": "governance_policy",
+          "reason": "assignments are stopped (emergency mode, safe mode or assignments disabled)"
+        },
+        {
+          "rule": "agent_active",
+          "reason": "agent status is 'suspended'; only active/idle/busy agents may receive assignments (suspended, failed and retired agents may not)"
+        }
+      ],
+      "assignment_id": "9ed080e1-2ca1-47d0-b24d-1198483e3622"
+    }
+  },
+  "correlation_id": "22c2e233-e4d4-4dd1-ab86-66abffde4b9e",
+  "meta": null
+}
+operations resumed (safe mode lifted; agents NOT auto-resumed)
+
+--- SCENARIO I — POST /agents/{id}/retire
+HTTP 200
+{
+  "success": true,
+  "data": {
+    "id": "3d90f6c9-e5f0-4f95-9927-10d09f7912f6",
+    "name": "Research Agent (2b349bd5)",
+    "role": "research_agent",
+    "agent_type": "intelligence",
+    "description": "Investigate assigned research questions and return evidence-backed findings.",
+    "parent_agent_id": null,
+    "business_ref": "smoke-business",
+    "objective": "smoke: research capacity needed",
+    "model_profile": null,
+    "status": "retired",
+    "template_id": "3004762e-7c8e-49f8-bb24-ed25e7ddf0f2",
+    "template_version": 1,
+    "configuration_version": 1,
+    "security_classification": "internal",
+    "budget": {
+      "max_concurrent_tasks": 1,
+      "max_task_seconds": 300,
+      "max_retries": 1,
+      "max_inference_requests_per_task": 4,
+      "max_child_agents": 2,
+      "max_queue_occupancy": 10,
+      "memory_budget_mb": 256
+    },
+    "created_by": {
+      "type": "owner",
+      "id": "owner"
+    },
+    "last_activity_at": "2026-11-08T22:53:41.276070",
+    "retired_at": "2026-11-08T22:53:41.276064",
+    "created_at": "2026-11-08T22:53:41.006425",
+    "updated_at": "2026-11-08T22:53:41.276656"
+  },
+  "error": null,
+  "correlation_id": "847485ea-f777-48d8-ba61-fbf65ce060f3",
+  "meta": null
+}
+
+--- GET /agents/{id}/config-history (preserved after retirement)
+HTTP 200
+{
+  "success": true,
+  "data": [
+    {
+      "configuration_version": 1,
+      "configuration_snapshot": {
+        "name": "Research Agent (2b349bd5)",
+        "role": "research_agent",
+        "agent_type": "intelligence",
+        "description": "Investigate assigned research questions and return evidence-backed findings.",
+        "objective": "smoke: research capacity needed",
+        "business_ref": "smoke-business",
+        "parent_agent_id": null,
+        "template_id": "3004762e-7c8e-49f8-bb24-ed25e7ddf0f2",
+        "template_version": 1,
+        "model_profile": null,
+        "budget": {
+          "max_concurrent_tasks": 1,
+          "max_task_seconds": 300,
+          "max_retries": 1,
+          "max_inference_requests_per_task": 4,
+          "max_child_agents": 2,
+          "max_queue_occupancy": 10,
+          "memory_budget_mb": 256
+        },
+        "security_classification": "internal",
+        "template_capabilities": [
+          "internal_reasoning",
+          "internal_database_read",
+          "memory_read"
+        ],
+        "system_instruction": "You are a research agent. Work only from assigned objectives and granted capabilities; cite evidence references for every claim; never invent data."
+      },
+      "change_reason": "initial configuration from template Research Agent v1",
+      "changed_by": "owner",
+      "approval_reference": null,
+      "created_at": "2026-11-08T22:53:41.033149"
+    }
+  ],
+  "error": null,
+  "correlation_id": "5971935f-6e40-4130-aab2-ddc80980dedf",
+  "meta": null
+}
+
+--- GET /agents/{id}/events (audit trail preserved)
+HTTP 200
+{
+  "success": true,
+  "data": [
+    {
+      "id": "5fdfba79-0abf-40a6-a636-916f7536446b",
+      "action": "agent_factory.retire",
+      "actor": "owner",
+      "decision": "allow",
+      "reason": null,
+      "details": {
+        "history_preserved": true
+      },
+      "created_at": "2026-11-08T22:53:41.279766"
+    },
+    {
+      "id": "bf0fa00c-3e60-4cbb-b780-ac906a508a53",
+      "action": "agent_factory.lifecycle_transition",
+      "actor": "owner",
+      "decision": "allow",
+      "reason": "retired",
+      "details": {
+        "from": "retiring",
+        "to": "retired"
+      },
+      "created_at": "2026-11-08T22:53:41.277445"
+    },
+    {
+      "id": "8da4fdd6-ae96-4d94-b9bc-ad068779b1a5",
+      "action": "agent_factory.lifecycle_transition",
+      "actor": "owner",
+      "decision": "allow",
+      "reason": "retirement initiated",
+      "details": {
+        "from": "active",
+        "to": "retiring"
+      },
+      "created_at": "2026-11-08T22:53:41.273429"
+    },
+    {
+      "id": "7886998d-a0c1-4ca9-8f61-de098fb73485",
+      "action": "agent_factory.lifecycle_transition",
+      "actor": "owner",
+      "decision": "allow",
+      "reason": "resumed by operator",
+      "details": {
+        "from": "suspended",
+        "to": "active"
+      },
+      "created_at": "2026-11-08T22:53:41.262868"
+    },
+    {
+      "id": "f9a34abc-7a4c-40b8-abb5-80d4b95b965c",
+      "action": "agent_factory.assignment",
+      "actor": "owner",
+      "decision": "deny",
+      "reason": "governance_policy: assignments are stopped (emergency mode, safe mode or assignments disabled); agent_active: agent status is 'suspended'; only active/idle/busy agents may receive assignments (suspended, failed and retired agents may not)",
+      "details": {
+        "failures": [
+          {
+            "
+verified: identity, configuration history, assignments and audit events all remain readable after retirement — nothing deleted
+
+=== SMOKE RESULT: Scenarios A, B, C, D, H, I demonstrated live ===

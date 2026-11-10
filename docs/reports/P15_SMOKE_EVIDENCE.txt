@@ -1,0 +1,44 @@
+=== AUTONOMUS P-15 SMOKE (real uvicorn, controlled mode) ===
+server: http://127.0.0.1:25858/api/v1  data_dir: /tmp/p15-smoke-srctbi6z/data
+seeded business: 9fca7d92-9199-45a1-875e-f70791375ba8
+--- 1. Auth boundary, schema, zero state
+  [PASS] reliability overview requires auth (401) 
+  [PASS] auto-migrated schema has 177 tables (176 + alembic_version) (got 177)
+[login] HTTP 200 (owner session established)
+[overview (zero state)] HTTP 200 -> {"generated_at": "2026-11-10T07:10:48.929688+00:00"}
+  [PASS] overview carries every §14 panel key 
+  [PASS] no readiness snapshot before one is computed 
+  [PASS] long-duration windows INCOMPLETE on a fresh system (['INCOMPLETE', 'INCOMPLETE', 'INCOMPLETE'])
+  [PASS] financial read-model verifies the seeded P-07 ledger (checked 1)
+  [PASS] trading honestly NOT APPLICABLE 
+--- 2. Sampling and incident evaluation
+[manual sample] HTTP 200 -> {"source": "manual", "cpu_percent": 16.7}
+  [PASS] manual sample recorded with measured values 
+  [PASS] the sampler loop is live in a real boot (sampler samples exist) (2 samples)
+[evaluate incidents] HTTP 200 -> {"active": 2}
+  [PASS] fresh database (no backups) has the P3 backup incident open (open [('backup', 'no_backups'), ('resources', 'threshold_violation')]; this evaluation opened 0, the sampler may have opened it first — detection is the same either way)
+--- 3. P-10 backup through the P-15 delegation
+[create backup] HTTP 200 -> {"created": {"id": "9693626c-5788-4278-a9f3-3a1c64189cbe", "kind": "database", "location": "/tmp/p15-smoke-srctbi6z/data/backups/autonomus-20261110T071049045295.db", "sha256": "26f72a63a0715e33c6e3b46766759124c07bfa5f0783d466d85375d84e623610", "size_bytes": 3497984, "table_count": 177, "status": "created", "detail": "consistent SQLite backup copy; not yet verified", "created_by": "owner:owner", "c
+  [PASS] backup created via the P-10 service 
+  [PASS] backup verification returned 
+[evaluate after backup] HTTP 200 -> {"active": 1}
+  [PASS] the no-backups incident auto-resolved once a backup existed (resolved kinds ['no_backups'])
+--- 4. Benchmark suite and readiness score
+[benchmark run] HTTP 200 -> {"status": "completed"}
+  [PASS] benchmark run completed 
+  [PASS] recovery probes all pass (breaker, retry, dead letter) ({'circuit_breaker': True, 'retry_policy': True, 'event_bus_dead_letter': True})
+  [PASS] baseline timings measured (> 0) ({'dashboard_overview': 12.31, 'dashboard_system_health': 8.48, 'financial_consolidated': 2.94, 'journal_page_query_50': 0.21, 'memory_records_page_50': 0.24, 'memory_search': 3.65})
+[compute readiness] HTTP 200 -> {"overall_score": 85.8, "band": "Limited production candidate", "classification": "READY FOR CONTROLLED PILOT \u2014 production classification withheld while external blockers stand", "critical_gate_ok": true}
+  [PASS] readiness computed from live evidence 
+  [PASS] critical gate holds on the healthy smoke system 
+  [PASS] classification is capped at controlled pilot (A1/A2 stand) (READY FOR CONTROLLED PILOT — production classification withheld while external blockers stand)
+[readiness latest] HTTP 200 -> {"latest": {"id": "aece2ccc-2d0c-40db-b31b-4c4df0dcd673", "computed_at": "2026-11-10T07:10:49.574191+00:00", "overall_score": 85.8, "band": "Limited production candidate", "classification": "READY FOR CONTROLLED PILOT \u2014 production classification withheld while external blockers stand", "critical_gate_ok": true, "categories": {"performance": {"key": "performance", "weight": 15, "score": 80.0, 
+  [PASS] the computed snapshot persisted 
+--- 5. Governance boundary
+  [PASS] non-owner principal cannot create incidents (403) (got 403)
+  [PASS] non-owner principal cannot trigger backups (403) (got 403)
+--- 6. Command Center bundle
+  [PASS] frontend served at /app 
+  [PASS] bundle includes the Performance & Reliability section 
+  [PASS] bundle contains the System Performance & Reliability view 
+=== P-15 SMOKE RESULT: 25 passed, 0 failed ===

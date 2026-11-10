@@ -1,0 +1,63 @@
+=== AUTONOMUS P-18 SMOKE (real uvicorn, controlled mode) ===
+server: http://127.0.0.1:36122/api/v1  data_dir: /tmp/p18-smoke-d0a5reee/data
+seeded: {'business': 'd39cbd61-2163-4059-817a-091b85c93c08', 'customer': 'd7a35c99-5437-4de3-9e81-c2dcc5a8e9d0', 'revenue': '1c7b6a39-4b0a-4fe6-82fd-801b487dd0c3', 'article': 'fcd3a22d-552e-400a-9f37-34c74db8afc2'}
+--- 1. Auth boundary, schema
+  [PASS] experience status requires auth (401) 
+  [PASS] auto-migrated schema has 224 tables (223 + alembic_version) (got 224)
+[login attempts] 1
+[login] HTTP 200 (owner session established)
+--- 2. Engine status, roles, integrations
+[experience status] HTTP 200 -> {"customer_authority": "P-17 (crm_customers)", "financial_authority": "P-07", "workflow_authority": "P-12", "counts": {"onboardings": 0, "fulfillments": 0, "open_tickets": 0, "open_incidents": 0, "knowledge_articles": 1, "queued_communications": 0}}
+  [PASS] customers stay with P-17 
+  [PASS] money stays with P-07 
+[agent roles] HTTP 200 -> {"count": 10}
+  [PASS] 10 §14 agent roles seeded as P-04 templates 
+[integrations] HTTP 200 -> {"count": 8}
+  [PASS] every integration honestly not_configured 
+--- 3. Onboarding lifecycle
+[start onboarding] HTTP 200 -> {"id": "b3de7148-ff94-4577-854a-ee0c49dcfdc2", "template_source": "system_default", "status": "not_started"}
+  [PASS] onboarding uses the labelled system default 
+[onboarding dashboard] HTTP 200 -> {"total": 1, "completed": 1, "success_rate_percent": 100.0}
+  [PASS] dashboard shows the completed onboarding 
+--- 4. Fulfilment to acceptance
+[create fulfillment] HTTP 200 -> {"id": "b4819fcf-f0dc-4004-a72d-7f5cb3a7dd0c", "status": "received"}
+[deliver] HTTP 200 -> {"status": "delivered", "delivered_at": "2026-11-10T10:03:16.888917+00:00"}
+  [PASS] delivery recorded with timestamp 
+[acceptance] HTTP 200 -> {"acceptance": "accepted"}
+  [PASS] customer acceptance recorded 
+--- 5. Support assistant, tickets, SLA
+[grounded ask] HTTP 200 -> {"confidence_class": "verified", "escalated": false, "article_refs": [{"article_id": "fcd3a22d-552e-400a-9f37-34c74db8afc2", "version": 1, "title": "Reset your password", "match_score": 1.0}]}
+  [PASS] answer verified against the approved article 
+  [PASS] citation pins article id + version 
+[unknown ask] HTTP 200 -> {"confidence_class": "insufficient_information", "escalated": true, "ticket_id": "8f8cacbc-db9a-4d4c-a361-6a75db712c9d"}
+  [PASS] unknown question honestly insufficient + escalated 
+  [PASS] the question is recorded as a ticket, never lost 
+[create ticket] HTTP 200 -> {"id": "002105b0-2c7a-49dd-8f3f-3c198817ad0a", "priority": "high", "status": "new"}
+  [PASS] account_access floor makes priority high 
+[sla compliance] HTTP 200 -> {"status": "computed", "tickets_total": 2}
+  [PASS] SLA compliance computed against the owner policy 
+--- 6. Communications queue + blocked dispatch
+[queue communication] HTTP 200 -> {"id": "b7e0e922-220b-4208-b86f-4b7586bc29ca", "status": "queued", "sent": false}
+  [PASS] communication queued and explicitly not sent 
+[dispatch attempt] HTTP 200 -> {"status": "dispatch_blocked", "dispatch_note": "no customer communication transport is configured (REQUIRES OWNER CONFIGURATION); the message is queued only and has NOT been sent"}
+  [PASS] dispatch honestly blocked (no channel configured) 
+--- 7. Feedback, metrics, health
+[metrics] HTTP 200 -> {"csat": {"status": "computed", "value": 4.5, "top2_percent": 100.0, "sample_size": 2, "scale": "1-5"}, "nps": {"status": "INSUFFICIENT_DATA", "value": null, "sample_size": 0, "note": "no recorded NPS responses"}}
+  [PASS] CSAT computed from the two recorded responses (5, 4) 
+  [PASS] NPS honestly insufficient (no responses) 
+[compute health] HTTP 200 -> {"classification": "stable", "score": 80}
+  [PASS] health classified from recorded signals (stable, score 80)
+--- 8. Resolution with a P-07 refund
+[create resolution] HTTP 200 -> {"id": "ec236aa2-8d1b-46e5-9026-641ca2b2d6d9", "status": "recommended"}
+  [PASS] execution before approval is refused (HTTP 422)
+[execute resolution] HTTP 200 -> {"status": "executed", "p07_refund_id": "73211062-93b3-4174-a8d8-72a3dfaeca8e", "execution_note": "refund executed as P-07 refund 73211062-93b3-4174-a8d8-72a3dfaeca8e against verified revenue; P-18 moved no money"}
+  [PASS] refund executed as a P-07 record (id referenced only) 
+[customer 360] HTTP 200 -> {"purchase_count": 1, "customer_source": "p17_crm_customers \u2014 the only customer store; P-18 references it"}
+  [PASS] customer 360 reads purchases live from P-07 
+--- 9. Evaluation pass, portfolio overview, SPA
+[evaluate] HTTP 200 -> {"count": 0}
+  [PASS] evaluation pass runs deterministically 
+[portfolio overview] HTTP 200 -> {"businesses": [{"business_id": "d39cbd61-2163-4059-817a-091b85c93c08", "business_name": "FIXTURE \u2014 Smoke Experience Biz (fixture)", "counts": {"onboardings_open": 0, "fulfillments_open": 0, "tickets_open": 2, "incidents_open": 0, "communications_queued": 0, "resolutions_recommended": 0}, "health_distribution": {"stable": 1}, "csat": {"status": "computed", "value": 4.5, "top2_percent": 100.0,
+  [PASS] portfolio overview includes the business 
+  [PASS] Command Center SPA is served at /app 
+=== P-18 SMOKE RESULT: 27 passed, 0 failed ===

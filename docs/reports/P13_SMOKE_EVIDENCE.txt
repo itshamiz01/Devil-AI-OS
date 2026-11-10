@@ -1,0 +1,40 @@
+=== AUTONOMUS P-13 SMOKE (real uvicorn, controlled mode) ===
+server: http://127.0.0.1:40671/api/v1  data_dir: /tmp/p13-smoke-cu7box8c/data
+--- 1. Honesty check: auth boundary, schema, engine status
+  [PASS] portfolio list requires auth (401) 
+  [PASS] auto-migrated schema has 172 tables (171 + alembic_version) (got 172)
+[login] HTTP 200 (owner session established)
+[portfolio engine status] HTTP 200 -> {"engine": "P-13 Multi-business Coordination Engine"}
+  [PASS] P-13 engine is live 
+--- 2. Seeded portfolio overview and finance (P-07 truth)
+[overview] HTTP 200 -> {"total_businesses": 2, "active_businesses": 2, "stage_counts": {"APPROVED": 2}}
+  [PASS] overview counts both seeded businesses 
+[finance] HTTP 200 -> {"totals": {"net_collected_minor": 1000000, "collected_minor": 0, "projected_minor": 0, "basis": "sums of the per-business P-07 flow figures above (same currency only); internal transfers excluded by P-07", "collected_vs_projected": "kept as separate fields, never blended"}, "combined_available_cash": null}
+  [PASS] collected total equals the seeded P-07 revenue (9000 + 1000 = ₹10,000) (got 1000000)
+  [PASS] cash is never combined (combined_available_cash is null) 
+--- 3. Concentration detection and evidence-gated analysis
+[concentration] HTTP 200 -> {"total_collected_minor": 1000000, "threshold_bps": 6000}
+  [PASS] big business holds 90% of verified collected revenue 
+[analyze] HTTP 200 -> {"opportunities_created": 1, "recommendations_created": 2}
+  [PASS] analysis created evidence-based findings 
+  [PASS] shared-service opportunity detected for the unsubscribed business 
+[risk assess] HTTP 200 -> {"risk_level": "moderate"}
+  [PASS] risk assessment flags the concentration 
+--- 4. Internal allocation: labelled, and P-07 untouched
+[create allocation] HTTP 201 -> {"kind": "INTERNAL_ALLOCATION", "is_external_payment": false, "total_cost_minor": 2000}
+  [PASS] allocation is labelled INTERNAL_ALLOCATION, not a payment 
+  [PASS] P-07 totals identical after the allocation 
+  [PASS] allocation listed in finance as internal accounting 
+--- 5. Cross-business grant governance (§20)
+  [PASS] credentials grant refused (422 validation, house convention) (got 422)
+[scoped grant] HTTP 201 -> {"status": "ACTIVE", "categories": ["aggregate_metrics"]}
+  [PASS] scoped aggregate grant created ACTIVE 
+  [PASS] grant revocation succeeds 
+--- 6. Portfolio report reflects the live state
+[generate FINANCIAL report] HTTP 201 -> {"report_type": "FINANCIAL", "sources": ["p06.business", "p07.financial_service", "p08.survival", "p13.portfolio"]}
+  [PASS] report totals equal the live finance totals 
+  [PASS] report names its sources 
+--- 7. Built Command Center served at /app
+  [PASS] GET /app returns the built frontend 
+  [PASS] served bundle contains the Business Portfolio section 
+=== SMOKE RESULT: 20 passed, 0 failed ===

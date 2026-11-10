@@ -1,0 +1,70 @@
+=== AUTONOMUS P-10 SMOKE (real uvicorn, controlled mode) ===
+server: http://127.0.0.1:41479/api/v1  data_dir: /tmp/p10-smoke-18j53ntk/data
+[login] HTTP 200 (owner session established)
+--- 1. Security status on an empty staging database
+[security status] HTTP 200 -> {"mode": "normal", "financial_suspension": false, "active_sessions": 1, "pending_approvals": 0, "open_alerts": 0}
+  [PASS] mode normal at start 
+  [PASS] no financial suspension 
+[secret backends] HTTP 200 -> {"backends": [{"backend": "env", "available": true, "status": "available"}, {"backend": "windows-vault", "available": false, "status": "REQUIRES OWNER CONFIGURATION", "reason": "not a Windows host (staging runs on Linux); REQUIRES OWNER CONFIGURATION on the Windows machine"}], "totp_configured": false}
+  [PASS] windows vault honestly REQUIRES OWNER CONFIGURATION 
+  [PASS] MFA/TOTP not configured (owner has not enrolled) 
+  [PASS] threat register seeded (14 entries) 
+--- 2. Policy update is owner-only and versioned
+  [PASS] service principal cannot change policy (403) 
+[policy update] HTTP 200 -> {"settings": {"mode": "normal", "financial_suspension": false, "capability_default_ttl_minutes": 60, "capability_max_ttl_minutes": 1440, "login_max_failures": 10, "login_window_minutes": 15, "alert_denial_threshold": 3, "alert_window_minutes": 60, "command_allowlist": ["python", "python3", "git", "ls", "dir", "echo", "cat", "type", "pytest"], "protected_roots": ["security-config", "credentials", "browser-profiles", "backups", "keys", "vault"], "egress_allowlist": [], "egress_denylist": [], "allo
+  [PASS] owner policy update applied 
+  [PASS] policy history has seed + change 
+--- 3. Permission broker and capability lifecycle
+[broker L2 without capability] HTTP 200 -> {"allowed": false, "reason": "level 2 action requires a valid capability or a hash-bound approval (no capability presented)"}
+  [PASS] Level-2 action refused without capability/approval 
+[issue capability] HTTP 201 -> {"id": "bd4a1456-8597-4051-ac77-6bb473ca5c1f", "status": "active"}
+[broker L2 with capability] HTTP 200 -> {"allowed": true}
+  [PASS] capability authorizes the Level-2 action 
+  [PASS] revoked capability no longer authorizes 
+--- 4. Financial guard over hash-bound P-01 approvals
+[fake approval] HTTP 200 -> {"allowed": false, "reason": "approval record not found (a claim is not a record)"}
+  [PASS] fake approval blocked 
+[create approval] HTTP 201 -> {"id": "1839e11d-a970-4cd1-8e0c-fdd6bcb7fe12", "status": "pending"}
+  [PASS] owner decision recorded 
+[exact execution] HTTP 200 -> {"allowed": true}
+  [PASS] exact bound parameters authorize 
+  [PASS] approval replay refused 
+--- 5. Filesystem / command / download guards
+[filesystem guard] HTTP 200 -> {"allowed": false, "reason": "'credentials' is a protected root (\u00a710.3); non-owner access denied"}
+  [PASS] protected credential path denied for agent 
+[command guard] HTTP 200 -> {"allowed": false, "blocked": true}
+  [PASS] destructive command blocked 
+[download guard] HTTP 200 -> {"allowed": false, "disposition": "reject"}
+  [PASS] executable download rejected 
+--- 6. SSRF denial and content screening
+[metadata egress] HTTP 200 -> {"allowed": false, "reason": "host '169.254.169.254' resolves to 169.254.169.254: cloud metadata endpoint (\u00a713.2)"}
+  [PASS] cloud metadata endpoint blocked 
+[injection screen] HTTP 200 -> {"injection_findings": ["policy_override_instruction", "credential_request"], "may_instruct": false}
+  [PASS] injection classified, never instructive 
+[outbound screen] HTTP 200 -> {"blocked": true, "secret_patterns": ["openai_style_key"]}
+  [PASS] secret-shaped value blocked from outbound content 
+--- 7. Secret registry (metadata only)
+[register secret] HTTP 201 -> {"name": "smoke-key", "reference_hint": "env:***", "backend": "env"}
+  [PASS] secret registered as metadata with masked hint 
+[agent access check] HTTP 200 -> {"allowed": false, "outcome": "denied"}
+  [PASS] agent secret access denied (brokered model) 
+--- 8. Safe mode and emergency stop
+  [PASS] safe mode blocks agent writes 
+  [PASS] emergency stop blocks agent reads too 
+[resume] HTTP 200 -> {"mode": "normal"}
+  [PASS] owner resumes normal mode 
+--- 9. Audit hash chain, alerting, verified backup
+[seal chain] HTTP 200 -> {"sealed": 59, "chain_length": 59}
+  [PASS] audit chain sealed new events 
+[verify chain] HTTP 200 -> {"ok": true, "checked": 59}
+  [PASS] audit chain verifies 
+[evaluate alerts] HTTP 200 -> {"created": [{"id": "1d74f4e7-2130-4087-839e-23b9b984107d", "rule": "repeated_denials", "severity": "warning", "subject": "agent:agent-1", "detail": "18 denied authorization checks in the last 60 minutes", "status": "open", "created_at": "2026-11-09T15:27:20.095404"}]}
+  [PASS] repeated denials raised an alert 
+[create backup] HTTP 201 -> {"id": "7c5b6608-d872-4095-9667-1ba0324bd530", "status": "created"}
+[verify backup] HTTP 200 -> {"status": "verified"}
+  [PASS] backup verified end-to-end 
+--- 10. Session visibility and logout
+  [PASS] owner can list sessions 
+  [PASS] logout revokes the session 
+  [PASS] revoked token no longer authenticates 
+=== SMOKE RESULT: 33 passed, 0 failed ===

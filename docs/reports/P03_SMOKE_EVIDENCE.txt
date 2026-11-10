@@ -1,0 +1,1187 @@
+egress proxy: configured for the server process (value redacted)
+=== AUTONOMUS P-03 SMOKE RUN (real uvicorn, supervised mode) ===
+--- GET /health/ready
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "unauthorized",
+    "message": "missing or invalid credentials",
+    "details": {}
+  },
+  "correlation_id": "725385e4-2eac-40c8-84cf-60946c75d61f",
+  "meta": null
+}
+login: owner OK
+--- POST /missions (P-02 intake)
+{
+  "id": "bebdee27-b7a0-41ef-b709-f7242c252255",
+  "text": "Find a legitimate digital business that I can start with $50. It should have low operating costs, realistic demand and the potential to generate revenue.",
+  "creator_type": "owner",
+  "creator_id": "owner",
+  "status": "received",
+  "mode": "supervised",
+  "matched_template": null,
+  "correlation_id": "220b223b-9b4c-47e7-bd5d-9990aee04cbe"
+}
+POST /missions/bebdee27-b7a0-41ef-b709-f7242c252255/plan -> HTTP 422 (honest result: the P-02 baseline planner has no opportunity-research template and no LLM is configured, so the mission cannot be planned by P-02; P-03 briefs link the mission id for traceability instead)
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "validation_error",
+    "message": "no planner could produce a plan for this mission: no baseline template matched and no LLM plan was available or usable",
+    "details": {
+      "mission_id": "bebdee27-b7a0-41ef-b709-f7242c252255",
+      "llm_failure": null
+    }
+  },
+  "correlation_id": "7df99458-620d-43d5-87d5-d8e413ea2204",
+  "meta": null
+}
+--- POST /opportunities/briefs ($50)
+{
+  "id": "915baa22-54ac-419d-ad35-a33f9e4c9ac6",
+  "title": "Find a legitimate digital business I can start with $50",
+  "objective": "Low operating costs, realistic demand, revenue potential",
+  "budget_amount": 50.0,
+  "currency": "USD",
+  "geography": "global",
+  "categories": [],
+  "constraints": {},
+  "status": "open",
+  "mission_id": "bebdee27-b7a0-41ef-b709-f7242c252255"
+}
+--- discovery produced 13 candidate records:
+    [INITIAL_SCREENING   ] Beginner fitness e-book series (KDP) (digital_products, global)
+    [INITIAL_SCREENING   ] Printable Weekly Planner Templates (digital_products, global)
+    [DUPLICATE           ] Printable weekly planner templates (digital_products, global)
+    [INITIAL_SCREENING   ] GST Invoice Generator for Indian Freelancers (software_services, India)
+    [INITIAL_SCREENING   ] AI Tools Newsletter for Small Retailers (content, global)
+    [INITIAL_SCREENING   ] Podcast Show-Notes Writing Service (freelance_services, global)
+    [INITIAL_SCREENING   ] Excel for Shopkeepers Course (Hindi) (online_education, India)
+    [INCOMPATIBLE        ] Print-on-Demand Mugs and Tees Store (ecommerce_digital, global)
+    [INCOMPATIBLE        ] Phone Accessories Inventory E-Commerce (ecommerce_digital, global)
+    [INITIAL_SCREENING   ] Appointment-Reminder Automation for Clinics (b2b_services, India)
+    [BLOCKED_BY_COMPLIANCE] Paid Fake-Review Writing Service (content, global)
+    [INITIAL_SCREENING   ] Freelancer Spreadsheet Template Pack (digital_products, global)
+    [INITIAL_SCREENING   ] Kids' Bedtime Story Subscription (Hindi) (online_education, India)
+--- research started for 'Beginner fitness e-book series (KDP)': session aa87f249-85a6-41d8-a58f-efd51e3c4bc4 as P-01 task 1ef26719-e18c-4545-b59f-e9dba614d42c
+--- research session result: Beginner fitness e-book series (KDP)
+{
+  "id": "aa87f249-85a6-41d8-a58f-efd51e3c4bc4",
+  "opportunity_id": "cce6af53-6ef9-4b0a-8b8b-29e0d520f673",
+  "objective": "Collect evidence from registered sources",
+  "stage": "collect_evidence",
+  "status": "completed",
+  "task_id": "1ef26719-e18c-4545-b59f-e9dba614d42c",
+  "sources_examined": [
+    {
+      "source_key": "kdp_official",
+      "status": "unavailable",
+      "reason": "fetch failed for https://kdp.amazon.com: ReadTimeout: ",
+      "evidence_added": 0
+    },
+    {
+      "source_key": "owner_research_notes",
+      "status": "fetched",
+      "documents": 1,
+      "evidence_added": 3,
+      "quarantined": false,
+      "notes": []
+    },
+    {
+      "source_key": "industry_blog_fixture",
+      "status": "fetched",
+      "documents": 1,
+      "evidence_added": 2,
+      "quarantined": false,
+      "notes": []
+    },
+    {
+      "source_key": "community_forum_fixture",
+      "status": "fetched",
+      "documents": 1,
+      "evidence_added": 0,
+      "quarantined": true,
+      "notes": [
+        "document 'Forum post: 'KDP tips' (untrusted, contains an injection attempt)' quarantined (injection)"
+      ]
+    }
+  ],
+  "findings_summary": "5 new evidence record(s) from 4 source(s); 1 document(s) quarantined; 2 classification change(s). Outstanding gaps: No reliable customer demand evidence (nothing at SUPPORTING or better).; No evidence of actual purchases or purchasing intent.; No competitor evidence has been recorded.; No commercial analysis has been performed.; No reliable market-size evidence; market size cannot be established.",
+  "failure_reason": null
+}
+--- evidence for 'Beginner fitness e-book series (KDP)' (5 records):
+    [CORROBORATED] (pricing) KDP pays a 70% royalty on e-books priced between $2.99 and $9.99, before delivery costs.
+        source=None retrieved=2026-11-08T22:16:57.360755 method=seed_document freshness=unknown
+    [SUPPORTING  ] (cost) KDP charges no upfront listing fee to publish an e-book.
+        source=None retrieved=2026-11-08T22:16:57.364017 method=seed_document freshness=unknown
+    [SUPPORTING  ] (operational) The owner already has a working KDP publishing workflow, so no new tooling is needed to produce a short guide.
+        source=None retrieved=2026-11-08T22:16:57.365275 method=seed_document freshness=unknown
+    [CORROBORATED] (pricing) KDP's 70% royalty band for mid-priced e-books is the main reason short guides can be viable at low sales volume.
+        source=None retrieved=2026-11-08T22:16:57.367649 method=seed_document freshness=unknown
+    [SUPPORTING  ] (cost) Gumroad charges a flat 10% fee on each sale.
+        source=None retrieved=2026-11-08T22:16:57.368699 method=seed_document freshness=unknown
+--- market analysis: Beginner fitness e-book series (KDP)
+{
+  "id": "cf7892c9-023d-4876-a63d-d562a24f4ad2",
+  "opportunity_id": "cce6af53-6ef9-4b0a-8b8b-29e0d520f673",
+  "customer_segment": "Beginners starting a home fitness routine",
+  "geographic_market": "global",
+  "problem_analysis": {
+    "statement": "Beginners are overwhelmed by long, technical fitness books and abandon routines early.",
+    "affected_group": "Beginners starting a home fitness routine",
+    "evidence_count": 0,
+    "strongest_classification": null,
+    "note": "Frequency, severity and current-workaround cost are only stated where evidence records support them; they are not assumed."
+  },
+  "demand_indicators": {
+    "stage": "none",
+    "demand_records": 0,
+    "purchasing_intent_records": 0,
+    "note": "Stages: none < general_interest < active_problem_awareness < purchase_consideration < verified_transactions. Search volume, views and likes can justify at most 'general_interest' (\u00a710.3, \u00a718.3)."
+  },
+  "market_size": {
+    "tam": {
+      "value_text": null,
+      "methodology": null,
+      "note": "Insufficient verified evidence: a reliable TAM estimate cannot be established from the available evidence."
+    },
+    "sam": {
+      "value_text": null,
+      "methodology": null,
+      "note": "Insufficient verified evidence: a reliable SAM estimate cannot be established from the available evidence."
+    },
+    "som": {
+      "value_text": null,
+      "methodology": null,
+      "note": "Insufficient verified evidence: a reliable SOM estimate cannot be established from the available evidence."
+    }
+  },
+  "saturation": {
+    "level": "unknown",
+    "direct_competitors_recorded": 0,
+    "note": "No competitor evidence recorded: saturation cannot be assessed. Absence of recorded competitors is not evidence of an empty market."
+  },
+  "gaps": [
+    "No reliable customer demand evidence (nothing at SUPPORTING or better).",
+    "No evidence of actual purchases or purchasing intent.",
+    "No competitor evidence has been recorded.",
+    "No commercial analysis has been performed.",
+    "No reliable market-size evidence; market size cannot be established."
+  ]
+}
+--- commercial analysis: Beginner fitness e-book series (KDP)
+{
+  "id": "9fae26b1-6889-41d1-aaf9-f2af75eb583c",
+  "opportunity_id": "cce6af53-6ef9-4b0a-8b8b-29e0d520f673",
+  "revenue_model": "marketplace_sales",
+  "currency": "USD",
+  "startup_costs": [
+    {
+      "name": "Editing/proofreading tools",
+      "amount": 20.0,
+      "classification": "estimate",
+      "source_note": "stated planning assumption"
+    }
+  ],
+  "recurring_costs_monthly": [
+    {
+      "name": "Author tools subscription",
+      "amount": 5.0,
+      "classification": "estimate",
+      "source_note": "stated planning assumption"
+    }
+  ],
+  "variable_costs_per_sale": [
+    {
+      "name": "Per-sale delivery cost",
+      "amount": 0.3,
+      "classification": "estimate",
+      "source_note": "stated planning assumption"
+    }
+  ],
+  "price_assumption": {
+    "amount": 4.99,
+    "classification": "estimate",
+    "basis": "inside the 70% royalty band described in owner notes; the price itself is a stated assumption"
+  },
+  "scenarios": {
+    "conservative": {
+      "assumptions": [
+        "stated assumption: slow organic start"
+      ],
+      "sales_per_month": 3.0,
+      "revenue": 14.97,
+      "direct_delivery_costs": 0.9,
+      "fees": 4.49,
+      "gross_profit": 14.07,
+      "contribution_margin": 9.58,
+      "contribution_margin_pct": 63.99,
+      "operating_profit": 4.58,
+      "net_cash_flow": 4.58
+    },
+    "base": {
+      "assumptions": [
+        "stated assumption: steady niche sales"
+      ],
+      "sales_per_month": 10.0,
+      "revenue": 49.9,
+      "direct_delivery_costs": 3.0,
+      "fees": 14.97,
+      "gross_profit": 46.9,
+      "contribution_margin": 31.93,
+      "contribution_margin_pct": 63.99,
+      "operating_profit": 26.93,
+      "net_cash_flow": 26.93
+    },
+    "optimistic": {
+      "assumptions": [
+        "stated assumption: one title takes off"
+      ],
+      "sales_per_month": 30.0,
+      "revenue": 149.7,
+      "direct_delivery_costs": 9.0,
+      "fees": 44.91,
+      "gross_profit": 140.7,
+      "contribution_margin": 95.79,
+      "contribution_margin_pct": 63.99,
+      "operating_profit": 90.79,
+      "net_cash_flow": 90.79
+    }
+  },
+  "break_even": {
+    "contribution_per_sale": 3.19,
+    "fixed_costs_monthly": 5.0,
+    "variable_unknown": false,
+    "recurring_unknown": false,
+    "feasible": true,
+    "break_even_sales_per_month": 2,
+    "break_even_revenue": 9.98,
+    "note": "Break-even = ceil(recurring monthly costs / contribution per sale)."
+  },
+  "budget": {
+    "budget_amount": 50.0,
+    "minimum_viable_cost": 20.0,
+    "first_month_total": 25.0,
+    "recurring_monthly": 5.0,
+    "contingency_required": 4.0,
+    "maximum_affordable_experiment_cost": 46.0,
+    "compatible": true,
+    "note": "Compatible means startup + first month recurring fits the owner's stated budget. The budget figure is the owner's; the engine never raises it (\u00a713.6)."
+  },
+  "distribution": {
+    "candidate_channels": [
+      "authorized_marketplace",
+      "search_engines",
+      "educational_content"
+    ],
+    "prohibited_channels_rejected": [],
+    "channels_with_supporting_evidence": [],
+    "organic_traffic_assumption": "not assumed \u2014 organic traffic must be earned and is not forecast (\u00a714)",
+    "paid_advertising_assumption": "not assumed profitable \u2014 no ad economics are claimed without cost evidence (\u00a714)",
+    "legitimate_channel_count": 3,
+    "note": "Channel availability does not imply acquisition success; conversion requirements and acquisition cost remain unproven until real evidence exists."
+  }
+}
+--- score: Beginner fitness e-book series (KDP)
+{
+  "id": "3bdab660-2f75-461c-a239-71f534133ed9",
+  "opportunity_id": "cce6af53-6ef9-4b0a-8b8b-29e0d520f673",
+  "scoring_version": "scoring-v1",
+  "dimensions": {
+    "verified_demand": 0.0,
+    "problem_importance": 0.0,
+    "competitive_opportunity": 1.0,
+    "revenue_model_viability": 4.0,
+    "profit_potential": 4.0,
+    "budget_compatibility": 5.0,
+    "distribution_feasibility": 2.0,
+    "operational_simplicity": 4.0,
+    "strategic_fit": 5.0,
+    "evidence_quality": 3.46
+  },
+  "dimension_reasons": {
+    "verified_demand": "demand stage justified by evidence: none (0 demand, 0 purchasing-intent records)",
+    "problem_importance": "strongest problem evidence classification drives the rung (0 problem records)",
+    "competitive_opportunity": "saturation unknown \u2014 no competitor evidence; unknown is not an opening",
+    "revenue_model_viability": "supported revenue model; pricing evidence at SUPPORTING or better; a priced commercial analysis exists",
+    "profit_potential": "base-scenario contribution margin 63.99% (bands: <0\u21920, <15\u21921, <30\u21922, <50\u21923, <70\u21924, else 5; negative base operating profit caps at 1)",
+    "budget_compatibility": "fits the owner's budget; first-month total is 50% of budget",
+    "distribution_feasibility": "3 legitimate candidate channel(s); organic traffic and profitable ads are never assumed (\u00a714), so this dimension caps at 4 without channel performance data",
+    "operational_simplicity": "category complexity prior 2/5",
+    "strategic_fit": "100% of required capabilities are available (required: ['content_production', 'research'], missing: [])",
+    "evidence_quality": "standalone evidence-quality computation (\u00a716.3), also reported separately"
+  },
+  "weights": {
+    "verified_demand": 0.2,
+    "profit_potential": 0.15,
+    "problem_importance": 0.1,
+    "competitive_opportunity": 0.1,
+    "revenue_model_viability": 0.1,
+    "budget_compatibility": 0.1,
+    "distribution_feasibility": 0.1,
+    "operational_simplicity": 0.05,
+    "strategic_fit": 0.05,
+    "evidence_quality": 0.05
+  },
+  "weighted_score": 2.42,
+  "evidence_quality": 3.46,
+  "risk_classification": "standard",
+  "hard_rejection": null,
+  "recommendation": "REQUIRES MORE RESEARCH"
+}
+--- validation: Beginner fitness e-book series (KDP)
+{
+  "id": "7aff2baf-636d-4834-9368-ed857b283cc6",
+  "opportunity_id": "cce6af53-6ef9-4b0a-8b8b-29e0d520f673",
+  "level": 1,
+  "criteria_met": [
+    "Level 0 \u2014 an opportunity concept is recorded",
+    "Level 1 \u2014 preliminary market/competitor research completed"
+  ],
+  "criteria_missing": [
+    "Level 2 requires: supporting problem/demand evidence from at least 2 independent sources; at least one CORROBORATED (or better) problem/demand record"
+  ],
+  "reviewer": "owner:owner",
+  "decision": "level 1 (Preliminary research)",
+  "notes": "Level computed deterministically from stored evidence (\u00a718)."
+}
+full report saved for investigation: Beginner fitness e-book series (KDP)
+--- POST validate claimed_level=4 for the e-book -> HTTP 422 (refused: no owner-recorded real-world demand evidence exists)
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "validation_error",
+    "message": "validation level 4 is not supported by the stored evidence; the highest justified level is 1. Missing: Level 2 requires: supporting problem/demand evidence from at least 2 independent sources; at least one CORROBORATED (or better) problem/demand record",
+    "details": {
+      "opportunity_id": "cce6af53-6ef9-4b0a-8b8b-29e0d520f673",
+      "justified_level": 1,
+      "missing": [
+        "Level 2 requires: supporting problem/demand evidence from at least 2 independent sources; at least one CORROBORATED (or better) problem/demand record"
+      ]
+    }
+  },
+  "correlation_id": "ec196b33-cb76-4d58
+--- research started for 'Printable Weekly Planner Templates': session acdfca77-794c-4c34-ae47-d73aec22d5b7 as P-01 task d4610fed-a3e2-4600-8772-801fd4785ca7
+--- research session result: Printable Weekly Planner Templates
+{
+  "id": "acdfca77-794c-4c34-ae47-d73aec22d5b7",
+  "opportunity_id": "85174c72-0938-4724-87f1-0101e373397b",
+  "objective": "Collect evidence from registered sources",
+  "stage": "collect_evidence",
+  "status": "completed",
+  "task_id": "d4610fed-a3e2-4600-8772-801fd4785ca7",
+  "sources_examined": [
+    {
+      "source_key": "etsy_sell",
+      "status": "unavailable",
+      "reason": "source 'etsy_sell' returned HTTP 403; recorded as unavailable, no content used",
+      "evidence_added": 0
+    },
+    {
+      "source_key": "gumroad_pricing",
+      "status": "unavailable",
+      "reason": "fetch failed for https://gumroad.com/pricing: ReadTimeout: ",
+      "evidence_added": 0
+    },
+    {
+      "source_key": "owner_research_notes",
+      "status": "fetched",
+      "documents": 1,
+      "evidence_added": 2,
+      "quarantined": false,
+      "notes": []
+    },
+    {
+      "source_key": "industry_blog_fixture",
+      "status": "fetched",
+      "documents": 1,
+      "evidence_added": 2,
+      "quarantined": false,
+      "notes": []
+    },
+    {
+      "source_key": "community_forum_fixture",
+      "status": "fetched",
+      "documents": 1,
+      "evidence_added": 2,
+      "quarantined": false,
+      "notes": []
+    }
+  ],
+  "findings_summary": "6 new evidence record(s) from 5 source(s); 0 document(s) quarantined; 3 classification change(s). Outstanding gaps: No evidence of actual purchases or purchasing intent.; No verified pricing information.; No competitor evidence has been recorded.; No commercial analysis has been performed.; No reliable market-size evidence; market size cannot be established.; Some evidence is CONTRADICTED by independent sources and must be resolved.",
+  "failure_reason": null
+}
+--- evidence for 'Printable Weekly Planner Templates' (6 records):
+    [CORROBORATED] (cost) Etsy charges a $0.20 listing fee per item, and a listing lasts four months.
+        source=None retrieved=2026-11-08T22:17:19.012495 method=seed_document freshness=unknown
+    [SUPPORTING  ] (demand) Planner buyers ask for both A4 and US Letter printable sizes.
+        source=None retrieved=2026-11-08T22:17:19.016157 method=seed_document freshness=unknown
+    [CORROBORATED] (cost) Etsy listing fee is $0.20 per listing.
+        source=None retrieved=2026-11-08T22:17:19.021213 method=seed_document freshness=unknown
+    [TENTATIVE   ] (competitor) Printable planners are a crowded Etsy category with many near-identical listings.
+        source=None retrieved=2026-11-08T22:17:19.024654 method=seed_document freshness=unknown
+    [CONTRADICTED] (cost) Forum poster: 'Etsy listing fees are $0.50 now, it is getting expensive.'
+        source=None retrieved=2026-11-08T22:17:19.029182 method=seed_document freshness=unknown
+    [UNVERIFIED  ] (demand) Forum poster: 'My planner shop made 40 sales in its first month with no advertising.'
+        source=None retrieved=2026-11-08T22:17:19.030381 method=seed_document freshness=unknown
+--- market analysis: Printable Weekly Planner Templates
+{
+  "id": "4248eab3-b5b8-4d22-9d05-4da722a39013",
+  "opportunity_id": "85174c72-0938-4724-87f1-0101e373397b",
+  "customer_segment": "Students and professionals who plan on paper",
+  "geographic_market": "global",
+  "problem_analysis": {
+    "statement": "Paper-planner users want inexpensive, printable layouts without buying a new physical planner each year.",
+    "affected_group": "Students and professionals who plan on paper",
+    "evidence_count": 0,
+    "strongest_classification": null,
+    "note": "Frequency, severity and current-workaround cost are only stated where evidence records support them; they are not assumed."
+  },
+  "demand_indicators": {
+    "stage": "active_problem_awareness",
+    "demand_records": 2,
+    "purchasing_intent_records": 0,
+    "note": "Stages: none < general_interest < active_problem_awareness < purchase_consideration < verified_transactions. Search volume, views and likes can justify at most 'general_interest' (\u00a710.3, \u00a718.3)."
+  },
+  "market_size": {
+    "tam": {
+      "value_text": null,
+      "methodology": null,
+      "note": "Insufficient verified evidence: a reliable TAM estimate cannot be established from the available evidence."
+    },
+    "sam": {
+      "value_text": null,
+      "methodology": null,
+      "note": "Insufficient verified evidence: a reliable SAM estimate cannot be established from the available evidence."
+    },
+    "som": {
+      "value_text": null,
+      "methodology": null,
+      "note": "Insufficient verified evidence: a reliable SOM estimate cannot be established from the available evidence."
+    }
+  },
+  "saturation": {
+    "level": "moderate",
+    "direct_competitors_recorded": 0,
+    "crowding_signal": true,
+    "note": "Saturation is assessed from recorded competitors and competitor evidence only; customer-acquisition difficulty rises with saturation and no differentiation may mean rejection (\u00a729F)."
+  },
+  "gaps": [
+    "No evidence of actual purchases or purchasing intent.",
+    "No verified pricing information.",
+    "No competitor evidence has been recorded.",
+    "No commercial analysis has been performed.",
+    "No reliable market-size evidence; market size cannot be established.",
+    "Some evidence is CONTRADICTED by independent sources and must be resolved."
+  ]
+}
+--- commercial analysis: Printable Weekly Planner Templates
+{
+  "id": "5ff2d240-759b-4f4d-8473-d010425cae92",
+  "opportunity_id": "85174c72-0938-4724-87f1-0101e373397b",
+  "revenue_model": "marketplace_sales",
+  "currency": "USD",
+  "startup_costs": [
+    {
+      "name": "Design software (first month)",
+      "amount": 15.0,
+      "classification": "estimate",
+      "source_note": "stated planning assumption"
+    }
+  ],
+  "recurring_costs_monthly": [
+    {
+      "name": "Listing fees amortised",
+      "amount": 2.0,
+      "classification": "estimate",
+      "source_note": "stated planning assumption"
+    }
+  ],
+  "variable_costs_per_sale": [
+    {
+      "name": "Payment processing per sale",
+      "amount": 0.45,
+      "classification": "estimate",
+      "source_note": "stated planning assumption"
+    }
+  ],
+  "price_assumption": {
+    "amount": 12.0,
+    "classification": "estimate",
+    "basis": "stated assumption for a printable bundle"
+  },
+  "scenarios": {
+    "conservative": {
+      "assumptions": [
+        "stated assumption"
+      ],
+      "sales_per_month": 4.0,
+      "revenue": 48.0,
+      "direct_delivery_costs": 1.8,
+      "fees": 4.56,
+      "gross_profit": 46.2,
+      "contribution_margin": 41.64,
+      "contribution_margin_pct": 86.75,
+      "operating_profit": 39.64,
+      "net_cash_flow": 39.64
+    },
+    "base": {
+      "assumptions": [
+        "stated assumption"
+      ],
+      "sales_per_month": 12.0,
+      "revenue": 144.0,
+      "direct_delivery_costs": 5.4,
+      "fees": 13.68,
+      "gross_profit": 138.6,
+      "contribution_margin": 124.92,
+      "contribution_margin_pct": 86.75,
+      "operating_profit": 122.92,
+      "net_cash_flow": 122.92
+    },
+    "optimistic": {
+      "assumptions": [
+        "stated assumption"
+      ],
+      "sales_per_month": 40.0,
+      "revenue": 480.0,
+      "direct_delivery_costs": 18.0,
+      "fees": 45.6,
+      "gross_profit": 462.0,
+      "contribution_margin": 416.4,
+      "contribution_margin_pct": 86.75,
+      "operating_profit": 414.4,
+      "net_cash_flow": 414.4
+    }
+  },
+  "break_even": {
+    "contribution_per_sale": 10.41,
+    "fixed_costs_monthly": 2.0,
+    "variable_unknown": false,
+    "recurring_unknown": false,
+    "feasible": true,
+    "break_even_sales_per_month": 1,
+    "break_even_revenue": 12.0,
+    "note": "Break-even = ceil(recurring monthly costs / contribution per sale)."
+  },
+  "budget": {
+    "budget_amount": 50.0,
+    "minimum_viable_cost": 15.0,
+    "first_month_total": 17.0,
+    "recurring_monthly": 2.0,
+    "contingency_required": 3.0,
+    "maximum_affordable_experiment_cost": 47.0,
+    "compatible": true,
+    "note": "Compatible means startup + first month recurring fits the owner's stated budget. The budget figure is the owner's; the engine never raises it (\u00a713.6)."
+  },
+  "distribution": {
+    "candidate_channels": [
+      "authorized_marketplace",
+      "search_engines",
+      "educational_content"
+    ],
+    "prohibited_channels_rejected": [],
+    "channels_with_supporting_evidence": [],
+    "organic_traffic_assumption": "not assumed \u2014 organic traffic must be earned and is not forecast (\u00a714)",
+    "paid_advertising_assumption": "not assumed profitable \u2014 no ad economics are claimed without cost evidence (\u00a714)",
+    "legitimate_channel_count": 3,
+    "note": "Channel availability does not imply acquisition success; conversion requirements and acquisition cost remain unproven until real evidence exists."
+  }
+}
+--- score: Printable Weekly Planner Templates
+{
+  "id": "1e2a58d4-0945-445d-9913-b42680842648",
+  "opportunity_id": "85174c72-0938-4724-87f1-0101e373397b",
+  "scoring_version": "scoring-v1",
+  "dimensions": {
+    "verified_demand": 3.0,
+    "problem_importance": 0.0,
+    "competitive_opportunity": 2.0,
+    "revenue_model_viability": 3.0,
+    "profit_potential": 5.0,
+    "budget_compatibility": 5.0,
+    "distribution_feasibility": 2.0,
+    "operational_simplicity": 4.0,
+    "strategic_fit": 5.0,
+    "evidence_quality": 3.33
+  },
+  "dimension_reasons": {
+    "verified_demand": "demand stage justified by evidence: active_problem_awareness (2 demand, 0 purchasing-intent records)",
+    "problem_importance": "strongest problem evidence classification drives the rung (0 problem records)",
+    "competitive_opportunity": "moderate saturation, 0 recorded competitor gap(s)",
+    "revenue_model_viability": "supported revenue model; a priced commercial analysis exists",
+    "profit_potential": "base-scenario contribution margin 86.75% (bands: <0\u21920, <15\u21921, <30\u21922, <50\u21923, <70\u21924, else 5; negative base operating profit caps at 1)",
+    "budget_compatibility": "fits the owner's budget; first-month total is 34% of budget",
+    "distribution_feasibility": "3 legitimate candidate channel(s); organic traffic and profitable ads are never assumed (\u00a714), so this dimension caps at 4 without channel performance data",
+    "operational_simplicity": "category complexity prior 2/5",
+    "strategic_fit": "100% of required capabilities are available (required: ['design', 'content_production'], missing: [])",
+    "evidence_quality": "standalone evidence-quality computation (\u00a716.3), also reported separately"
+  },
+  "weights": {
+    "verified_demand": 0.2,
+    "profit_potential": 0.15,
+    "problem_importance": 0.1,
+    "competitive_opportunity": 0.1,
+    "revenue_model_viability": 0.1,
+    "budget_compatibility": 0.1,
+    "distribution_feasibility": 0.1,
+    "operational_simplicity": 0.05,
+    "strategic_fit": 0.05,
+    "evidence_quality": 0.05
+  },
+  "weighted_score": 3.17,
+  "evidence_quality": 3.33,
+  "risk_classification": "standard",
+  "hard_rejection": null,
+  "recommendation": "REQUIRES MORE RESEARCH"
+}
+--- validation: Printable Weekly Planner Templates
+{
+  "id": "eb6f85f3-27b1-4609-b8b5-91e5bf43577e",
+  "opportunity_id": "85174c72-0938-4724-87f1-0101e373397b",
+  "level": 1,
+  "criteria_met": [
+    "Level 0 \u2014 an opportunity concept is recorded",
+    "Level 1 \u2014 preliminary market/competitor research completed"
+  ],
+  "criteria_missing": [
+    "Level 2 requires: supporting problem/demand evidence from at least 2 independent sources; at least one CORROBORATED (or better) problem/demand record"
+  ],
+  "reviewer": "owner:owner",
+  "decision": "level 1 (Preliminary research)",
+  "notes": "Level computed deterministically from stored evidence (\u00a718)."
+}
+full report saved for investigation: Printable Weekly Planner Templates
+--- research started for 'GST Invoice Generator for Indian Freelancers': session bff9a89b-fe60-42bf-91a5-3acc179d5634 as P-01 task 85e65f6c-f046-4119-876a-07e79f709c7f
+--- research session result: GST Invoice Generator for Indian Freelancers
+{
+  "id": "bff9a89b-fe60-42bf-91a5-3acc179d5634",
+  "opportunity_id": "77031637-f740-4c58-aa15-d1f21e8e4e8b",
+  "objective": "Collect evidence from registered sources",
+  "stage": "collect_evidence",
+  "status": "completed",
+  "task_id": "85e65f6c-f046-4119-876a-07e79f709c7f",
+  "sources_examined": [
+    {
+      "source_key": "npci_official",
+      "status": "unavailable",
+      "reason": "source 'npci_official' returned HTTP 403; recorded as unavailable, no content used",
+      "evidence_added": 0
+    },
+    {
+      "source_key": "owner_research_notes",
+      "status": "fetched",
+      "documents": 1,
+      "evidence_added": 2,
+      "quarantined": false,
+      "notes": []
+    }
+  ],
+  "findings_summary": "2 new evidence record(s) from 2 source(s); 0 document(s) quarantined; 0 classification change(s). Outstanding gaps: No reliable customer demand evidence (nothing at SUPPORTING or better).; No evidence of actual purchases or purchasing intent.; No verified pricing information.; No competitor evidence has been recorded.; No confirmed platform fee / cost structure evidence.; No commercial analysis has been performed.; No reliable market-size evidence; market size cannot be established.",
+  "failure_reason": null
+}
+--- evidence for 'GST Invoice Generator for Indian Freelancers' (2 records):
+    [SUPPORTING  ] (legal) A GST invoice must show the supplier GSTIN, invoice number and date, HSN/SAC code, and place of supply.
+        source=None retrieved=2026-11-08T22:17:20.663211 method=seed_document freshness=unknown
+    [SUPPORTING  ] (problem) Freelancers in the owner's network assemble invoices manually in spreadsheets and report field errors as a recurring annoyance.
+        source=None retrieved=2026-11-08T22:17:20.664720 method=seed_document freshness=unknown
+--- market analysis: GST Invoice Generator for Indian Freelancers
+{
+  "id": "581d1daf-61ec-4052-9dbf-ca5126381018",
+  "opportunity_id": "77031637-f740-4c58-aa15-d1f21e8e4e8b",
+  "customer_segment": "Indian freelancers and sole proprietors issuing GST invoices",
+  "geographic_market": "India",
+  "problem_analysis": {
+    "statement": "Freelancers assemble GST invoices manually in spreadsheets, making format and field errors.",
+    "affected_group": "Indian freelancers and sole proprietors issuing GST invoices",
+    "evidence_count": 1,
+    "strongest_classification": "SUPPORTING",
+    "note": "Frequency, severity and current-workaround cost are only stated where evidence records support them; they are not assumed."
+  },
+  "demand_indicators": {
+    "stage": "active_problem_awareness",
+    "demand_records": 0,
+    "purchasing_intent_records": 0,
+    "note": "Stages: none < general_interest < active_problem_awareness < purchase_consideration < verified_transactions. Search volume, views and likes can justify at most 'general_interest' (\u00a710.3, \u00a718.3)."
+  },
+  "market_size": {
+    "tam": {
+      "value_text": null,
+      "methodology": null,
+      "note": "Insufficient verified evidence: a reliable TAM estimate cannot be established from the available evidence."
+    },
+    "sam": {
+      "value_text": null,
+      "methodology": null,
+      "note": "Insufficient verified evidence: a reliable SAM estimate cannot be established from the available evidence."
+    },
+    "som": {
+      "value_text": null,
+      "methodology": null,
+      "note": "Insufficient verified evidence: a reliable SOM estimate cannot be established from the available evidence."
+    }
+  },
+  "saturation": {
+    "level": "unknown",
+    "direct_competitors_recorded": 0,
+    "note": "No competitor evidence recorded: saturation cannot be assessed. Absence of recorded competitors is not evidence of an empty market."
+  },
+  "gaps": [
+    "No reliable customer demand evidence (nothing at SUPPORTING or better).",
+    "No evidence of actual purchases or purchasing intent.",
+    "No verified pricing information.",
+    "No competitor evidence has been recorded.",
+    "No confirmed platform fee / cost structure evidence.",
+    "No commercial analysis has been performed.",
+    "No reliable market-size evidence; market size cannot be established."
+  ]
+}
+--- commercial analysis: GST Invoice Generator for Indian Freelancers
+{
+  "id": "15be5083-2b5d-41f0-a297-5d04c913d48f",
+  "opportunity_id": "77031637-f740-4c58-aa15-d1f21e8e4e8b",
+  "revenue_model": "subscription",
+  "currency": "USD",
+  "startup_costs": [
+    {
+      "name": "Domain + hosting deposit",
+      "amount": 20.0,
+      "classification": "estimate",
+      "source_note": "stated planning assumption"
+    }
+  ],
+  "recurring_costs_monthly": [
+    {
+      "name": "VPS hosting",
+      "amount": 6.0,
+      "classification": "estimate",
+      "source_note": "stated planning assumption"
+    }
+  ],
+  "variable_costs_per_sale": [
+    {
+      "name": "Payment gateway cost per subscriber-month",
+      "amount": 0.06,
+      "classification": "estimate",
+      "source_note": "stated planning assumption"
+    }
+  ],
+  "price_assumption": {
+    "amount": 2.0,
+    "classification": "estimate",
+    "basis": "USD 2/month entry subscription \u2014 stated assumption for Indian freelancer pricing"
+  },
+  "scenarios": {
+    "conservative": {
+      "assumptions": [
+        "stated assumption: subscribers"
+      ],
+      "sales_per_month": 5.0,
+      "revenue": 10.0,
+      "direct_delivery_costs": 0.3,
+      "fees": 0.2,
+      "gross_profit": 9.7,
+      "contribution_margin": 9.5,
+      "contribution_margin_pct": 95.0,
+      "operating_profit": 3.5,
+      "net_cash_flow": 3.5
+    },
+    "base": {
+      "assumptions": [
+        "stated assumption: subscribers"
+      ],
+      "sales_per_month": 20.0,
+      "revenue": 40.0,
+      "direct_delivery_costs": 1.2,
+      "fees": 0.8,
+      "gross_profit": 38.8,
+      "contribution_margin": 38.0,
+      "contribution_margin_pct": 95.0,
+      "operating_profit": 32.0,
+      "net_cash_flow": 32.0
+    },
+    "optimistic": {
+      "assumptions": [
+        "stated assumption: subscribers"
+      ],
+      "sales_per_month": 60.0,
+      "revenue": 120.0,
+      "direct_delivery_costs": 3.6,
+      "fees": 2.4,
+      "gross_profit": 116.4,
+      "contribution_margin": 114.0,
+      "contribution_margin_pct": 95.0,
+      "operating_profit": 108.0,
+      "net_cash_flow": 108.0
+    }
+  },
+  "break_even": {
+    "contribution_per_sale": 1.9,
+    "fixed_costs_monthly": 6.0,
+    "variable_unknown": false,
+    "recurring_unknown": false,
+    "feasible": true,
+    "break_even_sales_per_month": 4,
+    "break_even_revenue": 8.0,
+    "note": "Break-even = ceil(recurring monthly costs / contribution per sale)."
+  },
+  "budget": {
+    "budget_amount": 50.0,
+    "minimum_viable_cost": 20.0,
+    "first_month_total": 26.0,
+    "recurring_monthly": 6.0,
+    "contingency_required": 4.0,
+    "maximum_affordable_experiment_cost": 46.0,
+    "compatible": true,
+    "note": "Compatible means startup + first month recurring fits the owner's stated budget. The budget figure is the owner's; the engine never raises it (\u00a713.6)."
+  },
+  "distribution": {
+    "candidate_channels": [
+      "search_engines",
+      "partnerships",
+      "b2b_outreach_authorized"
+    ],
+    "prohibited_channels_rejected": [],
+    "channels_with_supporting_evidence": [],
+    "organic_traffic_assumption": "not assumed \u2014 organic traffic must be earned and is not forecast (\u00a714)",
+    "paid_advertising_assumption": "not assumed profitable \u2014 no ad economics are claimed without cost evidence (\u00a714)",
+    "legitimate_channel_count": 3,
+    "note": "Channel availability does not imply acquisition success; conversion requirements and acquisition cost remain unproven until real evidence exists."
+  }
+}
+--- score: GST Invoice Generator for Indian Freelancers
+{
+  "id": "a7e29498-310f-4453-883f-e2aede1a5382",
+  "opportunity_id": "77031637-f740-4c58-aa15-d1f21e8e4e8b",
+  "scoring_version": "scoring-v1",
+  "dimensions": {
+    "verified_demand": 3.0,
+    "problem_importance": 3.0,
+    "competitive_opportunity": 1.0,
+    "revenue_model_viability": 3.0,
+    "profit_potential": 5.0,
+    "budget_compatibility": 4.0,
+    "distribution_feasibility": 2.0,
+    "operational_simplicity": 2.0,
+    "strategic_fit": 5.0,
+    "evidence_quality": 2.86
+  },
+  "dimension_reasons": {
+    "verified_demand": "demand stage justified by evidence: active_problem_awareness (0 demand, 0 purchasing-intent records)",
+    "problem_importance": "strongest problem evidence classification drives the rung (1 problem records)",
+    "competitive_opportunity": "saturation unknown \u2014 no competitor evidence; unknown is not an opening",
+    "revenue_model_viability": "supported revenue model; a priced commercial analysis exists",
+    "profit_potential": "base-scenario contribution margin 95.0% (bands: <0\u21920, <15\u21921, <30\u21922, <50\u21923, <70\u21924, else 5; negative base operating profit caps at 1)",
+    "budget_compatibility": "fits the owner's budget; first-month total is 52% of budget",
+    "distribution_feasibility": "3 legitimate candidate channel(s); organic traffic and profitable ads are never assumed (\u00a714), so this dimension caps at 4 without channel performance data",
+    "operational_simplicity": "category complexity prior 4/5",
+    "strategic_fit": "100% of required capabilities are available (required: ['software_development'], missing: [])",
+    "evidence_quality": "standalone evidence-quality computation (\u00a716.3), also reported separately"
+  },
+  "weights": {
+    "verified_demand": 0.2,
+    "profit_potential": 0.15,
+    "problem_importance": 0.1,
+    "competitive_opportunity": 0.1,
+    "revenue_model_viability": 0.1,
+    "budget_compatibility": 0.1,
+    "distribution_feasibility": 0.1,
+    "operational_simplicity": 0.05,
+    "strategic_fit": 0.05,
+    "evidence_quality": 0.05
+  },
+  "weighted_score": 3.14,
+  "evidence_quality": 2.86,
+  "risk_classification": "standard",
+  "hard_rejection": null,
+  "recommendation": "REQUIRES MORE RESEARCH"
+}
+--- validation: GST Invoice Generator for Indian Freelancers
+{
+  "id": "460e231a-0fcd-4bac-8b30-a3e24d9b1883",
+  "opportunity_id": "77031637-f740-4c58-aa15-d1f21e8e4e8b",
+  "level": 1,
+  "criteria_met": [
+    "Level 0 \u2014 an opportunity concept is recorded",
+    "Level 1 \u2014 preliminary market/competitor research completed"
+  ],
+  "criteria_missing": [
+    "Level 2 requires: supporting problem/demand evidence from at least 2 independent sources; at least one CORROBORATED (or better) problem/demand record"
+  ],
+  "reviewer": "owner:owner",
+  "decision": "level 1 (Preliminary research)",
+  "notes": "Level computed deterministically from stored evidence (\u00a718)."
+}
+full report saved for investigation: GST Invoice Generator for Indian Freelancers
+--- score: Paid Fake-Review Writing Service (prohibited)
+{
+  "id": "884f58f5-c022-491c-88b8-e0259f77c02c",
+  "opportunity_id": "21846307-880c-44c0-aa41-e07074fe6f95",
+  "scoring_version": "scoring-v1",
+  "dimensions": {
+    "verified_demand": 0.0,
+    "problem_importance": 0.0,
+    "competitive_opportunity": 1.0,
+    "revenue_model_viability": 2.0,
+    "profit_potential": 0.0,
+    "budget_compatibility": 1.0,
+    "distribution_feasibility": 2.0,
+    "operational_simplicity": 3.0,
+    "strategic_fit": 5.0,
+    "evidence_quality": 0.0
+  },
+  "dimension_reasons": {
+    "verified_demand": "demand stage justified by evidence: none (0 demand, 0 purchasing-intent records)",
+    "problem_importance": "strongest problem evidence classification drives the rung (0 problem records)",
+    "competitive_opportunity": "saturation unknown \u2014 no competitor evidence; unknown is not an opening",
+    "revenue_model_viability": "supported revenue model",
+    "profit_potential": "no base scenario computed \u2014 profit potential has no evidence (\u00a716: 0 = no evidence)",
+    "budget_compatibility": "budget compatibility cannot be established (no budget or no commercial analysis)",
+    "distribution_feasibility": "3 legitimate candidate channel(s); organic traffic and profitable ads are never assumed (\u00a714), so this dimension caps at 4 without channel performance data",
+    "operational_simplicity": "category complexity prior 3/5",
+    "strategic_fit": "100% of required capabilities are available (required: ['content_production'], missing: [])",
+    "evidence_quality": "standalone evidence-quality computation (\u00a716.3), also reported separately"
+  },
+  "weights": {
+    "verified_demand": 0.2,
+    "profit_potential": 0.15,
+    "problem_importance": 0.1,
+    "competitive_opportunity": 0.1,
+    "revenue_model_viability": 0.1,
+    "budget_compatibility": 0.1,
+    "distribution_feasibility": 0.1,
+    "operational_simplicity": 0.05,
+    "strategic_fit": 0.05,
+    "evidence_quality": 0.05
+  },
+  "weighted_score": 1.0,
+  "evidence_quality": 0.0,
+  "risk_classification": "unacceptable",
+  "hard_rejection": {
+    "rule": "prohibited_category",
+    "reason": "compliance screening matched prohibited rule(s): ['fake_reviews'] (\u00a715)"
+  },
+  "recommendation": "REJECTED"
+}
+--- score: AI Astrology Subscription (no evidence collected)
+{
+  "id": "44292c70-449b-4eca-8631-4cfbf9ed6823",
+  "opportunity_id": "db7f61d1-9673-418c-923c-999fb87ad5ed",
+  "scoring_version": "scoring-v1",
+  "dimensions": {
+    "verified_demand": 0.0,
+    "problem_importance": 0.0,
+    "competitive_opportunity": 1.0,
+    "revenue_model_viability": 2.0,
+    "profit_potential": 0.0,
+    "budget_compatibility": 1.0,
+    "distribution_feasibility": 2.0,
+    "operational_simplicity": 3.0,
+    "strategic_fit": 5.0,
+    "evidence_quality": 0.0
+  },
+  "dimension_reasons": {
+    "verified_demand": "demand stage justified by evidence: none (0 demand, 0 purchasing-intent records)",
+    "problem_importance": "strongest problem evidence classification drives the rung (0 problem records)",
+    "competitive_opportunity": "saturation unknown \u2014 no competitor evidence; unknown is not an opening",
+    "revenue_model_viability": "supported revenue model",
+    "profit_potential": "no base scenario computed \u2014 profit potential has no evidence (\u00a716: 0 = no evidence)",
+    "budget_compatibility": "budget compatibility cannot be established (no budget or no commercial analysis)",
+    "distribution_feasibility": "3 legitimate candidate channel(s); organic traffic and profitable ads are never assumed (\u00a714), so this dimension caps at 4 without channel performance data",
+    "operational_simplicity": "category complexity prior 3/5",
+    "strategic_fit": "100% of required capabilities are available (required: ['content_production'], missing: [])",
+    "evidence_quality": "standalone evidence-quality computation (\u00a716.3), also reported separately"
+  },
+  "weights": {
+    "verified_demand": 0.2,
+    "profit_potential": 0.15,
+    "problem_importance": 0.1,
+    "competitive_opportunity": 0.1,
+    "revenue_model_viability": 0.1,
+    "budget_compatibility": 0.1,
+    "distribution_feasibility": 0.1,
+    "operational_simplicity": 0.05,
+    "strategic_fit": 0.05,
+    "evidence_quality": 0.05
+  },
+  "weighted_score": 1.0,
+  "evidence_quality": 0.0,
+  "risk_classification": "high",
+  "hard_rejection": null,
+  "recommendation": "REQUIRES MORE RESEARCH"
+}
+transition -> NEEDS_MORE_EVIDENCE
+--- research started for 'Print-on-Demand Mugs and Tees Store': session a2143517-bdd7-4fa1-b13a-5df98103824b as P-01 task ac6ab6d2-4a91-43ae-9d0e-080ad48e6000
+--- research session result: Print-on-Demand Mugs and Tees Store
+{
+  "id": "a2143517-bdd7-4fa1-b13a-5df98103824b",
+  "opportunity_id": "92e8f9ce-7973-4f05-a00e-cbe37281de3e",
+  "objective": "Collect evidence from registered sources",
+  "stage": "collect_evidence",
+  "status": "completed",
+  "task_id": "ac6ab6d2-4a91-43ae-9d0e-080ad48e6000",
+  "sources_examined": [
+    {
+      "source_key": "shopify_pricing",
+      "status": "fetched",
+      "documents": 1,
+      "evidence_added": 8,
+      "quarantined": false,
+      "notes": []
+    }
+  ],
+  "findings_summary": "8 new evidence record(s) from 1 source(s); 0 document(s) quarantined; 0 classification change(s). Outstanding gaps: No reliable customer demand evidence (nothing at SUPPORTING or better).; No evidence of actual purchases or purchasing intent.; No competitor evidence has been recorded.; No confirmed platform fee / cost structure evidence.; No commercial analysis has been performed.; No reliable market-size evidence; market size cannot be established.",
+  "failure_reason": null
+}
+--- evidence for 'Print-on-Demand Mugs and Tees Store' (8 records):
+    [SUPPORTING  ] (pricing) Shopify — pricing (official) page states a price of USD 1.0 per month (verbatim: "$1/month").
+        source=https://www.shopify.com/pricing retrieved=2026-11-08T22:17:22.699461 method=web_page freshness=unknown
+    [SUPPORTING  ] (pricing) Shopify — pricing (official) page states a price of USD 29.0 (verbatim: "$29").
+        source=https://www.shopify.com/pricing retrieved=2026-11-08T22:17:22.701887 method=web_page freshness=unknown
+    [SUPPORTING  ] (pricing) Shopify — pricing (official) page states a price of USD 5000.0 (verbatim: "$5,000").
+        source=https://www.shopify.com/pricing retrieved=2026-11-08T22:17:22.703307 method=web_page freshness=unknown
+    [SUPPORTING  ] (pricing) Shopify — pricing (official) page states a price of USD 79.0 (verbatim: "$79").
+        source=https://www.shopify.com/pricing retrieved=2026-11-08T22:17:22.704582 method=web_page freshness=unknown
+    [SUPPORTING  ] (pricing) Shopify — pricing (official) page states a price of USD 7500.0 (verbatim: "$7,500").
+        source=https://www.shopify.com/pricing retrieved=2026-11-08T22:17:22.705722 method=web_page freshness=unknown
+    [SUPPORTING  ] (pricing) Shopify — pricing (official) page states a price of USD 299.0 (verbatim: "$299").
+        source=https://www.shopify.com/pricing retrieved=2026-11-08T22:17:22.706850 method=web_page freshness=unknown
+    [SUPPORTING  ] (pricing) Shopify — pricing (official) page states a price of USD 10000.0 (verbatim: "$10,000").
+        source=https://www.shopify.com/pricing retrieved=2026-11-08T22:17:22.707904 method=web_page freshness=unknown
+    [SUPPORTING  ] (pricing) Shopify — pricing (official) page states a price of USD 2300.0 (verbatim: "$2,300").
+        source=https://www.shopify.com/pricing retrieved=2026-11-08T22:17:22.708949 method=web_page freshness=unknown
+--- GET /events?event_type=PromptInjectionDetected
+{
+  "success": true,
+  "data": [
+    {
+      "event_id": "4ba1f569-e574-42d1-92ed-47005e0fbcbc",
+      "event_type": "PromptInjectionDetected",
+      "source": "opportunities.service",
+      "correlation_id": null,
+      "task_id": null,
+      "severity": "error",
+      "payload": {
+        "opportunity_id": "cce6af53-6ef9-4b0a-8b8b-29e0d520f673",
+        "source_key": "community_forum_fixture",
+        "patterns": [
+          "ignore your rules",
+          "ignore previous instructions",
+          "grant yourself"
+        ]
+      },
+      "created_at": "2026-11-08T22:16:57.373214"
+    }
+  ],
+  "error": null,
+  "correlation_id": "0127ae64-4b04-4cdf-8f5d-36778e97a40b",
+  "meta": {
+    "total": 1,
+    "limit": 50,
+    "offset": 0
+  }
+}
+e-book history contains 1 injection_quarantined record(s)
+--- GET /opportunities/rankings
+[
+  {
+    "opportunity_id": "85174c72-0938-4724-87f1-0101e373397b",
+    "name": "Printable Weekly Planner Templates",
+    "status": "VALIDATION_PENDING",
+    "validation_level": 1,
+    "weighted_score": 3.17,
+    "evidence_quality": 3.33,
+    "recommendation": "REQUIRES MORE RESEARCH",
+    "scoring_version": "scoring-v1",
+    "hard_rejection": null,
+    "verified_demand": 3.0,
+    "profit_potential": 5.0,
+    "operational_simplicity": 4.0,
+    "minimum_viable_cost": 15.0
+  },
+  {
+    "opportunity_id": "77031637-f740-4c58-aa15-d1f21e8e4e8b",
+    "name": "GST Invoice Generator for Indian Freelancers",
+    "status": "VALIDATION_PENDING",
+    "validation_level": 1,
+    "weighted_score": 3.14,
+    "evidence_quality": 2.86,
+    "recommendation": "REQUIRES MORE RESEARCH",
+    "scoring_version": "scoring-v1",
+    "hard_rejection": null,
+    "verified_demand": 3.0,
+    "profit_potential": 5.0,
+    "operational_simplicity": 2.0,
+    "minimum_viable_cost": 20.0
+  },
+  {
+    "opportunity_id": "cce6af53-6ef9-4b0a-8b8b-29e0d520f673",
+    "name": "Beginner fitness e-book series (KDP)",
+    "status": "VALIDATION_PENDING",
+    "validation_level": 1,
+    "weighted_score": 2.42,
+    "evidence_quality": 3.46,
+    "recommendation": "REQUIRES MORE RESEARCH",
+    "scoring_version": "scoring-v1",
+    "hard_rejection": null,
+    "verified_demand": 0.0,
+    "profit_potential": 4.0,
+    "operational_simplicity": 4.0,
+    "minimum_viable_cost": 20.0
+  },
+  {
+    "opportunity_id": "21846307-880c-44c0-aa41-e07074fe6f95",
+    "name": "Paid Fake-Review Writing Service",
+    "status": "BLOCKED_BY_COMPLIANCE",
+    "validation_level": 0,
+    "weighted_score": 1.0,
+    "evidence_quality": 0.0,
+    "recommendation": "REJECTED",
+    "scoring_version": "scoring-v1",
+    "hard_rejection": {
+      "rule": "prohibited_category",
+      "reason": "compliance screening matched prohibited rule(s): ['fake_reviews'] (\u00a715)"
+    },
+    "verified_demand": 0.0,
+    "profit_potential": 0.0,
+    "operational_simplicity": 3.0,
+    "minimum_viable_cost": null
+  },
+  {
+    "opportunity_id": "db7f61d1-9673-418c-923c-999fb87ad5ed",
+    "name": "AI Astrology Subscription",
+    "status": "NEEDS_MORE_EVIDENCE",
+    "validation_level": 0,
+    "weighted_score": 1.0,
+    "evidence_quality": 0.0,
+    "recommendation": "REQUIRES MORE RESEARCH",
+    "scoring_version": "scoring-v1",
+    "hard_rejection": null,
+    "verified_demand": 0.0,
+    "profit_potential": 0.0,
+    "operational_simplicity": 3.0,
+    "minimum_viable_cost": null
+  }
+]
+--- GET /opportunities/status
+{
+  "opportunities_by_status": {
+    "BLOCKED_BY_COMPLIANCE": 1,
+    "DUPLICATE": 1,
+    "INCOMPATIBLE": 2,
+    "INITIAL_SCREENING": 6,
+    "NEEDS_MORE_EVIDENCE": 1,
+    "VALIDATION_PENDING": 3
+  },
+  "total_opportunities": 14,
+  "sources_registered": 8,
+  "sources_enabled": 8,
+  "scoring_version": "scoring-v1",
+  "mode": "supervised",
+  "live_fetching": "enabled for registered public sources only"
+}
+=== SMOKE COMPLETE ===

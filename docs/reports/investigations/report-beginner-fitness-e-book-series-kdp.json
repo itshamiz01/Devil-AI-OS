@@ -1,0 +1,235 @@
+{
+  "opportunity": {
+    "id": "cce6af53-6ef9-4b0a-8b8b-29e0d520f673",
+    "name": "Beginner fitness e-book series (KDP)",
+    "category": "digital_products",
+    "target_customer": "Beginners starting a home fitness routine",
+    "geography": "global",
+    "problem": "Beginners are overwhelmed by long, technical fitness books and abandon routines early.",
+    "proposed_solution": "Short, structured 7-day starter guides with simple daily actions.",
+    "revenue_model": "marketplace_sales",
+    "status": "VALIDATION_PENDING",
+    "discovery_method": "capability_fit"
+  },
+  "executive_summary": {
+    "overall_score": 2.42,
+    "evidence_quality": 3.46,
+    "validation_level": 1,
+    "recommendation": "REQUIRES MORE RESEARCH",
+    "hard_rejection": null
+  },
+  "facts_from_evidence": [
+    {
+      "claim": "KDP pays a 70% royalty on e-books priced between $2.99 and $9.99, before delivery costs.",
+      "category": "pricing",
+      "classification": "CORROBORATED",
+      "evidence_kind": "source_claim",
+      "source_url": null,
+      "retrieved_at": "2026-11-08T22:16:57.360755",
+      "freshness": "unknown"
+    },
+    {
+      "claim": "KDP charges no upfront listing fee to publish an e-book.",
+      "category": "cost",
+      "classification": "SUPPORTING",
+      "evidence_kind": "source_claim",
+      "source_url": null,
+      "retrieved_at": "2026-11-08T22:16:57.364017",
+      "freshness": "unknown"
+    },
+    {
+      "claim": "The owner already has a working KDP publishing workflow, so no new tooling is needed to produce a short guide.",
+      "category": "operational",
+      "classification": "SUPPORTING",
+      "evidence_kind": "source_claim",
+      "source_url": null,
+      "retrieved_at": "2026-11-08T22:16:57.365275",
+      "freshness": "unknown"
+    },
+    {
+      "claim": "KDP's 70% royalty band for mid-priced e-books is the main reason short guides can be viable at low sales volume.",
+      "category": "pricing",
+      "classification": "CORROBORATED",
+      "evidence_kind": "source_claim",
+      "source_url": null,
+      "retrieved_at": "2026-11-08T22:16:57.367649",
+      "freshness": "unknown"
+    },
+    {
+      "claim": "Gumroad charges a flat 10% fee on each sale.",
+      "category": "cost",
+      "classification": "SUPPORTING",
+      "evidence_kind": "source_claim",
+      "source_url": null,
+      "retrieved_at": "2026-11-08T22:16:57.368699",
+      "freshness": "unknown"
+    }
+  ],
+  "evidence_breakdown": {
+    "records": 5,
+    "mean_strength": 0.65,
+    "provenance_completeness": 1.0,
+    "independent_groups": 2,
+    "core_category_coverage": 0.333,
+    "by_classification": {
+      "CORROBORATED": 2,
+      "SUPPORTING": 3
+    }
+  },
+  "market_research": {
+    "customer_segment": "Beginners starting a home fitness routine",
+    "demand_indicators": {
+      "stage": "none",
+      "demand_records": 0,
+      "purchasing_intent_records": 0,
+      "note": "Stages: none < general_interest < active_problem_awareness < purchase_consideration < verified_transactions. Search volume, views and likes can justify at most 'general_interest' (\u00a710.3, \u00a718.3)."
+    },
+    "market_size": {
+      "tam": {
+        "value_text": null,
+        "methodology": null,
+        "note": "Insufficient verified evidence: a reliable TAM estimate cannot be established from the available evidence."
+      },
+      "sam": {
+        "value_text": null,
+        "methodology": null,
+        "note": "Insufficient verified evidence: a reliable SAM estimate cannot be established from the available evidence."
+      },
+      "som": {
+        "value_text": null,
+        "methodology": null,
+        "note": "Insufficient verified evidence: a reliable SOM estimate cannot be established from the available evidence."
+      }
+    },
+    "saturation": {
+      "level": "unknown",
+      "direct_competitors_recorded": 0,
+      "note": "No competitor evidence recorded: saturation cannot be assessed. Absence of recorded competitors is not evidence of an empty market."
+    }
+  },
+  "competitor_analysis": {
+    "competitors": [],
+    "comparison_note": "Prices appear only where a pricing claim was recorded with evidence; competitor revenue, customer counts and market share are never estimated (\u00a711.2).",
+    "identified_gaps": [],
+    "differentiation_candidates": [],
+    "differentiation_note": "A recommendation must explain why customers would switch; 'competitors are expensive' is not sufficient (\u00a711.4)."
+  },
+  "commercial_feasibility": {
+    "price_assumption": {
+      "amount": 4.99,
+      "classification": "estimate",
+      "basis": "inside the 70% royalty band described in owner notes; the price itself is a stated assumption"
+    },
+    "scenarios": {
+      "conservative": {
+        "assumptions": [
+          "stated assumption: slow organic start"
+        ],
+        "sales_per_month": 3.0,
+        "revenue": 14.97,
+        "direct_delivery_costs": 0.9,
+        "fees": 4.49,
+        "gross_profit": 14.07,
+        "contribution_margin": 9.58,
+        "contribution_margin_pct": 63.99,
+        "operating_profit": 4.58,
+        "net_cash_flow": 4.58
+      },
+      "base": {
+        "assumptions": [
+          "stated assumption: steady niche sales"
+        ],
+        "sales_per_month": 10.0,
+        "revenue": 49.9,
+        "direct_delivery_costs": 3.0,
+        "fees": 14.97,
+        "gross_profit": 46.9,
+        "contribution_margin": 31.93,
+        "contribution_margin_pct": 63.99,
+        "operating_profit": 26.93,
+        "net_cash_flow": 26.93
+      },
+      "optimistic": {
+        "assumptions": [
+          "stated assumption: one title takes off"
+        ],
+        "sales_per_month": 30.0,
+        "revenue": 149.7,
+        "direct_delivery_costs": 9.0,
+        "fees": 44.91,
+        "gross_profit": 140.7,
+        "contribution_margin": 95.79,
+        "contribution_margin_pct": 63.99,
+        "operating_profit": 90.79,
+        "net_cash_flow": 90.79
+      }
+    },
+    "break_even": {
+      "contribution_per_sale": 3.19,
+      "fixed_costs_monthly": 5.0,
+      "variable_unknown": false,
+      "recurring_unknown": false,
+      "feasible": true,
+      "break_even_sales_per_month": 2,
+      "break_even_revenue": 9.98,
+      "note": "Break-even = ceil(recurring monthly costs / contribution per sale)."
+    },
+    "budget": {
+      "budget_amount": 50.0,
+      "minimum_viable_cost": 20.0,
+      "first_month_total": 25.0,
+      "recurring_monthly": 5.0,
+      "contingency_required": 4.0,
+      "maximum_affordable_experiment_cost": 46.0,
+      "compatible": true,
+      "note": "Compatible means startup + first month recurring fits the owner's stated budget. The budget figure is the owner's; the engine never raises it (\u00a713.6)."
+    },
+    "distribution": {
+      "candidate_channels": [
+        "authorized_marketplace",
+        "search_engines",
+        "educational_content"
+      ],
+      "prohibited_channels_rejected": [],
+      "channels_with_supporting_evidence": [],
+      "organic_traffic_assumption": "not assumed \u2014 organic traffic must be earned and is not forecast (\u00a714)",
+      "paid_advertising_assumption": "not assumed profitable \u2014 no ad economics are claimed without cost evidence (\u00a714)",
+      "legitimate_channel_count": 3,
+      "note": "Channel availability does not imply acquisition success; conversion requirements and acquisition cost remain unproven until real evidence exists."
+    },
+    "estimate_notice": "All figures are deterministic calculations over caller-stated inputs classified per line (verified/quoted/historical/estimate/unknown). Estimated revenue is not verified revenue (\u00a713.3)."
+  },
+  "compliance": {
+    "verdict": "clear",
+    "matched_rules": [],
+    "flags": [],
+    "requires_professional_review": false,
+    "note": "Screening is a deterministic pattern check over declared fields; a 'clear' verdict is not a legal opinion (\u00a715)."
+  },
+  "validation_assessment": {
+    "level": 1,
+    "decision": "level 1 (Preliminary research)",
+    "criteria_met": [
+      "Level 0 \u2014 an opportunity concept is recorded",
+      "Level 1 \u2014 preliminary market/competitor research completed"
+    ],
+    "criteria_missing": [
+      "Level 2 requires: supporting problem/demand evidence from at least 2 independent sources; at least one CORROBORATED (or better) problem/demand record"
+    ]
+  },
+  "evidence_gaps": [
+    "No reliable customer demand evidence (nothing at SUPPORTING or better).",
+    "No evidence of actual purchases or purchasing intent.",
+    "No competitor evidence has been recorded.",
+    "No reliable market-size evidence; market size cannot be established."
+  ],
+  "research_sessions": [
+    {
+      "id": "aa87f249-85a6-41d8-a58f-efd51e3c4bc4",
+      "status": "completed",
+      "task_id": "1ef26719-e18c-4545-b59f-e9dba614d42c",
+      "findings_summary": "5 new evidence record(s) from 4 source(s); 1 document(s) quarantined; 2 classification change(s). Outstanding gaps: No reliable customer demand evidence (nothing at SUPPORTING or better).; No evidence of actual purchases or purchasing intent.; No competitor evidence has been recorded.; No commercial analysis has been performed.; No reliable market-size evidence; market size cannot be established."
+    }
+  ],
+  "recommended_next_step": "Gather more evidence: No reliable customer demand evidence (nothing at SUPPORTING or better)."
+}

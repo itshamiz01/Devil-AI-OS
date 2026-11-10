@@ -1,0 +1,209 @@
+{
+  "opportunity": {
+    "id": "77031637-f740-4c58-aa15-d1f21e8e4e8b",
+    "name": "GST Invoice Generator for Indian Freelancers",
+    "category": "software_services",
+    "target_customer": "Indian freelancers and sole proprietors issuing GST invoices",
+    "geography": "India",
+    "problem": "Freelancers assemble GST invoices manually in spreadsheets, making format and field errors.",
+    "proposed_solution": "A focused generator producing compliant invoice PDFs with the required GST fields.",
+    "revenue_model": "subscription",
+    "status": "VALIDATION_PENDING",
+    "discovery_method": "problem_driven"
+  },
+  "executive_summary": {
+    "overall_score": 3.14,
+    "evidence_quality": 2.86,
+    "validation_level": 1,
+    "recommendation": "REQUIRES MORE RESEARCH",
+    "hard_rejection": null
+  },
+  "facts_from_evidence": [
+    {
+      "claim": "A GST invoice must show the supplier GSTIN, invoice number and date, HSN/SAC code, and place of supply.",
+      "category": "legal",
+      "classification": "SUPPORTING",
+      "evidence_kind": "source_claim",
+      "source_url": null,
+      "retrieved_at": "2026-11-08T22:17:20.663211",
+      "freshness": "unknown"
+    },
+    {
+      "claim": "Freelancers in the owner's network assemble invoices manually in spreadsheets and report field errors as a recurring annoyance.",
+      "category": "problem",
+      "classification": "SUPPORTING",
+      "evidence_kind": "source_claim",
+      "source_url": null,
+      "retrieved_at": "2026-11-08T22:17:20.664720",
+      "freshness": "unknown"
+    }
+  ],
+  "evidence_breakdown": {
+    "records": 2,
+    "mean_strength": 0.55,
+    "provenance_completeness": 1.0,
+    "independent_groups": 1,
+    "core_category_coverage": 0.167,
+    "by_classification": {
+      "SUPPORTING": 2
+    }
+  },
+  "market_research": {
+    "customer_segment": "Indian freelancers and sole proprietors issuing GST invoices",
+    "demand_indicators": {
+      "stage": "active_problem_awareness",
+      "demand_records": 0,
+      "purchasing_intent_records": 0,
+      "note": "Stages: none < general_interest < active_problem_awareness < purchase_consideration < verified_transactions. Search volume, views and likes can justify at most 'general_interest' (\u00a710.3, \u00a718.3)."
+    },
+    "market_size": {
+      "tam": {
+        "value_text": null,
+        "methodology": null,
+        "note": "Insufficient verified evidence: a reliable TAM estimate cannot be established from the available evidence."
+      },
+      "sam": {
+        "value_text": null,
+        "methodology": null,
+        "note": "Insufficient verified evidence: a reliable SAM estimate cannot be established from the available evidence."
+      },
+      "som": {
+        "value_text": null,
+        "methodology": null,
+        "note": "Insufficient verified evidence: a reliable SOM estimate cannot be established from the available evidence."
+      }
+    },
+    "saturation": {
+      "level": "unknown",
+      "direct_competitors_recorded": 0,
+      "note": "No competitor evidence recorded: saturation cannot be assessed. Absence of recorded competitors is not evidence of an empty market."
+    }
+  },
+  "competitor_analysis": {
+    "competitors": [],
+    "comparison_note": "Prices appear only where a pricing claim was recorded with evidence; competitor revenue, customer counts and market share are never estimated (\u00a711.2).",
+    "identified_gaps": [],
+    "differentiation_candidates": [],
+    "differentiation_note": "A recommendation must explain why customers would switch; 'competitors are expensive' is not sufficient (\u00a711.4)."
+  },
+  "commercial_feasibility": {
+    "price_assumption": {
+      "amount": 2.0,
+      "classification": "estimate",
+      "basis": "USD 2/month entry subscription \u2014 stated assumption for Indian freelancer pricing"
+    },
+    "scenarios": {
+      "conservative": {
+        "assumptions": [
+          "stated assumption: subscribers"
+        ],
+        "sales_per_month": 5.0,
+        "revenue": 10.0,
+        "direct_delivery_costs": 0.3,
+        "fees": 0.2,
+        "gross_profit": 9.7,
+        "contribution_margin": 9.5,
+        "contribution_margin_pct": 95.0,
+        "operating_profit": 3.5,
+        "net_cash_flow": 3.5
+      },
+      "base": {
+        "assumptions": [
+          "stated assumption: subscribers"
+        ],
+        "sales_per_month": 20.0,
+        "revenue": 40.0,
+        "direct_delivery_costs": 1.2,
+        "fees": 0.8,
+        "gross_profit": 38.8,
+        "contribution_margin": 38.0,
+        "contribution_margin_pct": 95.0,
+        "operating_profit": 32.0,
+        "net_cash_flow": 32.0
+      },
+      "optimistic": {
+        "assumptions": [
+          "stated assumption: subscribers"
+        ],
+        "sales_per_month": 60.0,
+        "revenue": 120.0,
+        "direct_delivery_costs": 3.6,
+        "fees": 2.4,
+        "gross_profit": 116.4,
+        "contribution_margin": 114.0,
+        "contribution_margin_pct": 95.0,
+        "operating_profit": 108.0,
+        "net_cash_flow": 108.0
+      }
+    },
+    "break_even": {
+      "contribution_per_sale": 1.9,
+      "fixed_costs_monthly": 6.0,
+      "variable_unknown": false,
+      "recurring_unknown": false,
+      "feasible": true,
+      "break_even_sales_per_month": 4,
+      "break_even_revenue": 8.0,
+      "note": "Break-even = ceil(recurring monthly costs / contribution per sale)."
+    },
+    "budget": {
+      "budget_amount": 50.0,
+      "minimum_viable_cost": 20.0,
+      "first_month_total": 26.0,
+      "recurring_monthly": 6.0,
+      "contingency_required": 4.0,
+      "maximum_affordable_experiment_cost": 46.0,
+      "compatible": true,
+      "note": "Compatible means startup + first month recurring fits the owner's stated budget. The budget figure is the owner's; the engine never raises it (\u00a713.6)."
+    },
+    "distribution": {
+      "candidate_channels": [
+        "search_engines",
+        "partnerships",
+        "b2b_outreach_authorized"
+      ],
+      "prohibited_channels_rejected": [],
+      "channels_with_supporting_evidence": [],
+      "organic_traffic_assumption": "not assumed \u2014 organic traffic must be earned and is not forecast (\u00a714)",
+      "paid_advertising_assumption": "not assumed profitable \u2014 no ad economics are claimed without cost evidence (\u00a714)",
+      "legitimate_channel_count": 3,
+      "note": "Channel availability does not imply acquisition success; conversion requirements and acquisition cost remain unproven until real evidence exists."
+    },
+    "estimate_notice": "All figures are deterministic calculations over caller-stated inputs classified per line (verified/quoted/historical/estimate/unknown). Estimated revenue is not verified revenue (\u00a713.3)."
+  },
+  "compliance": {
+    "verdict": "clear",
+    "matched_rules": [],
+    "flags": [],
+    "requires_professional_review": false,
+    "note": "Screening is a deterministic pattern check over declared fields; a 'clear' verdict is not a legal opinion (\u00a715)."
+  },
+  "validation_assessment": {
+    "level": 1,
+    "decision": "level 1 (Preliminary research)",
+    "criteria_met": [
+      "Level 0 \u2014 an opportunity concept is recorded",
+      "Level 1 \u2014 preliminary market/competitor research completed"
+    ],
+    "criteria_missing": [
+      "Level 2 requires: supporting problem/demand evidence from at least 2 independent sources; at least one CORROBORATED (or better) problem/demand record"
+    ]
+  },
+  "evidence_gaps": [
+    "No reliable customer demand evidence (nothing at SUPPORTING or better).",
+    "No evidence of actual purchases or purchasing intent.",
+    "No verified pricing information.",
+    "No competitor evidence has been recorded.",
+    "No confirmed platform fee / cost structure evidence.",
+    "No reliable market-size evidence; market size cannot be established."
+  ],
+  "research_sessions": [
+    {
+      "id": "bff9a89b-fe60-42bf-91a5-3acc179d5634",
+      "status": "completed",
+      "task_id": "85e65f6c-f046-4119-876a-07e79f709c7f",
+      "findings_summary": "2 new evidence record(s) from 2 source(s); 0 document(s) quarantined; 0 classification change(s). Outstanding gaps: No reliable customer demand evidence (nothing at SUPPORTING or better).; No evidence of actual purchases or purchasing intent.; No verified pricing information.; No competitor evidence has been recorded.; No confirmed platform fee / cost structure evidence.; No commercial analysis has been performed.; No reliable market-size evidence; market size cannot be established."
+    }
+  ],
+  "recommended_next_step": "Gather more evidence: No reliable customer demand evidence (nothing at SUPPORTING or better)."
+}

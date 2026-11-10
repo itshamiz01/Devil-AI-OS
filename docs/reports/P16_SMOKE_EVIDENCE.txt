@@ -1,0 +1,52 @@
+=== AUTONOMUS P-16 SMOKE (real uvicorn, controlled mode) ===
+server: http://127.0.0.1:44963/api/v1  data_dir: /tmp/p16-smoke-a08xd3ej/data
+seeded: winner=6532fec5-5caa-4108-8adf-0cde47fcb258 loser=b7d66661-d1fb-4cdb-b9b8-3420540c075b
+--- 1. Auth boundary, schema
+  [PASS] economy status requires auth (401) 
+  [PASS] auto-migrated schema has 191 tables (190 + alembic_version) (got 191)
+[login] HTTP 200 (owner session established)
+--- 2. Profitability gate (owner priority)
+[economy status] HTTP 200 -> {"autonomy_level": 2, "profitability_gate": {"state": "closed", "reason": "aggregate verified net profit across profiled businesses is not positive; the owner's rule is profitability before new businesses", "businesses_profiled": 2, "total_collected_minor": 700000, "total_net_profit_minor": -400000}}
+  [PASS] gate CLOSED while aggregate verified profit is negative (aggregate verified net profit across profiled businesses is not positive; the owner's rule is profitability before new businesses)
+[economy overview] HTTP 200 -> {"global_economic_overview": {"total_verified_collected_revenue_minor": 700000, "total_net_profit_minor": -400000, "total_actual_expenses_minor": 1100000, "per_business": [{"business_id": "b7d66661-d1fb-4cdb-b9b8-3420540c075b", "name": "FIXTURE \u2014 Smoke Loser (fixture)", "is_fixture": true, "currency": "INR", "net_collected_minor": 200000, "projected_minor": 0, "mrr_minor": 0}, {"business_id":
+  [PASS] overview reads P-07: collected ₹7,000, net −₹4,000 (got {'total_verified_collected_revenue_minor': 700000, 'total_net_profit_minor': -400000, 'total_actual_expenses_minor': 1100000, 'per_business': [{'business_id': 'b7d66661-d1fb-4cdb-b9b8-3420540c075b', 'name': 'FIXTURE — Smoke Loser (fixture)', 'is_fixture': True, 'currency': 'INR', 'net_collected_minor': 200000, 'projected_minor': 0, 'mrr_minor': 0}, {'business_id': '6532fec5-5caa-4108-8adf-0cde47fcb258', 'name': 'FIXTURE — Smoke Winner (fixture)', 'is_fixture': True, 'currency': 'INR', 'net_collected_minor': 500000, 'projected_minor': 0, 'mrr_minor': 0}], 'collected_vs_projected': 'separate fields, never blended', 'combined_available_cash': None, 'combined_cash_note': "cash balances of separate businesses are never summed (P-13 §11 rule); see each business's available capital in the portfolio view"})
+  [PASS] combined cash never summed 
+--- 3. Market / competitor / country intelligence
+  [PASS] market report without evidence sources refused (422) 
+[market report] HTTP 201 -> {"id": "67aa7e50-f891-41c1-a488-5383018ba4e7", "title": "Smoke market scan (fixture)"}
+  [PASS] sourced market report created 
+  [PASS] competitor with sources created 
+[competitor comparison] HTTP 200 -> {"identified_gaps": [{"competitor": "Rival (fixture)", "recorded_weakness": "slow support", "reading": "potential gap to compete on through pricing, function, experience, speed, specialisation or automation (\u00a713) \u2014 verify before acting"}]}
+  [PASS] comparison derives gaps from recorded weaknesses 
+  [PASS] country assessment scored 
+--- 4. Discovery and gate enforcement
+[discovery run] HTTP 200 -> {"created": [{"id": "c542e5d5-2665-4e59-9931-1f36a7204399", "title": "Improve profitability of FIXTURE \u2014 Smoke Loser (fixture)", "kind": "existing_business_expansion", "source_kind": "detector", "stage": "discovered", "description": "detector: this business is loss-making on verified P-07 figures; the owner's priority is profitability of existing businesses before new ones", "market_report_id
+  [PASS] discovery flags the loss-making business ({'existing_business_expansion', 'new_revenue_stream'})
+  [PASS] venture scored with evidence-derived confidence 
+  [PASS] venture advances to financial_evaluation 
+  [PASS] gate blocks advancing a new-business venture (403) (got 403)
+  [PASS] gate blocks approving a new-business strategy (403) 
+  [PASS] improvement strategy approves under the closed gate 
+--- 5. Capital allocation and the P-07 invariant
+  [PASS] growth scenario refused while the gate is closed (403) (got 403)
+[overview before allocation] HTTP 200 -> {"global_economic_overview": {"total_verified_collected_revenue_minor": 700000, "total_net_profit_minor": -400000, "total_actual_expenses_minor": 1100000, "per_business": [{"business_id": "b7d66661-d1fb-4cdb-b9b8-3420540c075b", "name": "FIXTURE \u2014 Smoke Loser (fixture)", "is_fixture": true, "currency": "INR", "net_collected_minor": 200000, "projected_minor": 0, "mrr_minor": 0}, {"business_id":
+  [PASS] balanced allocation approved as a PROPOSAL 
+[overview after allocation] HTTP 200 -> {"global_economic_overview": {"total_verified_collected_revenue_minor": 700000, "total_net_profit_minor": -400000, "total_actual_expenses_minor": 1100000, "per_business": [{"business_id": "b7d66661-d1fb-4cdb-b9b8-3420540c075b", "name": "FIXTURE \u2014 Smoke Loser (fixture)", "is_fixture": true, "currency": "INR", "net_collected_minor": 200000, "projected_minor": 0, "mrr_minor": 0}, {"business_id":
+  [PASS] P-07 totals byte-equal across the P-16 approval 
+[reinvestment plan] HTTP 201 -> {"figures_snapshot": {"verified_collected_revenue_minor": 500000, "actual_expenses_minor": 300000, "accounting_net_profit_minor": 200000, "available_cash_minor": 100000, "owner_declared_adjustments_minor": 0, "adjustments_note": "taxes payable, liabilities and contractual restrictions are owner-declared adjustments here; P-07 tax records remain the authoritative detail", "distributable_cash_minor"
+  [PASS] reinvestment distributable = min(verified profit, available cash) less adjustments (§10) (profit 200000, cash 100000, distributable 100000)
+--- 6. Economic experiments
+  [PASS] experiment without pre-declaration refused (422) 
+  [PASS] pre-declared experiment proposal created 
+[experiment handoff] HTTP 200 -> {"status": "handed_off", "p08_experiment_id": "8f333bbf-66be-4fc0-bcc8-a9af11ef90d9"}
+  [PASS] handoff creates a governed P-08 experiment 
+--- 7. Risk intelligence and recommendations
+[risk assessment] HTTP 200 -> {"detectors": [{"kind": "loss_making_business", "business_id": "b7d66661-d1fb-4cdb-b9b8-3420540c075b", "detail": "verified net profit is negative"}, {"kind": "platform_dependency", "business_id": "b7d66661-d1fb-4cdb-b9b8-3420540c075b", "detail": "channel 'unspecified' supplies 1.0 of collected revenue"}, {"kind": "no_recurring_revenue", "business_id": "b7d66661-d1fb-4cdb-b9b8-3420540c075b", "detai
+  [PASS] risk detectors flag the loss-maker ({'no_recurring_revenue', 'loss_making_business', 'platform_dependency', 'revenue_concentration'})
+  [PASS] ten labelled SIMULATION stress scenarios 
+[recommendations] HTTP 200 -> {"items": [{"priority": 0, "kind": "improve_existing", "title": "Make FIXTURE \u2014 Smoke Loser (fixture) profitable", "rationale": "verified net profit is negative on P-07 figures", "gate_blocked": false, "business_id": "b7d66661-d1fb-4cdb-b9b8-3420540c075b"}, {"priority": 0, "kind": "improve_existing", "title": "Restore portfolio profitability before expanding", "rationale": "profitability gate
+  [PASS] recommendations lead with improving what exists (['improve_existing', 'improve_existing', 'diversification'])
+--- 8. Command Center bundle
+  [PASS] frontend served at /app 
+  [PASS] bundle contains the AI Economy & Expansion view 
+=== P-16 SMOKE RESULT: 28 passed, 0 failed ===

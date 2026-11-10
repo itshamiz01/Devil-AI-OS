@@ -1,0 +1,67 @@
+=== AUTONOMUS P-09 SMOKE (real uvicorn, controlled mode) ===
+server: http://127.0.0.1:30718/api/v1  data_dir: /tmp/p09-smoke-czw4ta8b/data
+[login] HTTP 200 (owner session established)
+--- 1. Engine status on an empty staging database
+[memory status] HTTP 200 -> {"total_memories": 0, "learning_records": 0, "llm_dependency": "none \u2014 ingestion, retrieval and learning are deterministic; the engine is fully functional with the local model offline (Scenario 10)"}
+  [PASS] zero memories at start 
+  [PASS] no LLM dependency 
+  vector store -> {"store": "sqlite-local", "status": "ok", "indexed": 0, "embedder": "local-hash-v1", "note": "local SQLite adapter; ChromaDB is not installed in this environment and is not claimed"}
+  [PASS] local vector adapter honest (no Chroma claim) 
+--- 2. Create records (owner instruction, procedure, fact)
+[create owner instruction] HTTP 200 -> {"id": "5dd52c97-7bd0-4ae1-923f-1b6b11fc3747", "status": "ACTIVE"}
+  [PASS] owner instruction ACTIVE 
+[create procedure] HTTP 200 -> {"id": "48c554ed-4d83-45db-a36a-8ef9dc87d638"}
+  [PASS] procedure stored 
+--- 3. Ingestion: stored / duplicate / filler / secret
+[ingest] HTTP 200 -> {"status": "STORED"}
+  [PASS] ingestion STORED 
+[ingest again] HTTP 200 -> {"status": "REJECTED_DUPLICATE"}
+  [PASS] duplicate rejected 
+[ingest filler] HTTP 200 -> {"status": "REJECTED_LOW_VALUE"}
+  [PASS] filler rejected 
+[ingest secret] HTTP 200 -> {"status": "REJECTED_SENSITIVE"}
+  [PASS] secret rejected 
+  [PASS] safe security event recorded without value 
+--- 4. Hybrid retrieval and context assembly
+[search] HTTP 200 -> {"count": 3, "no_reliable_memory": false}
+  [PASS] search finds the rule 
+  [PASS] score breakdown present 
+[context] HTTP 200 -> {"item_count": 3}
+  [PASS] owner instruction prioritised in context 
+  [PASS] absence reported, never invented 
+--- 5. Contradiction, supersede (owner correction), verify
+[create v1] HTTP 200 -> {"id": "e6efde0d-913a-4a68-8692-f6ec0804ede2"}
+[create v2] HTTP 200 -> {"id": "afc19d6f-a326-4b48-a044-4c7bcd3fe58f"}
+  [PASS] contradiction detected, both preserved 
+[supersede] HTTP 200 -> {"id": "a6e844b2-3f40-45fc-899b-abf65f4f5354", "supersedes_id": "e6efde0d-913a-4a68-8692-f6ec0804ede2"}
+  [PASS] supersede links preserved original 
+  [PASS] original marked SUPERSEDED, not edited away 
+[verify] HTTP 200 -> {"truth_class": "verified_fact", "confidence": "VERIFIED"}
+  [PASS] owner verification reaches verified_fact 
+--- 6. Learning: ceiling, observations, owner review
+[analyze] HTTP 200 -> {"id": "bdec6983-7da2-44f6-af6c-3b4465dd4d93", "confidence": "LOW"}
+  [PASS] single observation capped at LOW (never VERIFIED) 
+[review] HTTP 200 -> {"confidence": "VERIFIED", "review_status": "REVIEWED"}
+  [PASS] 3 observations + owner review = VERIFIED 
+--- 7. Knowledge graph, handoff, owner controls
+  [PASS] graph traversal reaches the experiment 
+[handoff] HTTP 200 -> {"id": "47f26383-0384-4b4f-ab7b-8ddde2d08da9", "from_agent_id": "agent-1"}
+  [PASS] handoff created for agent-2 
+[preference] HTTP 200 -> {"kind": "EXPLICIT_OWNER_INSTRUCTION"}
+  [PASS] explicit owner preference stored 
+[export] HTTP 200 -> {"count": 7}
+  [PASS] owner export returns records 
+  [PASS] memory actions are audited 
+--- 8. Governed deletion
+[create permanent] HTTP 200 -> {"id": "acda3403-0663-47a7-a9d7-4a233945f37f"}
+[delete permanent] HTTP 200 -> {"status": "BLOCKED_RETENTION"}
+  [PASS] permanent retention blocks deletion 
+[delete procedure] HTTP 200 -> {"status": "COMPLETED", "index_sync_verified": true}
+  [PASS] deletion receipt COMPLETED + index verified 
+  [PASS] deleted record no longer retrieved 
+--- 9. Maintenance scan and analytics
+[maintenance] HTTP 200 -> {"scanned": 7}
+  [PASS] maintenance scan runs 
+[analytics] HTTP 200 -> {"total_active_memories": 7, "learning_records": 1}
+  [PASS] analytics measured from tables 
+=== SMOKE RESULT: 30 passed, 0 failed ===

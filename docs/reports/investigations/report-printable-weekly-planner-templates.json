@@ -1,0 +1,249 @@
+{
+  "opportunity": {
+    "id": "85174c72-0938-4724-87f1-0101e373397b",
+    "name": "Printable Weekly Planner Templates",
+    "category": "digital_products",
+    "target_customer": "Students and professionals who plan on paper",
+    "geography": "global",
+    "problem": "Paper-planner users want inexpensive, printable layouts without buying a new physical planner each year.",
+    "proposed_solution": "A bundle of printable weekly layouts in A4 and US Letter.",
+    "revenue_model": "marketplace_sales",
+    "status": "VALIDATION_PENDING",
+    "discovery_method": "demand_driven"
+  },
+  "executive_summary": {
+    "overall_score": 3.17,
+    "evidence_quality": 3.33,
+    "validation_level": 1,
+    "recommendation": "REQUIRES MORE RESEARCH",
+    "hard_rejection": null
+  },
+  "facts_from_evidence": [
+    {
+      "claim": "Etsy charges a $0.20 listing fee per item, and a listing lasts four months.",
+      "category": "cost",
+      "classification": "CORROBORATED",
+      "evidence_kind": "source_claim",
+      "source_url": null,
+      "retrieved_at": "2026-11-08T22:17:19.012495",
+      "freshness": "unknown"
+    },
+    {
+      "claim": "Planner buyers ask for both A4 and US Letter printable sizes.",
+      "category": "demand",
+      "classification": "SUPPORTING",
+      "evidence_kind": "source_claim",
+      "source_url": null,
+      "retrieved_at": "2026-11-08T22:17:19.016157",
+      "freshness": "unknown"
+    },
+    {
+      "claim": "Etsy listing fee is $0.20 per listing.",
+      "category": "cost",
+      "classification": "CORROBORATED",
+      "evidence_kind": "source_claim",
+      "source_url": null,
+      "retrieved_at": "2026-11-08T22:17:19.021213",
+      "freshness": "unknown"
+    },
+    {
+      "claim": "Printable planners are a crowded Etsy category with many near-identical listings.",
+      "category": "competitor",
+      "classification": "TENTATIVE",
+      "evidence_kind": "source_claim",
+      "source_url": null,
+      "retrieved_at": "2026-11-08T22:17:19.024654",
+      "freshness": "unknown"
+    },
+    {
+      "claim": "Forum poster: 'Etsy listing fees are $0.50 now, it is getting expensive.'",
+      "category": "cost",
+      "classification": "CONTRADICTED",
+      "evidence_kind": "source_claim",
+      "source_url": null,
+      "retrieved_at": "2026-11-08T22:17:19.029182",
+      "freshness": "unknown"
+    },
+    {
+      "claim": "Forum poster: 'My planner shop made 40 sales in its first month with no advertising.'",
+      "category": "demand",
+      "classification": "UNVERIFIED",
+      "evidence_kind": "source_claim",
+      "source_url": null,
+      "retrieved_at": "2026-11-08T22:17:19.030381",
+      "freshness": "unknown"
+    }
+  ],
+  "evidence_breakdown": {
+    "records": 6,
+    "mean_strength": 0.425,
+    "provenance_completeness": 1.0,
+    "independent_groups": 3,
+    "core_category_coverage": 0.5,
+    "by_classification": {
+      "CONTRADICTED": 1,
+      "CORROBORATED": 2,
+      "SUPPORTING": 1,
+      "TENTATIVE": 1,
+      "UNVERIFIED": 1
+    }
+  },
+  "market_research": {
+    "customer_segment": "Students and professionals who plan on paper",
+    "demand_indicators": {
+      "stage": "active_problem_awareness",
+      "demand_records": 2,
+      "purchasing_intent_records": 0,
+      "note": "Stages: none < general_interest < active_problem_awareness < purchase_consideration < verified_transactions. Search volume, views and likes can justify at most 'general_interest' (\u00a710.3, \u00a718.3)."
+    },
+    "market_size": {
+      "tam": {
+        "value_text": null,
+        "methodology": null,
+        "note": "Insufficient verified evidence: a reliable TAM estimate cannot be established from the available evidence."
+      },
+      "sam": {
+        "value_text": null,
+        "methodology": null,
+        "note": "Insufficient verified evidence: a reliable SAM estimate cannot be established from the available evidence."
+      },
+      "som": {
+        "value_text": null,
+        "methodology": null,
+        "note": "Insufficient verified evidence: a reliable SOM estimate cannot be established from the available evidence."
+      }
+    },
+    "saturation": {
+      "level": "moderate",
+      "direct_competitors_recorded": 0,
+      "crowding_signal": true,
+      "note": "Saturation is assessed from recorded competitors and competitor evidence only; customer-acquisition difficulty rises with saturation and no differentiation may mean rejection (\u00a729F)."
+    }
+  },
+  "competitor_analysis": {
+    "competitors": [],
+    "comparison_note": "Prices appear only where a pricing claim was recorded with evidence; competitor revenue, customer counts and market share are never estimated (\u00a711.2).",
+    "identified_gaps": [],
+    "differentiation_candidates": [],
+    "differentiation_note": "A recommendation must explain why customers would switch; 'competitors are expensive' is not sufficient (\u00a711.4)."
+  },
+  "commercial_feasibility": {
+    "price_assumption": {
+      "amount": 12.0,
+      "classification": "estimate",
+      "basis": "stated assumption for a printable bundle"
+    },
+    "scenarios": {
+      "conservative": {
+        "assumptions": [
+          "stated assumption"
+        ],
+        "sales_per_month": 4.0,
+        "revenue": 48.0,
+        "direct_delivery_costs": 1.8,
+        "fees": 4.56,
+        "gross_profit": 46.2,
+        "contribution_margin": 41.64,
+        "contribution_margin_pct": 86.75,
+        "operating_profit": 39.64,
+        "net_cash_flow": 39.64
+      },
+      "base": {
+        "assumptions": [
+          "stated assumption"
+        ],
+        "sales_per_month": 12.0,
+        "revenue": 144.0,
+        "direct_delivery_costs": 5.4,
+        "fees": 13.68,
+        "gross_profit": 138.6,
+        "contribution_margin": 124.92,
+        "contribution_margin_pct": 86.75,
+        "operating_profit": 122.92,
+        "net_cash_flow": 122.92
+      },
+      "optimistic": {
+        "assumptions": [
+          "stated assumption"
+        ],
+        "sales_per_month": 40.0,
+        "revenue": 480.0,
+        "direct_delivery_costs": 18.0,
+        "fees": 45.6,
+        "gross_profit": 462.0,
+        "contribution_margin": 416.4,
+        "contribution_margin_pct": 86.75,
+        "operating_profit": 414.4,
+        "net_cash_flow": 414.4
+      }
+    },
+    "break_even": {
+      "contribution_per_sale": 10.41,
+      "fixed_costs_monthly": 2.0,
+      "variable_unknown": false,
+      "recurring_unknown": false,
+      "feasible": true,
+      "break_even_sales_per_month": 1,
+      "break_even_revenue": 12.0,
+      "note": "Break-even = ceil(recurring monthly costs / contribution per sale)."
+    },
+    "budget": {
+      "budget_amount": 50.0,
+      "minimum_viable_cost": 15.0,
+      "first_month_total": 17.0,
+      "recurring_monthly": 2.0,
+      "contingency_required": 3.0,
+      "maximum_affordable_experiment_cost": 47.0,
+      "compatible": true,
+      "note": "Compatible means startup + first month recurring fits the owner's stated budget. The budget figure is the owner's; the engine never raises it (\u00a713.6)."
+    },
+    "distribution": {
+      "candidate_channels": [
+        "authorized_marketplace",
+        "search_engines",
+        "educational_content"
+      ],
+      "prohibited_channels_rejected": [],
+      "channels_with_supporting_evidence": [],
+      "organic_traffic_assumption": "not assumed \u2014 organic traffic must be earned and is not forecast (\u00a714)",
+      "paid_advertising_assumption": "not assumed profitable \u2014 no ad economics are claimed without cost evidence (\u00a714)",
+      "legitimate_channel_count": 3,
+      "note": "Channel availability does not imply acquisition success; conversion requirements and acquisition cost remain unproven until real evidence exists."
+    },
+    "estimate_notice": "All figures are deterministic calculations over caller-stated inputs classified per line (verified/quoted/historical/estimate/unknown). Estimated revenue is not verified revenue (\u00a713.3)."
+  },
+  "compliance": {
+    "verdict": "clear",
+    "matched_rules": [],
+    "flags": [],
+    "requires_professional_review": false,
+    "note": "Screening is a deterministic pattern check over declared fields; a 'clear' verdict is not a legal opinion (\u00a715)."
+  },
+  "validation_assessment": {
+    "level": 1,
+    "decision": "level 1 (Preliminary research)",
+    "criteria_met": [
+      "Level 0 \u2014 an opportunity concept is recorded",
+      "Level 1 \u2014 preliminary market/competitor research completed"
+    ],
+    "criteria_missing": [
+      "Level 2 requires: supporting problem/demand evidence from at least 2 independent sources; at least one CORROBORATED (or better) problem/demand record"
+    ]
+  },
+  "evidence_gaps": [
+    "No evidence of actual purchases or purchasing intent.",
+    "No verified pricing information.",
+    "No competitor evidence has been recorded.",
+    "No reliable market-size evidence; market size cannot be established.",
+    "Some evidence is CONTRADICTED by independent sources and must be resolved."
+  ],
+  "research_sessions": [
+    {
+      "id": "acdfca77-794c-4c34-ae47-d73aec22d5b7",
+      "status": "completed",
+      "task_id": "d4610fed-a3e2-4600-8772-801fd4785ca7",
+      "findings_summary": "6 new evidence record(s) from 5 source(s); 0 document(s) quarantined; 3 classification change(s). Outstanding gaps: No evidence of actual purchases or purchasing intent.; No verified pricing information.; No competitor evidence has been recorded.; No commercial analysis has been performed.; No reliable market-size evidence; market size cannot be established.; Some evidence is CONTRADICTED by independent sources and must be resolved."
+    }
+  ],
+  "recommended_next_step": "Gather more evidence: No evidence of actual purchases or purchasing intent."
+}

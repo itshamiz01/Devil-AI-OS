@@ -1,0 +1,109 @@
+=== AUTONOMUS P-07 SMOKE (real uvicorn, controlled mode) ===
+server: http://127.0.0.1:8797/api/v1  data_dir: /home/hatch/workspace/projects/autonomus-ai-os/.tmp/p07_smoke_data
+note: AUTONOMUS_BLOCK_NONESSENTIAL_ON_THRESHOLD=false (test-suite setting; this VM's RAM pressure would otherwise block task admission)
+note: fixture businesses are labelled FIXTURE; their validation levels are computed by P-03 through the real API, never asserted.
+  [PASS] owner login HTTP 200 
+[login] owner session established
+  [PASS] [Smoke Ebook] opportunity HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Ebook] evidence fixture-interviews HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Ebook] evidence fixture-survey HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Ebook] research HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Ebook] research poll HTTP 200 (expected (200,))
+  [PASS] [Smoke Ebook] market analysis HTTP 200 (expected (200, 201))
+  [PASS] [Smoke Ebook] commercial analysis HTTP 200 (expected (200, 201))
+  [PASS] [Smoke Ebook] score HTTP 200 (expected (200, 201))
+  [PASS] [Smoke Ebook] validate HTTP 200 (expected (200, 201))
+  P-03 computed validation level: 3
+  [PASS] [Smoke Ebook] fixture level is 3 (computed) 
+  [PASS] [Smoke Ebook] creation approval HTTP 200 (expected (200,))
+  [PASS] [Smoke Ebook] approval decision HTTP 200 (expected (200,))
+  [PASS] [Smoke Ebook] create HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Ebook] declaration HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Ebook] currency setting HTTP 200 (expected (200,))
+  [PASS] [Smoke Ebook] blueprint HTTP 200 (expected (200,))
+  [PASS] [Smoke Ebook] P-07 profile HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Ebook] profile is INR from the P-06 bridge source=p06_bridge
+
+--- Scenario 1: projected ₹50,000 vs collected ₹10,000 ---
+  [PASS] projected revenue ₹50,000 HTTP 201 (expected (200, 201))
+  [PASS] webhook evt-smoke-s1 HTTP 200 
+  [PASS] webhook settled 
+  [PASS] revenue metrics HTTP 200 (expected (200,))
+  projected=5000000 net_collected=1000000
+  [PASS] projected stays ₹50,000 
+  [PASS] collected is ₹10,000, reported separately 
+
+--- Scenario 3: same webhook delivered three times ---
+  [PASS] webhook evt-smoke-s1 HTTP 200 
+  [PASS] webhook evt-smoke-s1 HTTP 200 
+  [PASS] 2nd delivery is duplicate 
+  [PASS] 3rd delivery is duplicate 
+  [PASS] revenue metrics HTTP 200 (expected (200,))
+  [PASS] still exactly one posting of ₹10,000 
+
+--- Scenarios 5+6: reserves, commitments, budget hold ---
+  [PASS] opening balance ₹20,000 HTTP 201 (expected (200, 201))
+  [PASS] emergency reserve ₹5,000 HTTP 201 (expected (200, 201))
+  [PASS] operations budget HTTP 201 (expected (200, 201))
+  [PASS] committed spend ₹3,000 HTTP 201 (expected (200, 201))
+  [PASS] ₹3,000 within budget is Level-1 authorised 
+  [PASS] available cash HTTP 200 (expected (200,))
+  cash=2000000 reserves=500000 committed=300000 available=1200000
+  [PASS] available cash = ₹20,000 − ₹5,000 − ₹3,000 = ₹12,000 
+  [PASS] experiment budget ₹2,000 HTTP 201 (expected (200, 201))
+  [PASS] spend ₹2,500 against ₹2,000 budget HTTP 201 (expected (200, 201))
+  decision: status=held_for_owner level=2
+  [PASS] overspend is held for the owner, not authorised 
+  [PASS] no expense obligation was recorded 
+
+--- Scenario 8: reconciliation mismatch ₹1,000 vs ₹900 ---
+  [PASS] webhook evt-smoke-s8 HTTP 200 
+  [PASS] provider statement import HTTP 201 (expected (200, 201))
+  [PASS] run matching HTTP 200 (expected (200,))
+  [PASS] session detail HTTP 200 (expected (200,))
+  classification=AMOUNT_MISMATCH difference=10000
+  [PASS] mismatch flagged AMOUNT_MISMATCH 
+  [PASS] difference is ₹100 
+  [PASS] revenue metrics HTTP 200 (expected (200,))
+  [PASS] ledger value NOT overwritten (₹900 stands) 
+
+--- Scenario 9: internal transfer excluded from revenue ---
+  [PASS] [Smoke Content] opportunity HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Content] evidence fixture-interviews HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Content] evidence fixture-survey HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Content] research HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Content] research poll HTTP 200 (expected (200,))
+  [PASS] [Smoke Content] market analysis HTTP 200 (expected (200, 201))
+  [PASS] [Smoke Content] commercial analysis HTTP 200 (expected (200, 201))
+  [PASS] [Smoke Content] score HTTP 200 (expected (200, 201))
+  [PASS] [Smoke Content] validate HTTP 200 (expected (200, 201))
+  P-03 computed validation level: 3
+  [PASS] [Smoke Content] fixture level is 3 (computed) 
+  [PASS] [Smoke Content] creation approval HTTP 200 (expected (200,))
+  [PASS] [Smoke Content] approval decision HTTP 200 (expected (200,))
+  [PASS] [Smoke Content] create HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Content] declaration HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Content] currency setting HTTP 200 (expected (200,))
+  [PASS] [Smoke Content] blueprint HTTP 200 (expected (200,))
+  [PASS] [Smoke Content] P-07 profile HTTP 201 (expected (200, 201))
+  [PASS] [Smoke Content] profile is INR from the P-06 bridge source=p06_bridge
+  [PASS] internal transfer ₹5,000 A -> B HTTP 201 (expected (200, 201))
+  [PASS] consolidated overview HTTP 200 (expected (200,))
+  consolidated net collected=1090000
+  [PASS] consolidated revenue excludes the transfer (₹10,900 real) 
+  [PASS] exclusion is labelled 
+
+--- Scenario 10: projected-only business health ---
+  [PASS] projected-only revenue HTTP 201 (expected (200, 201))
+  [PASS] health HTTP 200 (expected (200,))
+  health[biz_b]=INSUFFICIENT_DATA
+  [PASS] health is INSUFFICIENT_DATA (no invented profit) 
+
+--- Scenario 14: transfer request is structurally blocked ---
+  [PASS] transfer attempt ₹1,000 HTTP 201 (expected (200, 201))
+  decision: status=blocked_level3 level=3
+  [PASS] Level-3 transfer blocked 
+  [PASS] ledger integrity HTTP 200 (expected (200,))
+  [PASS] ledger integrity verified after all scenarios 
+
+=== SMOKE COMPLETE: all scenario checks passed ===

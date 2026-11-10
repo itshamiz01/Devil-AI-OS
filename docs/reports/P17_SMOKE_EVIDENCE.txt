@@ -1,0 +1,51 @@
+=== AUTONOMUS P-17 SMOKE (real uvicorn, controlled mode) ===
+server: http://127.0.0.1:36730/api/v1  data_dir: /tmp/p17-smoke-35jbxw19/data
+seeded: {'winner': '493d5118-1116-4d69-a568-ae081c979582', 'loser': '36733c4d-2477-42fa-892b-dca515a4d8bb', 'campaign': 'a3007945-6626-41ff-8e62-3dde8127ea74', 'lead': 'e9b8a05b-a5f4-42f2-a47a-9c0860c19f32', 'customer': 'f239b7bf-1041-47d5-9ce5-178c819cf27d'}
+--- 1. Auth boundary, schema
+  [PASS] growth status requires auth (401) 
+  [PASS] auto-migrated schema has 209 tables (208 + alembic_version) (got 209)
+[login attempts] 2
+[login] HTTP 200 (owner session established)
+--- 2. Engine status, gate, roles, integrations
+[growth status] HTTP 200 -> {"autonomy_level": 2, "profitability_gate": {"state": "closed", "reason": "aggregate verified net profit across profiled businesses is not positive; the owner's rule is profitability before new businesses", "businesses_profiled": 2, "total_collected_minor": 2649900, "total_net_profit_minor": -770100}, "counts": {"campaigns": 1, "leads": 3, "customers": 1, "content_items": 0, "partnerships": 0}}
+  [PASS] profitability gate CLOSED (aggregate profit negative) (aggregate verified net profit across profiled businesses is not positive; the owner's rule is profitability before new businesses)
+  [PASS] counts show the seeded lifecycle 
+[agent roles] HTTP 200 -> {"count": 17}
+  [PASS] 17 §12 agent roles seeded as P-04 templates 
+[integrations] HTTP 200 -> {"note": "no external marketing platform, transport or data feed is connected; the engine never simulates one"}
+  [PASS] every integration honestly not_configured 
+--- 3. Campaign metrics / budget / attribution from P-07
+[campaign metrics] HTTP 200 -> {"spend": {"actual_spend_minor": 120000, "committed_spend_minor": 0, "expense_records": 1, "source": "P-07 expense records (paid P&L kinds) with project_ref p17-campaign:a3007945-6626-41ff-8e62-3dde8127ea74"}, "attributed_revenue_minor": 549900, "cac": {"status": "computed", "cac_minor": 120000, "eligible_spend_minor": 120000, "new_customers": 1, "methodology": "eligible P-07 acquisition spend (pa
+  [PASS] campaign spend is the recorded P-07 expense (₹1,200) 
+  [PASS] attributed revenue is P-07 verified by channel tag (₹5,499) 
+  [PASS] CAC computed from real spend / real conversions 
+[budget view] HTTP 200 -> {"total_ceiling_minor": 300000, "actual_spend": {"actual_spend_minor": 120000, "source": "P-07 paid P&L expenses in the configured marketing categories"}}
+  [PASS] ceiling (proposal) kept distinct from actual spend 
+[attribution] HTTP 200 -> {"methods": {"first_touch": {"status": "available", "basis": "CRM customer acquisition channel (\u00a711)", "customer_counts": {"website_form": 1}}, "last_touch": {"status": "not_available", "reason": "no last-touch channel is captured per customer \u2014 only the acquisition (first-touch) channel is recorded; inventing a last touch would fabricate a journey (\u00a722 honesty)"}, "multi_touch": {"
+  [PASS] multi-touch honestly not_available 
+[funnel] HTTP 200 -> {"declared_counts": {"awareness": 1000}, "system_counts": {"leads_recorded": 3, "qualified_leads": 1, "converted_customers": 1}}
+  [PASS] declared funnel counts kept distinct from system counts 
+[growth overview] HTTP 200 -> {"totals": {"campaigns_active": 1, "leads": 3, "customers": 1, "spend_minor": 120000, "attributed_revenue_minor": 549900}}
+  [PASS] overview totals are P-07 figures 
+--- 4. Profitability gate enforcement over HTTP
+[expansion campaign] HTTP 201 -> {"id": "fcd7ec56-14fc-4529-9c2c-161f2e2c6465", "status": "idea"}
+  [PASS] expansion approval REFUSED while the gate is closed (HTTP 422)
+[override approval] HTTP 200 -> {"status": "approved", "gate_override": {"by": "owner:owner", "reason": "smoke: owner accepts a bounded test", "at": "2026-11-10T09:37:01.200043+00:00", "gate_reason": "aggregate verified net profit across profiled businesses is not positive; the owner's rule is profitability before new businesses"}}
+  [PASS] per-item owner override with a recorded reason approves 
+--- 5. Communications discipline
+  [PASS] purchased-list lead refused (HTTP 422)
+  [PASS] deceptive template refused (HTTP 422)
+[template] HTTP 201 -> {"id": "849e3549-5b8f-4b50-b35c-b63bc067e2c7"}
+[queued message] HTTP 201 -> {"status": "queued", "dispatch_note": "queued only \u2014 dispatch blocked: no email/SMS/social transport is configured (REQUIRES OWNER CONFIGURATION); the system never records a message as sent or delivered"}
+  [PASS] message queues with the blocked-dispatch note attached 
+[message list] HTTP 200 -> {"count": 1}
+[dispatch attempt] HTTP 200 -> {"status": "dispatch_blocked", "dispatched": false}
+  [PASS] dispatch is honestly blocked, never 'sent' 
+--- 6. Content brand check; Command Center
+[content] HTTP 201 -> {"id": "d6445472-3eb0-4181-b437-d5a7e2f29c19"}
+[brand review] HTTP 200 -> {"brand_check": "failed_mechanically"}
+  [PASS] brand pass mechanically refused for a prohibited claim 
+  [PASS] Command Center SPA is served at /app 
+[recommendations] HTTP 200 -> {"count": 3}
+  [PASS] recommendations hold expansion behind the gate 
+=== P-17 SMOKE RESULT: 22 passed, 0 failed ===

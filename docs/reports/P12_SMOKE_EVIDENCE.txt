@@ -1,0 +1,59 @@
+=== AUTONOMUS P-12 SMOKE (real uvicorn, controlled mode) ===
+server: http://127.0.0.1:27168/api/v1  data_dir: /tmp/p12-smoke-qz701u6f/data
+--- 1. Honesty check: fresh-install zero state + auth boundary
+  [PASS] operations overview requires auth (401) 
+  [PASS] auto-migrated schema has 153 tables (152 + alembic_version) (got 153)
+[login] HTTP 200 (owner session established)
+[overview (zero state)] HTTP 200 -> {"workflows": {}, "pending_approvals": 0, "open_dead_letters": 0, "engine": {"running": true, "tick_interval_seconds": 1.0}}
+  [PASS] zero workflows on a fresh install 
+  [PASS] zero pending approvals 
+  [PASS] zero dead letters 
+  [PASS] scheduler engine running (background loop, non-test env) 
+[safety (zero state)] HTTP 200 -> {"security_mode": "normal", "constitution_mode": "controlled", "financial_suspended": false}
+  [PASS] security mode normal 
+--- 2. Template workflow: create -> validate -> start -> verified
+[create workflow] HTTP 201 -> {"id": "0d91450e-e127-4359-93fa-a0367de7b22b", "status": "DRAFT"}
+[validate] HTTP 200 -> {"status": "READY"}
+  [PASS] workflow READY after validation 
+[start] HTTP 200 -> {"status": "COMPLETED", "verified_outcome": "verified", "learning_record_id": "c8ecb7fb-990e-4e07-9068-273ebeb01250"}
+  [PASS] workflow COMPLETED 
+  [PASS] outcome independently VERIFIED 
+  [PASS] learning recorded from the verified outcome only 
+[workflow detail] HTTP 200 -> {"status": "COMPLETED"}
+  [PASS] every step verified 
+  [PASS] checkpoint records the completed steps 
+--- 3. Restricted step parks at a P-01 approval; owner decides
+[create publish workflow] HTTP 201 -> {"id": "7fab2b96-b0b0-4081-bba2-25737b172300", "status": "DRAFT"}
+[start publish workflow] HTTP 200 -> {"status": "WAITING_FOR_APPROVAL"}
+  [PASS] restricted workflow WAITING_FOR_APPROVAL 
+[operations approvals] HTTP 200 -> {"note": "Approvals live in the P-01 store; this view links P-12 work to them. Decide approvals via the approvals API or the Command Center inbox."}
+  [PASS] an approval link references the P-01 store (got 1)
+  [PASS] owner decision recorded in P-01 
+[process approvals] HTTP 200 -> {"driven": ["7fab2b96-b0b0-4081-bba2-25737b172300"]}
+  [PASS] check pass drove the approved workflow 
+[publish workflow after approval] HTTP 200 -> {"status": "COMPLETED", "verified_outcome": "verified"}
+  [PASS] publish workflow COMPLETED after approval 
+--- 4. Due trigger fires once through the tick
+[create trigger] HTTP 201 -> {"id": "cc93fdb3-6fee-4bf0-a39e-95b945518bb7", "status": "active"}
+[tick] HTTP 200 -> {"fired": [{"trigger_id": "cc93fdb3-6fee-4bf0-a39e-95b945518bb7", "workflow_id": "fca67675-5c64-48ea-a4c2-69df5a08019f", "driven": true, "status": "COMPLETED"}]}
+  [PASS] due trigger fired exactly once 
+[second tick] HTTP 200 -> {"fired": []}
+  [PASS] second tick does not re-fire (fire-key dedupe) 
+--- 5. Global emergency stop and owner resume
+[emergency stop (global)] HTTP 200 -> {"scope": "global"}
+[safety during stop] HTTP 200 -> {"security_mode": "emergency_stop"}
+  [PASS] P-10 security mode is emergency_stop 
+[emergency resume (owner)] HTTP 200 -> {"scope": "global"}
+[safety after resume] HTTP 200 -> {"security_mode": "normal"}
+  [PASS] security mode back to normal after owner resume 
+--- 6. Recovery center and operational reports
+[recovery] HTTP 200 -> {"dead_letter_total": 0, "checkpoints": 3}
+  [PASS] recovery center responds with real counters 
+[generate report] HTTP 201 -> {"id": "904e7cea-54f3-42a1-9137-aea975642f98", "kind": "daily"}
+  [PASS] report generated from live data 
+[overview (final)] HTTP 200 -> {"workflows": {"COMPLETED": 3}}
+  [PASS] overview counts match reality (3 completed workflows) (got {'COMPLETED': 3})
+--- 7. Built Command Center (with Autonomous Operations) at /app
+  [PASS] GET /app/ serves the SPA 
+  [PASS] bundle contains the Autonomous Operations section 
+=== SMOKE RESULT: 27 passed, 0 failed ===

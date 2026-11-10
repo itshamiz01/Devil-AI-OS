@@ -1,55 +1,36 @@
-<#
-.SYNOPSIS
-Validate the local AUTONOMUS backend development environment.
-.DESCRIPTION
-Read-only check of Python, required backend packages, and configuration validity.
-Installs nothing.
-#>
-$ErrorActionPreference = 'Stop'
-$root = Split-Path $PSScriptRoot -Parent
-$backend = Join-Path $root 'backend'
-if (-not (Test-Path -LiteralPath $backend)) {
-    throw "backend folder not found at $backend"
+# AUTONOMUS P-01 — environment validation (Windows).
+# UNVERIFIED ON WINDOWS: written to the documented toolchain contract
+# (P-00 Technology Validation); not yet executed on the target machine.
+#Requires -Version 5.1
+$ErrorActionPreference = "Continue"
+
+function Check-Tool($Name, $Command, $VersionArg) {
+    $cmd = Get-Command $Command -ErrorAction SilentlyContinue
+    if ($null -eq $cmd) {
+        Write-Host "[MISSING] $Name ($Command not found)" -ForegroundColor Red
+        return $false
+    }
+    $version = & $Command $VersionArg 2>$null | Select-Object -First 1
+    Write-Host "[OK]      $Name : $version" -ForegroundColor Green
+    return $true
 }
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-    throw 'python not found on PATH. Install Python 3.13 or newer, then re-run.'
-}
-Set-Location -LiteralPath $backend
-& python --version
-if ($LASTEXITCODE -ne 0) { throw 'python --version failed.' }
 
-$pyCode = @'
-import importlib.metadata as m
+Write-Host "=== AUTONOMUS environment validation ==="
+$ok = $true
+$ok = (Check-Tool "Python" "python" "--version") -and $ok
+$ok = (Check-Tool "Node.js" "node" "--version") -and $ok
+$ok = (Check-Tool "Git" "git" "--version") -and $ok
+$ok = (Check-Tool "Rust (Tauri, P-11 shell)" "rustc" "--version") -and $ok
+$ok = (Check-Tool "Ollama (optional in P-01)" "ollama" "--version") -and $ok
 
-required = [
-    "fastapi", "uvicorn", "sqlalchemy", "alembic",
-    "pydantic", "pydantic-settings", "aiosqlite", "greenlet",
-    "psutil", "argon2-cffi",
-]
-missing = []
-for name in required:
-    try:
-        print(f"{name}=={m.version(name)}")
-    except m.PackageNotFoundError:
-        missing.append(name)
+$os = Get-CimInstance Win32_OperatingSystem
+Write-Host ("OS: {0} (build {1})" -f $os.Caption, $os.BuildNumber)
+$gpu = Get-CimInstance Win32_VideoController | Select-Object -First 1
+if ($gpu) { Write-Host ("GPU: {0} ({1:N0} MB VRAM)" -f $gpu.Name, ($gpu.AdapterRAM / 1MB)) }
+$cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
+Write-Host ("CPU: {0} ({1} cores)" -f $cpu.Name, $cpu.NumberOfCores)
+Write-Host ("RAM: {0:N1} GB total" -f ($os.TotalVisibleMemorySize / 1MB))
+$drive = Get-PSDrive C
+Write-Host ("C: free: {0:N1} GB" -f ($drive.Free / 1GB))
 
-if missing:
-    raise SystemExit(
-        "Missing packages: " + ", ".join(missing)
-        + "\nInstall them with: python -m pip install -r requirements.txt"
-    )
-
-from app.core.config import Settings
-
-settings = Settings()
-print(f"Config valid. Host: {settings.host} Port: {settings.port}")
-print(f"External execution: {settings.external_execution_enabled}")
-print(f"Financial execution: {settings.financial_execution_enabled}")
-print(f"Cloud AI: {settings.cloud_ai_enabled}")
-'@
-
-$pyCode | & python -
-if ($LASTEXITCODE -ne 0) {
-    throw 'Environment validation failed. See the messages above.'
-}
-Write-Host 'Environment validation passed.' -ForegroundColor Green
+if ($ok) { Write-Host "Core toolchain present."; exit 0 } else { Write-Host "Missing tools listed above."; exit 1 }

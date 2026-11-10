@@ -1,0 +1,46 @@
+=== AUTONOMUS P-11 SMOKE (real uvicorn, controlled mode) ===
+server: http://127.0.0.1:34648/api/v1  data_dir: /tmp/p11-smoke-wv80mxjl/data
+--- 1. Auth boundary and migrated schema
+  [PASS] dashboard overview requires auth (401) 
+  [PASS] auto-migrated schema has 139 tables (137 + 2 dashboard) (got 139)
+[login] HTTP 200 (owner session established)
+--- 2. Fresh-install zero state (Scenario 12)
+[overview] HTTP 200 -> {"operating_state": "degraded", "counts": {"businesses_total": 0, "businesses_by_status": {}, "agents_total": 0, "agents_by_status": {}, "opportunities_total": 0, "opportunities_by_status": {}, "tasks_by_status": {}, "pending_approvals": 0, "open_security_alerts": 0, "critical_alerts": 0}}
+  [PASS] zero businesses 
+  [PASS] zero pending approvals 
+  [PASS] collected revenue is a true zero 
+  [PASS] available cash honestly unavailable (not invented) 
+[system health] HTTP 200 -> {"overall": "degraded"}
+  [PASS] database check ok 
+  [PASS] GPU honestly unavailable (no fabricated telemetry) 
+--- 3. Cross-checks against source endpoints
+  [PASS] overview finance totals == P-07 /financial/overview totals 
+  [PASS] finance summary totals == P-07 totals 
+--- 4. Dashboard preferences (flat typed body, per-principal)
+  [PASS] preference update accepted 
+  [PASS] preferences persisted 
+  [PASS] unknown preference key rejected (422) 
+  [PASS] service principal has its own (default) preferences 
+--- 5. Pending approval surfaces (Scenario 5)
+  [PASS] approval created by service principal (201) 
+  [PASS] approval present in unified inbox with exact parameters 
+  [PASS] approvals summary counts it 
+  [PASS] attention queue contains it 
+  [PASS] notification derived for it (unread) 
+  [PASS] mark-read persists 
+  [PASS] owner decision confirmed by backend 
+  [PASS] decided approval leaves the notification list 
+--- 6. Emergency mode round-trip (Scenario 10)
+  [PASS] P-10 confirms safe_mode 
+  [PASS] dashboard security summary reads safe_mode from P-10 
+  [PASS] overview operating state reflects safe mode 
+  [PASS] returned to normal 
+--- 7. Built Command Center served at /app
+  [PASS] GET /app/ returns the built index (200) 
+  [PASS] index references a JS bundle 
+  [PASS] JS bundle loads (200) (328531 bytes)
+  [PASS] bundle is the Command Center build 
+--- 8. Unified search
+  [PASS] one-character query rejected (422) 
+  [PASS] no-match search returns an honest zero 
+=== SMOKE RESULT: 32 passed, 0 failed ===

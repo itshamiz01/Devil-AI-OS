@@ -1,0 +1,51 @@
+=== AUTONOMUS P-05 SMOKE (real uvicorn, controlled mode) ===
+server: http://127.0.0.1:30989/api/v1  data_dir: /tmp/p05-smoke-ydou2ca_/data
+note: AUTONOMUS_BLOCK_NONESSENTIAL_ON_THRESHOLD=false (test-suite setting; this VM's RAM pressure would otherwise queue agent creation)
+[login] HTTP 200 (owner session established)
+[health-report] HTTP 200 -> {"engine": "P-05 Universal Digital Execution Engine", "mode": "controlled", "emergency_stop": false, "workspace_root": "/tmp/p05-smoke-ydou2ca_/data/execution_workspaces", "code_isolation": "process_controls_only \u2014 NOT a strong sandbox (\u00a710.2)", "browser_backend": "fetch (SSRF-guarded); live browser engine unavailable in this environment; interactive actions disabled", "desktop_adapter": "disabled \u2014 Windows UI Automation cannot run or be tested in this Linux staging environment", "tools": [{"tool": "api_http", "adapter": "api", "registry_status": "available", "health_status": "h
+  code_isolation: process_controls_only — NOT a strong sandbox (§10.2)
+  browser_backend: fetch (SSRF-guarded); live browser engine unavailable in this environment; interactive actions disabled
+  desktop_adapter: disabled — Windows UI Automation cannot run or be tested in this Linux staging environment
+  tool api_http     registry=available  health=healthy
+  tool browser      registry=degraded   health=degraded
+  tool code_python  registry=available  health=degraded
+  tool desktop      registry=disabled   health=disabled
+  tool documents    registry=available  health=healthy
+  tool filesystem   registry=available  health=healthy
+[agent create raw] HTTP 201 -> {"success":true,"data":{"id":"397287fd-f968-4e19-94cd-6f1ac0667d8e","requester":{"type":"owner","id":"owner"},"requested_role":"research_agent","requested_template_id":"4902e9c5-91e9-45be-88db-5594133011da","business_ref":null,"justification":null,"requested_capabilities":[],"resource_estimate":{},"decision":"CREATE_AGENT","decision_reasons":["no existing agent can serve the requirement; a publish
+[agent] Research Agent created: b4402fb3-0ba5-4c06-9b05-8720bd407ba9
+[grant] file_read granted via the P-04 governed flow
+[grant] file_write granted via the P-04 governed flow
+[grant] sandboxed_code_execution granted via the P-04 governed flow
+[grant] api_write granted via the P-04 governed flow
+
+--- Scenario A: Research Agent report ---
+[A create report] HTTP 201 -> {"status": "COMPLETED", "verification_status": "verified", "result_summary": "created document agent:b4402fb3-0ba5-4c06-9b05-8720bd407ba9:reports/smoke-report.md (34 bytes)"}
+  evidence recorded: 1 record(s), sha256=6be26b1328e8c0c5…
+
+--- Scenario B: controlled Python execution ---
+[B code run] HTTP 201 -> {"status": "COMPLETED", "verification_status": "verified", "result_summary": "python exited 0 in 37 ms"}
+  stdout='smoke total 45' isolation=process_controls_only workspace_cleaned=True
+  cleanup verified on disk: leftover run dirs = 0
+
+--- Scenario F: filesystem attack ---
+[F traversal] HTTP 201 -> {"status": "FAILED", "error_category": "PATH_TRAVERSAL", "result_summary": "path rejected: path escapes the workspace root ('..' above root)"}
+  audit entries for the attack request: 2 (actions: ['execution.submit', 'execution.execute'])
+
+--- Scenario D: sensitive action approval hold ---
+[D submit POST] HTTP 201 -> {"status": "AWAITING_APPROVAL", "approval_id": "295f29ce-698d-4a72-9613-54f6ef9eac47", "risk_level": 2}
+[D execute before approval] HTTP 409 -> APPROVAL_REQUIRED: this request is awaiting an approved, unexpired, hash-bound owner approval before it can e
+  runs before approval: 0 (nothing executed)
+  owner inspects approval: action=execution.execute resource=execution:b4402fb3-0ba5-4c06-9b05-8720bd407ba9:api_http:post status=pending
+[D execute after approval] HTTP 200 -> {"status": "FAILED", "error_category": "TRANSPORT_ERROR", "result_summary": "POST https://api.example.com/items failed after 1 attempt(s): ConnectError: [SSL: WRONG_VERSION_NUMBER] wrong version number (_ssl.c:1000)"}
+  (post-approval the gate opens; in this sandbox the live fetch to api.example.com is whatever the network returns — the gate behaviour is the demonstrated fact)
+
+--- Scenario J: emergency execution stop ---
+[J emergency-stop] HTTP 200 -> {"emergency_stop": true, "processes_terminated": 0, "browser_sessions_paused": 0, "queued_requests_blocked": 0, "note": "new execution is refused by policy check 1 while the stop is active"}
+[J submit during stop] HTTP 201 -> {"status": "REJECTED", "result_summary": "execution is halted (emergency stop / emergency mode)"}
+[J emergency-resume] HTTP 200 -> {"emergency_stop": false, "browser_sessions_resumed": 0}
+[J submit after resume] HTTP 201 -> {"status": "COMPLETED"}
+[status/metrics] HTTP 200 -> {"measurement": "measured from execution tables", "requests_by_status": {"ACCEPTED": 0, "VALIDATING": 0, "AWAITING_APPROVAL": 0, "QUEUED": 0, "RUNNING": 0, "COMPLETED": 3, "COMPLETED_WITH_WARNINGS": 0, "FAILED": 2, "REJECTED": 1, "CANCELLED": 0, "TIMED_OUT": 0, "INTERRUPTED": 0, "REQUIRES_HUMAN_ACTION": 0, "REQUIRES_RECONCILIATION": 0}, "runs_total": 5, "average_run_duration_ms": 21.26, "browser_sessions_active": 0, "standing_authorizations_active": 0, "workflow_runs_by_status": {"DRAFT": 0, "VALIDATING": 0, "APPROVED": 0, "QUEUED": 0, "RUNNING": 0, "PAUSED": 0, "AWAITING_APPROVAL": 0, "AWAITI
+  requests by status: {'ACCEPTED': 0, 'VALIDATING': 0, 'AWAITING_APPROVAL': 0, 'QUEUED': 0, 'RUNNING': 0, 'COMPLETED': 3, 'COMPLETED_WITH_WARNINGS': 0, 'FAILED': 2, 'REJECTED': 1, 'CANCELLED': 0, 'TIMED_OUT': 0, 'INTERRUPTED': 0, 'REQUIRES_HUMAN_ACTION': 0, 'REQUIRES_RECONCILIATION': 0}
+
+=== SMOKE COMPLETE ===

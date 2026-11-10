@@ -1,0 +1,65 @@
+=== AUTONOMUS P-06 SMOKE (real uvicorn, controlled mode) ===
+server: http://127.0.0.1:23856/api/v1  data_dir: /tmp/p06-smoke-czak1crb/data
+note: AUTONOMUS_BLOCK_NONESSENTIAL_ON_THRESHOLD=false (test-suite setting; this VM's RAM pressure would otherwise queue agent creation)
+note: fixture opportunities are labelled FIXTURE; their evidence is stored through the real P-03 API and their levels are computed by P-03, never asserted. Real-opportunity behaviour is Scenario D.
+[login] HTTP 200 (owner session established)
+
+--- Scenario D: REAL opportunity must be BLOCKED by eligibility ---
+[D brief] HTTP 201 -> {"id": "6e0f6986-a40d-43c1-a325-d589f64c6928"}
+[D discover] real seed opportunity: Beginner fitness e-book series (KDP) (status INITIAL_SCREENING)
+[D research] session completed via P-01 task (status completed): 5 new evidence record(s) from 2 source(s); 0 document(s) quarantined; 2 classification change(s). Outstanding gaps: No reliable customer demand evidence (nothing at SUPPORTING or better).; No evidence of actual purchases or purchasing intent.; No competitor evidence has been recorded.; No commercial analysis has been performed.; No reliable market-size evidence; market size cannot be established.
+[D validate (P-03 computes the level)] HTTP 200 -> {"level": 1, "decision": "level 1 (Preliminary research)"}
+[D eligibility] HTTP 200 -> {"decision": "REQUIRES_MORE_RESEARCH", "validation_level": 1, "min_validation_level": 3}
+    gate check FAIL: research_depth: validation level 1 is below the required minimum 3 (missing: Level 2 requires: supporting problem/demand evidence from at least 2 independent sources; at least one CORROBORATED (or better) problem/demand record)
+    gate check FAIL: research_depth: no supporting problem/demand evidence is stored in P-03
+[D create attempt (must be refused)] HTTP 409 -> {}
+[D verify] businesses for the real opportunity: 0 (zero infrastructure created)
+
+--- Scenario A: FIXTURE digital-product business, end to end ---
+[A fixture opportunity] HTTP 201 -> {"id": "9baac75d-7303-4641-835c-fd82384dea10", "status": "INITIAL_SCREENING"}
+[A fixture validate (level computed by P-03)] HTTP 200 -> {"level": 3}
+[A creation approval request] HTTP 200 -> {"approval_id": "3d5845d4-7a15-4f3f-8f19-d918910d209c"}
+[A approval] owner approved the hash-bound creation approval
+[A create business] HTTP 201 -> {"id": "a24fc7fc-218c-4a13-807f-4f4fb4a161a6", "status": "BLUEPRINTING", "is_fixture": true, "validation_level_at_creation": 3}
+[A pre-declaration] HTTP 201 -> {"status": "approved"}
+[A blueprint] HTTP 200 -> {"version": 1, "product_id": "fbb7ce53-0ed6-431a-95d3-399e7cfb3793"}
+[A creation run] HTTP 200 -> {"workflow_status": "COMPLETED"}
+[A assets] 10 assets registered, hash-verified via the execution engine
+[A channel evaluation] HTTP 200 -> {"channels": [{"id": "f8f96f2b-444d-4a0e-ac79-7b2b2b97b0a2", "platform": "Own website / direct download", "channel_type": "direct", "purpose": "Primary: direct download from the business website package", "evaluation_status": "SELECTED", "publish_state": "prepared", "platform_gate": {"platform_key": "own_website", "platform": "Own website / direct download", "agent_signin_possible": true, "agent_signin_note": "No third-party account is involved. Staging has no deployment adapter, so the site package is generated and verified locally only \u2014 never deployed by P-06.", "ai_content_rules": "Owner's own disclosures apply.", "reversible": true, "outcome": "PASS_PREPARED_ONLY", "publish_step_re
+[A KDP gate] outcome=REQUIRES_HUMAN_ACTION publish_state=prepared
+[A KDP publish attempt] HTTP 200 -> {"published": false, "gate_outcome": "REQUIRES_HUMAN_ACTION", "requires_human_action": true}
+[A readiness] HTTP 200 -> {"overall_status": "READY_WITH_WARNINGS", "warnings": ["Amazon KDP: publish step requires human action (platform gate) \u2014 prepared package only"]}
+
+--- Scenario F: readiness NOT_READY blocks launch path ---
+[F fixture opportunity] HTTP 201 -> {"id": "51a5ef65-5bc8-4c2f-8cd2-979e6977d8ff"}
+[F create business (blueprint only, no run)] HTTP 201 -> {"id": "c734b4a6-c980-44ad-9705-72967097f625", "status": "BLUEPRINTING"}
+[F readiness (no creation run)] HTTP 200 -> {"overall_status": "NOT_READY"}
+    blocker [B]: no product exists (a blueprint is not a product, §19)
+    blocker [B]: required documentation assets are missing
+    blocker [C]: brand assets are not prepared
+    blocker [C]: accurate product description asset is missing
+    blocker [D]: no primary channel is selected
+    blocker [D]: platform-gate outcomes are not recorded for all channels
+    blocker [D]: required channel assets are not prepared
+    blocker [E]: customer onboarding is not prepared
+    blocker [E]: support procedures do not exist
+    blocker [E]: refund/complaint process is not documented
+    blocker [F]: monitoring approach is not recorded
+    blocker [F]: backup approach is not recorded
+    blocker [F]: recovery procedures is not recorded
+    blocker [F]: no responsible agents are assigned to the business
+    blocker [G]: privacy/terms templates are not prepared
+    blocker [G]: platform terms have not been reviewed (gate records)
+[F transition READY_FOR_LAUNCH] HTTP 409 (refused: readiness is NOT_READY)
+
+--- Scenario G: cross-business isolation ---
+[G agent-of-A probes business-F workspace] HTTP 200 -> {"allowed": false}
+[G verify] denial recorded as a persisted critical event (BusinessIsolationViolation in system_events; asserted by the P-06 security suite)
+
+--- Scenario J: launch requires the owner approval ---
+[J transition] HTTP 200 -> {"status": "READY_FOR_LAUNCH"}
+[J launch request] HTTP 200 -> {"approval_id": "eaa636a4-3e13-43a3-b021-019063992fbd", "status": "pending"}
+[J launch before owner decision] HTTP 403 (refused: approval still pending)
+[J launch after owner approval (staging demo)] HTTP 200 -> {"status": "OPERATIONAL", "deployment_state": "local_package_only", "public_availability": false}
+
+SMOKE COMPLETE: D blocked the real opportunity; A built a fixture package end-to-end; F refused launch; G denied cross-business access; J launched only after owner approval. Nothing was published, deployed, sold or sent.
