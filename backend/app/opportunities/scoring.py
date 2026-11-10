@@ -1,567 +1,293 @@
-"""P-03 §16 opportunity scoring.
+"""Opportunity scoring and ranking (P-03 §16, ADR-005).
 
-The brief's central instruction is that AUTONOMOUS must be better at *rejecting*
-bad opportunities than at generating attractive ones.  This module is where that
-becomes executable, via three separate mechanisms:
-
-1. **A dimension is either scored from evidence or it is not scored at all.**
-   There is no default, no midpoint and no imputation.  An unscoreable
-   dimension contributes zero *and* is listed as a gap, so low evidence coverage
-   is visible as low coverage rather than as a mediocre-looking score.
-2. **Hard rejection rules run after scoring and override it.**  A compliance
-   block, an unaffordable cost structure or contradicted demand ends the
-   evaluation whatever the weighted total says.
-3. **Evidence quality is scored separately from attractiveness.**  An
-   opportunity that looks good on weak evidence is reported as exactly that:
-   high attractiveness, low evidence quality, insufficient coverage.
-
-Every score here is a pure function of its inputs.  No timestamps, no random
-seeds and no model output enter the arithmetic, so a ranking computed today is
-byte-identical to one computed tomorrow from the same records (§16
-reproducibility).
+Deterministic: every dimension is a documented rule over stored inputs
+(evidence records, analyses, competitors, brief budget, capability fit,
+compliance). The same stored inputs always reproduce the same score —
+the full input snapshot is stored on each score row. An LLM never assigns
+or adjusts scores. Weights are configuration (system_config), versioned;
+evidence quality is computed by evidence.evidence_quality and reported
+separately as well as weighted at 5% (ADR-005).
 """
-
 from __future__ import annotations
 
-import hashlib
-from collections.abc import Sequence
-from decimal import Decimal
-from typing import Any
+from . import analysis as analysis_mod
+from .constants import CLASSIFICATION_STRENGTH, REVENUE_MODELS
+from .evidence import evidence_quality
 
-from app.opportunities.schemas import (
-    ATTRACTIVENESS_KEYS,
-    BusinessModelAnalysis,
-    CompetitorAssessment,
-    CommercialAssessment,
-    DEFAULT_WEIGHTS,
-    DistributionAssessment,
-    EvidenceClassification,
-    FinalClassification,
-    MarketAssessment,
-    OpportunityScore,
-    Provenance,
-    RiskAssessment,
-    ScoreDimension,
-    ScoringOutcome,
-    SourceEvidence,
-    ValidationAssessment,
-    ValidationLevel,
-    WeightKey,
-)
-from app.intelligence.schemas import EvidenceReliability
-
-__all__ = [
-    "MIN_EVIDENCE_COVERAGE_PCT",
-    "MIN_RECOMMEND_ATTRACTIVENESS",
-    "OpportunityScorer",
-    "RELIABILITY_MULTIPLIER",
-]
-
-#: Below this weighted coverage of the scoring dimensions the outcome is
-#: ``INSUFFICIENT_EVIDENCE`` regardless of how the scored dimensions look.
-MIN_EVIDENCE_COVERAGE_PCT = Decimal("60")
-
-#: Minimum attractiveness for a RECOMMENDED classification.  Deliberately high:
-#: recommending is the expensive error, passing is the cheap one.
-MIN_RECOMMEND_ATTRACTIVENESS = Decimal("3.0000")
-
-#: How much a source's reliability discounts its evidence.  An authoritative
-#: source counts fully; an untrusted or model-generated one counts for a tenth.
-RELIABILITY_MULTIPLIER: dict[EvidenceReliability, Decimal] = {
-    EvidenceReliability.AUTHORITATIVE: Decimal("1.00"),
-    EvidenceReliability.TRUSTED: Decimal("0.80"),
-    EvidenceReliability.PLAUSIBLE: Decimal("0.50"),
-    EvidenceReliability.UNTRUSTED: Decimal("0.20"),
-    EvidenceReliability.MODEL_GENERATED: Decimal("0.10"),
+SCORING_CONFIG_KEY = "opportunities.scoring_weights"
+SCORING_V1_VERSION = "scoring-v1"
+SCORING_V1_WEIGHTS: dict[str, float] = {
+    "verified_demand": 0.20,
+    "profit_potential": 0.15,
+    "problem_importance": 0.10,
+    "competitive_opportunity": 0.10,
+    "revenue_model_viability": 0.10,
+    "budget_compatibility": 0.10,
+    "distribution_feasibility": 0.10,
+    "operational_simplicity": 0.05,
+    "strategic_fit": 0.05,
+    "evidence_quality": 0.05,
 }
 
-#: Weight of each classification when computing evidence quality.
-CLASSIFICATION_VALUE: dict[EvidenceClassification, Decimal] = {
-    EvidenceClassification.VERIFIED: Decimal("1.00"),
-    EvidenceClassification.CORROBORATED: Decimal("0.85"),
-    EvidenceClassification.SUPPORTING: Decimal("0.55"),
-    EvidenceClassification.TENTATIVE: Decimal("0.30"),
-    EvidenceClassification.UNVERIFIED: Decimal("0.05"),
-    EvidenceClassification.CONTRADICTED: Decimal("0.00"),
-    EvidenceClassification.OUTDATED: Decimal("0.00"),
-}
+_SUPPORTING = CLASSIFICATION_STRENGTH["SUPPORTING"]
+_CORROBORATED = CLASSIFICATION_STRENGTH["CORROBORATED"]
+_VERIFIED = CLASSIFICATION_STRENGTH["VERIFIED"]
 
 
-class OpportunityScorer:
-    """Deterministic, weighted, reject-first opportunity scoring."""
+def _strongest(records: list, categories: tuple[str, ...]) -> float:
+    values = [CLASSIFICATION_STRENGTH.get(r.classification, 0.0)
+              for r in records if r.category in categories]
+    return max(values) if values else 0.0
 
-    def __init__(self, weights: dict[WeightKey, Decimal] | None = None):
-        self.weights = dict(weights or DEFAULT_WEIGHTS)
-        self._validate_weights()
 
-    # ------------------------------------------------------------------ #
-    def _validate_weights(self) -> None:
-        missing = [k.value for k in WeightKey if k not in self.weights]
-        if missing:
-            raise ValueError(f"weights are missing dimensions: {', '.join(missing)}")
-        unknown = [
-            str(k) for k in self.weights if not isinstance(k, WeightKey)
-        ]
-        if unknown:
-            # Guard against the defect class where a weights dict keyed by a
-            # *string* silently matches no dimension and is therefore ignored.
-            raise ValueError(
-                f"weight keys must be WeightKey members, got: {', '.join(unknown)}"
-            )
-        total = sum(self.weights.values(), Decimal("0"))
-        if total != Decimal("100"):
-            raise ValueError(
-                f"weights must sum to exactly 100, got {total}; refusing to "
-                "normalise silently because two runs with different weights "
-                "would then produce incomparable scores"
-            )
-        for key, value in self.weights.items():
-            if value < 0:
-                raise ValueError(f"weight for {key.value} is negative")
+def _ladder(strength: float) -> float:
+    """Map a strongest-classification strength to a 0–5 rung."""
+    if strength >= _VERIFIED:
+        return 5.0
+    if strength >= _CORROBORATED:
+        return 4.0
+    if strength >= _SUPPORTING:
+        return 3.0
+    if strength >= CLASSIFICATION_STRENGTH["TENTATIVE"]:
+        return 2.0
+    if strength > 0:
+        return 1.0
+    return 0.0
 
-    @property
-    def weights_fingerprint(self) -> str:
-        """A stable hash of the weight configuration.
 
-        Recorded on every outcome so that two rankings can be compared only when
-        they were produced under the same weights.
-        """
-        blob = "|".join(
-            f"{k.value}={self.weights[k]}" for k in sorted(WeightKey, key=lambda x: x.value)
-        )
-        return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+def derive_dimensions(ctx: dict) -> tuple[dict, dict]:
+    """ctx keys: opportunity, records, market, commercial, competitors,
+    capability_fit, compliance. Returns (dimensions, reasons)."""
+    opp = ctx["opportunity"]
+    records: list = ctx["records"]
+    commercial = ctx.get("commercial")
+    competitors: list = ctx.get("competitors") or []
+    fit: dict = ctx.get("capability_fit") or {}
+    compliance: dict = ctx.get("compliance") or {}
+    dims: dict[str, float] = {}
+    reasons: dict[str, str] = {}
 
-    # ------------------------------------------------------------------ #
-    # Individual dimension rules.  Each returns (score 0-5, justification, gap)
-    # ------------------------------------------------------------------ #
-    @staticmethod
-    def _demand(market: MarketAssessment | None) -> tuple[Decimal | None, str, str]:
-        if market is None:
-            return None, "", "no market assessment was produced"
-        table = {
-            "demand_demonstrated": (Decimal(5), "demand demonstrated on admissible evidence"),
-            "demand_plausible": (Decimal(3), "demand plausible but not demonstrated"),
-            "demand_unproven": (Decimal(1), "demand asserted but unproven"),
-            "demand_contradicted": (Decimal(0), "demand contradicted by evidence"),
-        }
-        if market.verdict == "insufficient_data":
-            return None, "", "market assessment reached no verdict on the available data"
-        score, why = table[market.verdict]
-        # A demonstrated verdict resting on merely CORROBORATED evidence is one
-        # rung below one resting on VERIFIED evidence.
-        if market.verdict == "demand_demonstrated" and (
-            market.demand_evidence_level is EvidenceClassification.CORROBORATED
-        ):
-            score, why = Decimal(4), "demand corroborated by independent sources"
-        return score, f"{why}: {market.reasons[0] if market.reasons else market.verdict}", ""
+    # --- verified demand (§16: attention is not demand)
+    stage = analysis_mod.demand_stage(records)
+    dims["verified_demand"] = {
+        "none": 0.0, "general_interest": 1.0, "active_problem_awareness": 3.0,
+        "purchase_consideration": 4.0, "verified_transactions": 5.0,
+    }[stage]
+    reasons["verified_demand"] = (
+        f"demand stage justified by evidence: {stage} "
+        f"({sum(1 for r in records if r.category == 'demand')} demand, "
+        f"{sum(1 for r in records if r.category == 'purchasing_intent')} purchasing-intent records)")
 
-    @staticmethod
-    def _importance(market: MarketAssessment | None) -> tuple[Decimal | None, str, str]:
-        if market is None or market.problem_importance == "unknown":
-            return None, "", "problem importance was not established"
-        table = {
-            "acute": Decimal(5),
-            "significant": Decimal(4),
-            "moderate": Decimal(3),
-            "minor": Decimal(2),
-            "trivial": Decimal(1),
-        }
-        score = table[market.problem_importance]
-        return score, f"problem importance rated {market.problem_importance}: {market.problem_importance_basis}", ""
+    # --- problem importance
+    dims["problem_importance"] = _ladder(_strongest(records, ("problem",)))
+    reasons["problem_importance"] = (
+        "strongest problem evidence classification drives the rung "
+        f"({sum(1 for r in records if r.category == 'problem')} problem records)")
 
-    @staticmethod
-    def _competition(comp: CompetitorAssessment | None) -> tuple[Decimal | None, str, str]:
-        if comp is None or comp.verdict == "insufficient_data":
-            return None, "", "no competitive assessment was produced"
-        table = {
-            "open_opportunity": Decimal(5),
-            "differentiation_required": Decimal(4),
-            "crowded_but_viable": Decimal(3),
-            "saturated_no_entry": Decimal(0),
-        }
-        score = table[comp.verdict]
-        why = comp.reasons[0] if comp.reasons else comp.verdict
-        return score, f"{comp.verdict.replace('_',' ')}: {why}", ""
+    # --- competitive opportunity
+    saturation = (ctx.get("market").saturation if ctx.get("market") else None) or \
+        analysis_mod.saturation_assessment(competitors, records)
+    level = saturation.get("level", "unknown")
+    gaps = sum(len(c.weaknesses or []) for c in competitors)
+    if level == "unknown":
+        dims["competitive_opportunity"] = 1.0
+        reasons["competitive_opportunity"] = "saturation unknown — no competitor evidence; unknown is not an opening"
+    elif level == "low":
+        dims["competitive_opportunity"] = 4.0 if gaps else 3.0
+        reasons["competitive_opportunity"] = f"low saturation, {gaps} recorded competitor gap(s)"
+    elif level == "moderate":
+        dims["competitive_opportunity"] = 3.0 if gaps else 2.0
+        reasons["competitive_opportunity"] = f"moderate saturation, {gaps} recorded competitor gap(s)"
+    else:  # high
+        dims["competitive_opportunity"] = 1.0 if gaps else 0.0
+        reasons["competitive_opportunity"] = f"high saturation, {gaps} recorded competitor gap(s); entry needs a defensible differentiation (§29F)"
 
-    @staticmethod
-    def _revenue_model(model: BusinessModelAnalysis | None) -> tuple[Decimal | None, str, str]:
-        if model is None:
-            return None, "", "no business model was analysed"
-        base = {
-            Provenance.VERIFIED: Decimal(5),
-            Provenance.QUOTED: Decimal(4),
-            Provenance.HISTORICAL: Decimal(3),
-            Provenance.ESTIMATE: Decimal(2),
-            Provenance.UNKNOWN: None,
-        }[model.price_provenance]
-        if base is None:
-            return None, "", "the revenue model states no price provenance"
-        why = f"price provenance is {model.price_provenance.value}"
-        if model.weaknesses:
-            base = max(Decimal(0), base - Decimal(1))
-            why += f"; discounted for {len(model.weaknesses)} model weakness(es)"
-        return base, why, ""
+    # --- revenue model viability
+    model = (opp.revenue_model or "").strip()
+    if not model:
+        dims["revenue_model_viability"] = 0.0
+        reasons["revenue_model_viability"] = "no revenue model recorded"
+    elif model not in REVENUE_MODELS:
+        dims["revenue_model_viability"] = 1.0
+        reasons["revenue_model_viability"] = f"revenue model '{model}' is not a supported model (§12)"
+    else:
+        value = 2.0
+        notes = ["supported revenue model"]
+        if _strongest(records, ("pricing",)) >= _SUPPORTING:
+            value += 1.0
+            notes.append("pricing evidence at SUPPORTING or better")
+        if commercial and (commercial.price_assumption or {}).get("amount") is not None:
+            value += 1.0
+            notes.append("a priced commercial analysis exists")
+        if any(r.category == "purchasing_intent" and _strength_ok(r) for r in records):
+            value += 1.0
+            notes.append("purchasing-intent evidence exists")
+        dims["revenue_model_viability"] = min(5.0, value)
+        reasons["revenue_model_viability"] = "; ".join(notes)
 
-    @staticmethod
-    def _profit(commercial: CommercialAssessment | None) -> tuple[Decimal | None, str, str]:
-        if commercial is None or commercial.verdict == "cannot_determine":
-            return None, "", "commercial feasibility could not be determined"
-        if commercial.verdict == "unaffordable":
-            return Decimal(0), "outside the owner's stated budget", ""
-        if commercial.verdict == "not_viable":
-            return Decimal(0), "break-even is not achievable at this price", ""
-        base = next(
-            (s for s in commercial.scenarios if s.name.value == "base"), None
-        )
-        cons = next(
-            (s for s in commercial.scenarios if s.name.value == "conservative"), None
-        )
-        if base is None:
-            return None, "", "no base scenario was projected"
-        margin = base.projection.contribution_margin or Decimal(0)
-        if commercial.verdict == "marginal":
-            return Decimal(2), f"marginal: contribution margin {margin}", ""
-        score = Decimal(4)
-        why = f"viable at base volume; contribution margin {margin}"
-        if cons is not None and cons.projection.operating_profit > 0 and margin >= Decimal("0.50"):
-            score = Decimal(5)
-            why += "; profitable even at half the expected volume"
-        return score, why, ""
-
-    @staticmethod
-    def _budget(commercial: CommercialAssessment | None) -> tuple[Decimal | None, str, str]:
-        if commercial is None or commercial.budget_compatibility is None:
-            return None, "", "budget compatibility was not assessed"
-        bc = commercial.budget_compatibility
-        if bc.verdict == "cannot_determine":
-            return None, "", bc.reason or "cost structure is unpriced"
-        if bc.verdict == "incompatible":
-            return Decimal(0), f"shortfall of {bc.shortfall} against stated capital", ""
-        utilisation = (bc.utilisation_pct or Decimal(0)) / Decimal(100)
-        if utilisation <= Decimal("0.50"):
-            score, why = Decimal(5), f"uses {bc.utilisation_pct}% of stated capital"
-        elif utilisation <= Decimal("0.80"):
-            score, why = Decimal(4), f"uses {bc.utilisation_pct}% of stated capital"
+    # --- profit potential: BASE scenario only, never the optimistic one
+    base = None
+    if commercial:
+        base = (commercial.scenarios or {}).get("base")
+    if not base:
+        dims["profit_potential"] = 0.0
+        reasons["profit_potential"] = "no base scenario computed — profit potential has no evidence (§16: 0 = no evidence)"
+    else:
+        margin = base.get("contribution_margin_pct")
+        if margin is None:
+            dims["profit_potential"] = 0.0
+            reasons["profit_potential"] = "base scenario has no computable contribution margin"
         else:
-            score, why = Decimal(3), f"tight: uses {bc.utilisation_pct}% of stated capital"
-        return score, why, ""
-
-    @staticmethod
-    def _distribution(dist: DistributionAssessment | None) -> tuple[Decimal | None, str, str]:
-        if dist is None or dist.verdict == "insufficient_data":
-            return None, "", "no distribution assessment was produced"
-        table = {
-            "clear_path": Decimal(5),
-            "plausible_path": Decimal(4),
-            "requires_ad_spend": Decimal(2),
-            "no_identified_path": Decimal(0),
-        }
-        score = table[dist.verdict]
-        if dist.verdict in {"clear_path", "plausible_path"} and (
-            dist.platform_dependency_risk.value in {"high", "blocking"}
-        ):
-            score = max(Decimal(0), score - Decimal(1))
-        why = dist.reasons[0] if dist.reasons else dist.verdict.replace("_", " ")
-        return score, f"{dist.verdict.replace('_',' ')}: {why}", ""
-
-    @staticmethod
-    def _simplicity(
-        commercial: CommercialAssessment | None, dist: DistributionAssessment | None
-    ) -> tuple[Decimal | None, str, str]:
-        if commercial is None:
-            return None, "", "operational complexity could not be derived without a cost structure"
-        lines = len(commercial.costs.items)
-        channels = len(dist.channels) if dist else 0
-        score = Decimal(5)
-        reasons = [f"{lines} cost line(s)"]
-        if lines > 8:
-            score -= Decimal(2)
-            reasons.append("many cost lines implies operational overhead")
-        elif lines > 4:
-            score -= Decimal(1)
-            reasons.append("several cost lines to manage")
-        if channels > 3:
-            score -= Decimal(1)
-            reasons.append(f"{channels} channels to operate simultaneously")
-        if dist is not None and dist.platform_dependency_risk.value in {"high", "blocking"}:
-            score -= Decimal(1)
-            reasons.append("high platform dependency")
-        return max(Decimal(0), score), "; ".join(reasons), ""
-
-    @staticmethod
-    def _strategic_fit(
-        stated_capabilities: Sequence[str], required_capabilities: Sequence[str]
-    ) -> tuple[Decimal | None, str, str]:
-        """Fit against the owner's *stated* capabilities.
-
-        If either list is empty the dimension is unscoreable.  Strategic fit is
-        never inferred from the business category - that would be a guess
-        dressed as an assessment.
-        """
-        if not stated_capabilities or not required_capabilities:
-            return None, "", "owner capabilities or required capabilities were not stated"
-        stated = {s.strip().lower() for s in stated_capabilities if s.strip()}
-        required = {r.strip().lower() for r in required_capabilities if r.strip()}
-        if not stated or not required:
-            return None, "", "capability lists were empty after normalisation"
-        overlap = sorted(stated & required)
-        ratio = Decimal(len(overlap)) / Decimal(len(required))
-        score = (ratio * Decimal(5)).quantize(Decimal("0.01"))
-        if overlap:
-            why = f"owner capabilities cover {len(overlap)}/{len(required)} required: {', '.join(overlap)}"
-        else:
-            why = f"no overlap between stated capabilities and the {len(required)} required"
-        return score, why, ""
-
-    def evidence_quality_dimension(
-        self, evidence: Sequence[SourceEvidence]
-    ) -> ScoreDimension:
-        """Score evidence quality on its own terms (§16).
-
-        Quality is the reliability-weighted mean classification value, scaled to
-        0-5.  Contradicted and outdated evidence counts for nothing but still
-        occupies the denominator, so a body of evidence containing contradictions
-        scores worse than a small clean one - which is the correct behaviour.
-        """
-        weight = self.weights[WeightKey.EVIDENCE_QUALITY]
-        if not evidence:
-            return ScoreDimension(
-                key=WeightKey.EVIDENCE_QUALITY,
-                weight=weight,
-                score=Decimal(0),
-                scorable=False,
-                gap="no evidence was collected for this opportunity",
-            )
-        total = Decimal(0)
-        for item in evidence:
-            total += CLASSIFICATION_VALUE[item.classification] * RELIABILITY_MULTIPLIER[
-                item.reliability
-            ]
-        mean = total / Decimal(len(evidence))
-        score = (mean * Decimal(5)).quantize(Decimal("0.01"))
-        admissible = sum(1 for e in evidence if e.is_admissible())
-        contradicted = sum(
-            1 for e in evidence if e.classification is EvidenceClassification.CONTRADICTED
-        )
-        why = (
-            f"{len(evidence)} evidence record(s); {admissible} admissible; "
-            f"{contradicted} contradicted; reliability-weighted mean "
-            f"{mean.quantize(Decimal('0.0001'))}"
-        )
-        return ScoreDimension(
-            key=WeightKey.EVIDENCE_QUALITY,
-            weight=weight,
-            score=min(score, Decimal(5)),
-            scorable=True,
-            justification=why,
-            evidence_ids=tuple(e.evidence_id for e in evidence),
-            computed_by="deterministic_rule",
-        )
-
-    # ------------------------------------------------------------------ #
-    def score(
-        self,
-        *,
-        market: MarketAssessment | None = None,
-        competitors: CompetitorAssessment | None = None,
-        business_model: BusinessModelAnalysis | None = None,
-        commercial: CommercialAssessment | None = None,
-        distribution: DistributionAssessment | None = None,
-        risk: RiskAssessment | None = None,
-        validation: ValidationAssessment | None = None,
-        evidence: Sequence[SourceEvidence] = (),
-        stated_capabilities: Sequence[str] = (),
-        required_capabilities: Sequence[str] = (),
-        minimum_validation_level: ValidationLevel = ValidationLevel.LEVEL_3_COMMERCIAL_EVIDENCE,
-    ) -> ScoringOutcome:
-        """Score one opportunity and decide its final classification."""
-        rules: dict[WeightKey, Any] = {
-            WeightKey.VERIFIED_DEMAND: lambda: self._demand(market),
-            WeightKey.PROBLEM_IMPORTANCE: lambda: self._importance(market),
-            WeightKey.COMPETITIVE_OPPORTUNITY: lambda: self._competition(competitors),
-            WeightKey.REVENUE_MODEL_VIABILITY: lambda: self._revenue_model(business_model),
-            WeightKey.PROFIT_POTENTIAL: lambda: self._profit(commercial),
-            WeightKey.BUDGET_COMPATIBILITY: lambda: self._budget(commercial),
-            WeightKey.DISTRIBUTION_FEASIBILITY: lambda: self._distribution(distribution),
-            WeightKey.OPERATIONAL_SIMPLICITY: lambda: self._simplicity(commercial, distribution),
-            WeightKey.STRATEGIC_FIT: lambda: self._strategic_fit(
-                stated_capabilities, required_capabilities
-            ),
-        }
-        dimensions: list[ScoreDimension] = []
-        for key in WeightKey:
-            weight = self.weights[key]
-            if key is WeightKey.EVIDENCE_QUALITY:
-                dimensions.append(self.evidence_quality_dimension(evidence))
-                continue
-            value, justification, gap = rules[key]()
-            if value is None:
-                dimensions.append(
-                    ScoreDimension(
-                        key=key,
-                        weight=weight,
-                        score=Decimal(0),
-                        scorable=False,
-                        gap=gap,
-                    )
-                )
+            if margin < 0:
+                value = 0.0
+            elif margin < 15:
+                value = 1.0
+            elif margin < 30:
+                value = 2.0
+            elif margin < 50:
+                value = 3.0
+            elif margin < 70:
+                value = 4.0
             else:
-                dimensions.append(
-                    ScoreDimension(
-                        key=key,
-                        weight=weight,
-                        score=min(max(value, Decimal(0)), Decimal(5)),
-                        scorable=True,
-                        justification=justification,
-                        evidence_ids=tuple(evidence_ids_for(key, evidence)),
-                        computed_by="deterministic_rule",
-                    )
-                )
-        score = OpportunityScore(dimensions=tuple(dimensions))
+                value = 5.0
+            if base.get("operating_profit", 0) < 0:
+                value = min(value, 1.0)
+            dims["profit_potential"] = value
+            reasons["profit_potential"] = (
+                f"base-scenario contribution margin {margin}% (bands: <0→0, <15→1, <30→2, "
+                f"<50→3, <70→4, else 5; negative base operating profit caps at 1)")
 
-        # ---------------- hard rejection rules (override any score) --------- #
-        rejections: list[str] = []
-        classification: FinalClassification | None = None
+    # --- budget compatibility (the owner's budget is never raised, §13.6)
+    budget_block = (commercial.budget if commercial else None) or {}
+    compatible = budget_block.get("compatible")
+    if compatible is True:
+        budget_amount = budget_block.get("budget_amount") or 0
+        ratio = (budget_block.get("first_month_total", 0) / budget_amount) if budget_amount else 1.0
+        dims["budget_compatibility"] = 5.0 if ratio <= 0.5 else (4.0 if ratio <= 0.75 else 3.0)
+        reasons["budget_compatibility"] = f"fits the owner's budget; first-month total is {round(ratio * 100)}% of budget"
+    elif compatible is False:
+        dims["budget_compatibility"] = 0.0
+        reasons["budget_compatibility"] = "startup + first-month cost exceeds the owner's stated budget"
+    else:
+        dims["budget_compatibility"] = 1.0
+        reasons["budget_compatibility"] = "budget compatibility cannot be established (no budget or no commercial analysis)"
 
-        if risk is not None and risk.verdict == "blocked":
-            rejections.append(
-                "compliance block: " + (risk.reasons[0] if risk.reasons else "blocking risk finding")
-            )
-            classification = FinalClassification.REJECTED_COMPLIANCE
-        elif commercial is not None and commercial.verdict == "unaffordable":
-            shortfall = (
-                commercial.budget_compatibility.shortfall
-                if commercial.budget_compatibility
-                else None
-            )
-            rejections.append(
-                f"outside the owner's stated budget (shortfall {shortfall}); "
-                "the budget must not be increased to make this fit"
-            )
-            classification = FinalClassification.INCOMPATIBLE_WITH_CONSTRAINTS
-        elif market is not None and market.verdict == "demand_contradicted":
-            rejections.append(
-                "demand is contradicted by the evidence: "
-                + (market.reasons[0] if market.reasons else "no reason recorded")
-            )
-            classification = FinalClassification.NOT_RECOMMENDED
-        elif commercial is not None and commercial.verdict == "not_viable":
-            rejections.append(
-                "break-even is not achievable: "
-                + (commercial.reasons[0] if commercial.reasons else "no reason recorded")
-            )
-            classification = FinalClassification.NOT_RECOMMENDED
+    # --- distribution feasibility
+    distribution = (commercial.distribution if commercial else None) or \
+        analysis_mod.build_distribution_analysis(opp, records)
+    legit = distribution.get("legitimate_channel_count", 0)
+    if legit == 0:
+        dims["distribution_feasibility"] = 0.0
+        reasons["distribution_feasibility"] = "no legitimate distribution channel identified"
+    else:
+        value = 2.0
+        if distribution.get("channels_with_supporting_evidence"):
+            value += 1.0
+        if _strongest(records, ("distribution",)) >= _CORROBORATED:
+            value += 1.0
+        dims["distribution_feasibility"] = value
+        reasons["distribution_feasibility"] = (
+            f"{legit} legitimate candidate channel(s); organic traffic and profitable ads "
+            "are never assumed (§14), so this dimension caps at 4 without channel performance data")
 
-        if not rejections and score.coverage_pct < MIN_EVIDENCE_COVERAGE_PCT:
-            rejections.append(
-                f"evidence coverage {score.coverage_pct}% is below the "
-                f"{MIN_EVIDENCE_COVERAGE_PCT}% minimum; unscored dimensions: "
-                + (", ".join(score.unscored_dimensions) or "none")
-            )
-            classification = FinalClassification.INSUFFICIENT_EVIDENCE
+    # --- operational simplicity
+    from .constants import CATEGORIES
+    complexity = CATEGORIES.get(opp.category, {}).get("complexity", 3)
+    value = float(6 - complexity)
+    notes = [f"category complexity prior {complexity}/5"]
+    if (opp.capability_fit or {}).get("physical_inventory"):
+        value -= 2.0
+        notes.append("physical inventory/shipping penalty (§6.6)")
+    missing = fit.get("missing") or []
+    if missing:
+        penalty = min(2.0, float(len(missing)))
+        value -= penalty
+        notes.append(f"missing capabilities: {missing}")
+    if compliance.get("verdict") == "flagged":
+        value -= 1.0
+        notes.append("compliance flags add operational burden")
+    dims["operational_simplicity"] = max(0.0, min(5.0, value))
+    reasons["operational_simplicity"] = "; ".join(notes)
 
-        if not rejections and commercial is not None and (
-            commercial.verdict == "cannot_determine"
-        ):
-            rejections.append(
-                "commercial feasibility could not be determined: "
-                + ", ".join(commercial.reasons)
-            )
-            classification = FinalClassification.INSUFFICIENT_EVIDENCE
+    # --- strategic fit
+    coverage = fit.get("coverage")
+    if coverage is None:
+        dims["strategic_fit"] = 2.0
+        reasons["strategic_fit"] = "capability requirements not assessed"
+    else:
+        dims["strategic_fit"] = round(5.0 * float(coverage), 2)
+        reasons["strategic_fit"] = (
+            f"{round(float(coverage) * 100)}% of required capabilities are available "
+            f"(required: {fit.get('required')}, missing: {fit.get('missing')})")
 
-        if rejections:
-            return ScoringOutcome(
-                score=score,
-                hard_rejections=tuple(rejections),
-                rejection_classification=classification,
-                final_classification=classification
-                or FinalClassification.INSUFFICIENT_EVIDENCE,
-                recommendable=False,
-                reasons=tuple(rejections),
-                minimum_validation_level_required=minimum_validation_level,
-                weights_fingerprint=self.weights_fingerprint,
-            )
+    # --- evidence quality (same computation as the standalone value)
+    eq, _breakdown = evidence_quality(records)
+    dims["evidence_quality"] = eq
+    reasons["evidence_quality"] = "standalone evidence-quality computation (§16.3), also reported separately"
 
-        # ---------------- recommendation gate ------------------------------- #
-        level = validation.level if validation else ValidationLevel.LEVEL_0_IDEA
-        reasons: list[str] = []
-        strong_enough = score.attractiveness >= MIN_RECOMMEND_ATTRACTIVENESS
-        validated_enough = level.value >= minimum_validation_level.value
-        commercially_sound = commercial is not None and commercial.verdict == "viable"
-
-        if strong_enough and validated_enough and commercially_sound:
-            final = FinalClassification.RECOMMENDED
-            recommendable = True
-            reasons.append(
-                f"attractiveness {score.attractiveness} meets the "
-                f"{MIN_RECOMMEND_ATTRACTIVENESS} threshold, validation reached "
-                f"level {level.value}, and commercial feasibility is viable"
-            )
-        elif strong_enough and commercially_sound:
-            final = FinalClassification.PROMISING_NEEDS_VALIDATION
-            recommendable = False
-            reasons.append(
-                f"attractiveness {score.attractiveness} is sufficient and the "
-                f"economics are viable, but validation reached only level "
-                f"{level.value} of the required {minimum_validation_level.value}"
-            )
-        elif not strong_enough:
-            final = FinalClassification.NOT_RECOMMENDED
-            recommendable = False
-            reasons.append(
-                f"attractiveness {score.attractiveness} is below the "
-                f"{MIN_RECOMMEND_ATTRACTIVENESS} recommendation threshold"
-            )
-        else:
-            final = FinalClassification.PROMISING_NEEDS_VALIDATION
-            recommendable = False
-            reasons.append(
-                "commercial feasibility is not 'viable', so the opportunity "
-                "cannot be recommended on the current analysis"
-            )
-
-        if score.coverage_pct < Decimal("100"):
-            reasons.append(
-                f"note: {len(score.unscored_dimensions)} dimension(s) unscored "
-                f"({', '.join(score.unscored_dimensions)}); coverage "
-                f"{score.coverage_pct}%"
-            )
-        return ScoringOutcome(
-            score=score,
-            final_classification=final,
-            recommendable=recommendable,
-            reasons=tuple(reasons),
-            minimum_validation_level_required=minimum_validation_level,
-            weights_fingerprint=self.weights_fingerprint,
-        )
+    return dims, reasons
 
 
-def evidence_ids_for(key: WeightKey, evidence: Sequence[SourceEvidence]) -> tuple[str, ...]:
-    """Attach the evidence ids that actually drove a dimension.
+def _strength_ok(record) -> bool:
+    return CLASSIFICATION_STRENGTH.get(record.classification, 0.0) >= _SUPPORTING
 
-    Traceability requirement (§3): a score with no link back to the observations
-    behind it is not auditable.
-    """
-    mapping = {
-        WeightKey.VERIFIED_DEMAND: {
-            "search_volume", "keyword_trend", "marketplace_listing", "forum_post",
-            "social_signal", "official_statistic",
-        },
-        WeightKey.PROBLEM_IMPORTANCE: {"forum_post", "marketplace_review", "competitor_review"},
-        WeightKey.COMPETITIVE_OPPORTUNITY: {
-            "competitor_pricing", "competitor_feature_set", "competitor_review",
-            "marketplace_listing",
-        },
-        WeightKey.REVENUE_MODEL_VIABILITY: {"competitor_pricing", "marketplace_listing"},
-        WeightKey.PROFIT_POTENTIAL: {"vendor_price_quote", "competitor_pricing"},
-        WeightKey.BUDGET_COMPATIBILITY: {"vendor_price_quote"},
-        WeightKey.DISTRIBUTION_FEASIBILITY: {"marketplace_listing", "social_signal"},
-        WeightKey.OPERATIONAL_SIMPLICITY: {"vendor_price_quote"},
-        WeightKey.STRATEGIC_FIT: {"owner_statement"},
-    }
-    wanted = mapping.get(key)
-    if not wanted:
-        return ()
-    return tuple(
-        e.evidence_id for e in evidence if e.evidence_type.value in wanted
-    )
+
+def hard_rejection(ctx: dict) -> dict | None:
+    """§16.4: these rules override any numeric score."""
+    compliance: dict = ctx.get("compliance") or {}
+    if compliance.get("verdict") == "prohibited":
+        rules = compliance.get("matched_rules") or [{}]
+        return {"rule": "prohibited_category",
+                "reason": f"compliance screening matched prohibited rule(s): "
+                          f"{[r.get('rule') for r in rules]} (§15)"}
+    commercial = ctx.get("commercial")
+    if commercial and (commercial.budget or {}).get("compatible") is False:
+        return {"rule": "impossible_budget",
+                "reason": "startup + first-month cost exceeds the owner's stated budget; "
+                          "the budget is not raised (§13.6)"}
+    distribution = (commercial.distribution if commercial else None) or \
+        analysis_mod.build_distribution_analysis(ctx["opportunity"], ctx["records"])
+    if distribution.get("legitimate_channel_count", 0) == 0:
+        return {"rule": "no_legitimate_distribution",
+                "reason": "no legitimate distribution channel exists for this model (§14, §16.4)"}
+    fit: dict = ctx.get("capability_fit") or {}
+    license_missing = [m for m in (fit.get("missing") or []) if str(m).startswith("license:")]
+    if license_missing:
+        return {"rule": "unavailable_essential_license",
+                "reason": f"essential licence(s) unavailable: {license_missing} (§16.4)"}
+    return None
+
+
+def risk_classification(ctx: dict, eq: float, rejection: dict | None) -> str:
+    if rejection:
+        return "unacceptable" if rejection["rule"] == "prohibited_category" else "high"
+    if (ctx.get("compliance") or {}).get("verdict") == "flagged":
+        return "high"
+    if eq < 2.0:
+        return "high"
+    saturation = (ctx.get("market").saturation if ctx.get("market") else {}) or {}
+    if saturation.get("level") == "high":
+        return "elevated"
+    return "standard"
+
+
+def recommendation_for(weighted: float, eq: float, rejection: dict | None,
+                       validation_level: int, professional_review_pending: bool) -> str:
+    """§23H labels, with the §16.3 evidence cap applied before attractiveness."""
+    if rejection:
+        return "FINANCIALLY INCOMPATIBLE" if rejection["rule"] == "impossible_budget" else "REJECTED"
+    if eq < 2.0:
+        return "REQUIRES MORE RESEARCH"
+    if professional_review_pending:
+        return "PROMISING BUT UNVALIDATED" if weighted >= 3.0 else "REQUIRES MORE RESEARCH"
+    if weighted >= 4.0 and validation_level >= 3:
+        return "STRONG CANDIDATE"
+    if weighted >= 3.2:
+        return "PROMISING BUT UNVALIDATED"
+    if weighted >= 2.2:
+        return "REQUIRES MORE RESEARCH"
+    return "LOW PRIORITY"
+
+
+def weighted_total(dimensions: dict, weights: dict) -> float:
+    return round(sum(dimensions.get(k, 0.0) * w for k, w in weights.items()), 2)

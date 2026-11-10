@@ -1,16 +1,19 @@
+"""Diagnostics: a compact self-check summary (no secrets, no raw env)."""
 from __future__ import annotations
 
-from ..core.config import Settings
+import platform
+import sys
 
 
-def safe_diagnostics(settings: Settings) -> dict:
+def diagnostics(settings, lifecycle_state: str, db_healthy: bool) -> dict:
     return {
+        "python_version": sys.version.split()[0],
+        "platform": platform.platform(),
         "environment": settings.environment,
-        "host": settings.host,
-        "port": settings.port,
-        "external_execution_enabled": settings.external_execution_enabled,
-        "financial_execution_enabled": settings.financial_execution_enabled,
-        "cloud_ai_enabled": settings.cloud_ai_enabled,
-        "task_queue_capacity": settings.task_queue_capacity,
-        "task_max_concurrency": settings.task_max_concurrency,
+        "mode": settings.mode,
+        "lifecycle_state": lifecycle_state,
+        "database_healthy": db_healthy,
+        "database_backend": settings.effective_database_url.split(":", 1)[0],
+        "queue_capacity": settings.queue_capacity,
+        "max_concurrency": settings.max_concurrency,
     }

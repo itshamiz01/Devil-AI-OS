@@ -1,27 +1,65 @@
+"""Built-in event subscribers: persistence of critical events (P-01 §8).
+
+Critical events are written to ``system_events`` independently of ordinary
+in-memory delivery, so a failing in-memory subscriber cannot lose them.
+"""
 from __future__ import annotations
 
-import logging
-
+from ..database.models.base import utcnow
+from ..database.models.core import EventDeadLetter, SystemEvent
+from ..database.repositories.core import SystemEventRepository
 from .bus import EventBus
-from .events import Event
-
-logger = logging.getLogger(__name__)
+from .events import CRITICAL_EVENT_TYPES, Event
 
 
-async def log_warning(event: Event) -> None:
-    logger.warning("System warning: %s", event.payload, extra={"component": "events", "correlation_id": event.correlation_id})
+def make_persistence_subscriber(session_factory):
+    async def _persist(event: Event) -> None:
+        if event.event_type not in CRITICAL_EVENT_TYPES:
+            return
+        session = session_factory()
+        try:
+            repo = SystemEventRepository(session)
+            if session.query(SystemEvent).filter_by(event_id=event.event_id).first():
+                return
+            repo.add(SystemEvent(
+                event_id=event.event_id,
+                event_type=event.event_type.value,
+                source=event.source,
+                correlation_id=event.correlation_id,
+                task_id=event.task_id,
+                severity=event.severity,
+                payload=event.payload,
+                created_at=utcnow(),
+                business_id=event.business_id,
+                workflow_id=event.workflow_id,
+                processing_status=event.processing_status,
+            ))
+        finally:
+            session.close()
+
+    return _persist
 
 
-def register_default_subscribers(bus: EventBus) -> None:
-    bus.subscribe("SystemWarning", log_warning)
-    bus.subscribe("ResourceThresholdExceeded", log_warning)
+def make_dead_letter_recorder(session_factory):
+    """Durable sink for the bus's dead-letter hook (DEF-I4): one row
+    per failed/dropped delivery of a critical event."""
+    def _record(event: Event, handler: str, error: str) -> None:
+        session = session_factory()
+        try:
+            session.add(EventDeadLetter(
+                event_id=event.event_id,
+                event_type=event.event_type.value,
+                handler=handler,
+                error=error,
+                payload=event.payload,
+            ))
+            session.commit()
+        finally:
+            session.close()
+
+    return _record
 
 
-def register_task_approval_subscribers(bus: EventBus, task_manager) -> None:
-    """Release or close approval-gated tasks when a decision is recorded.
-
-    Kept separate from register_default_subscribers because it needs the task
-    manager, which does not exist yet when the default subscribers are attached.
-    """
-    bus.subscribe("ApprovalGranted", task_manager.on_approval_granted)
-    bus.subscribe("ApprovalRejected", task_manager.on_approval_rejected)
+def register_persistence(bus: EventBus, session_factory) -> None:
+    bus.subscribe("*", make_persistence_subscriber(session_factory))
+    bus.dead_letter_recorder = make_dead_letter_recorder(session_factory)

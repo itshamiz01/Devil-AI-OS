@@ -1,229 +1,199 @@
-"""Model provider abstraction (P-02 §6.1).
+"""Model provider interface + adapters (P-02, ADR-001 hybrid AI).
 
-The intelligence engine never talks to Ollama, llama.cpp or any cloud API
-directly. It talks to a `ModelProvider`, and concrete adapters translate. That
-indirection is what makes the system provider-independent (§6) and what allows
-the whole phase to be tested deterministically without a model installed (§19.1).
+Providers return RAW, UNTRUSTED plan output (a dict). They never execute
+anything and their output is schema-validated by the planner before use.
 
-Honesty note that governs this file: `NoRuntimeProvider` is *not* a fake model.
-It is the truthful adapter for a host that has no inference runtime, and it fails
-loudly. Nothing in this package fabricates a model response.
+- :class:`OllamaProvider` — local-first candidate. Honestly reports
+  unavailable when no server responds or no models are installed. It is
+  probe-tested in P-02 only against an absent server (see security/test
+  reports); no real LLM has been exercised in this phase.
+- :class:`FakeProvider` — deterministic test double with a preset raw
+  output (valid plan / invalid plan / garbage / slow), used to verify the
+  LLM path without a real model.
+- :class:`CloudProviderStub` — the optional cloud path. Disabled by
+  default (``AUTONOMUS_CLOUD_AI_ENABLED``); reports "not enabled" and
+  never fabricates availability. No cloud vendor is configured in P-02.
 """
-
 from __future__ import annotations
 
-import time
-from typing import Any, Protocol, runtime_checkable
+import abc
+import asyncio
+import copy
+import json
 
 import httpx
 
-from .schemas import GenerationRequest, GenerationResult, ModelCapabilities, ModelHealth, TokenUsage
+from ..integrations.interfaces.base import IntegrationAdapter, IntegrationHealth
 
 
-class ModelUnavailableError(RuntimeError):
-    """No permitted model could serve the request (§6.4).
-
-    Raised instead of silently switching to a paid provider. The router reports
-    the limitation to the owner rather than spending their money.
-    """
-
-    def __init__(self, detail: str, *, tried: list[str] | None = None) -> None:
-        self.detail = detail
-        self.tried = list(tried or [])
-        super().__init__(detail)
+class ProviderError(Exception):
+    """The provider could not produce usable raw plan output."""
 
 
-class ModelTimeoutError(ModelUnavailableError):
-    """The model did not answer within its budget (§6.5)."""
+class ProviderUnavailable(ProviderError):
+    """The provider is not available / not configured / not enabled."""
 
 
-class ModelOutputError(ModelUnavailableError):
-    """The model answered, but the answer is unusable (§6.4).
+class ModelProvider(IntegrationAdapter):
+    name = "unnamed"
 
-    Distinct from unavailability because the correct response differs: an
-    unusable answer may justify one bounded repair attempt (§13), whereas an
-    unavailable provider should trigger fallback.
-    """
+    @abc.abstractmethod
+    async def probe(self) -> tuple[bool, str]:
+        """(available, human-readable detail). Must be honest."""
+
+    @abc.abstractmethod
+    async def list_models(self) -> list[str]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def generate_plan_raw(self, mission_text: str, tools: list[dict],
+                                model_id: str) -> dict:
+        """Return raw untrusted plan output as a dict (PlanProposal shape)."""
+        raise NotImplementedError
+
+    async def health(self) -> IntegrationHealth:
+        available, detail = await self.probe()
+        return IntegrationHealth(name=self.name, available=available, detail=detail)
+
+    async def close(self) -> None:
+        return None
 
 
-@runtime_checkable
-class ModelProvider(Protocol):
-    """The provider contract from §6.1."""
+_PLAN_PROMPT = """You are the planning component of AUTONOMUS. Decompose the
+mission into a plan using ONLY the tools listed. Reply with JSON only:
+{{"steps": [{{"name": str, "tool_name": str, "payload": object,
+"expectation": {{"kind": "result_fields", "require_ok": true, "fields": {{}}}}}}],
+"rationale": str}}
 
-    name: str
+Tools: {tools}
 
-    async def generate(self, request: GenerationRequest, model_id: str) -> GenerationResult:
-        """Run one generation. Must respect `request.timeout_seconds`."""
+Mission: {mission}
+"""
 
-    async def check_health(self) -> ModelHealth:
-        """Report whether the provider can serve requests right now."""
+
+class OllamaProvider(ModelProvider):
+    name = "ollama"
+
+    def __init__(self, base_url: str, timeout_seconds: float = 3.0):
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout_seconds
+        self._models: list[str] = []
+        self._detail = "not probed yet"
+
+    def _client(self, timeout: float) -> httpx.AsyncClient:
+        # trust_env=False: a LOCAL inference server must never be reached
+        # through a system/environment proxy.
+        return httpx.AsyncClient(timeout=timeout, trust_env=False)
+
+    async def probe(self) -> tuple[bool, str]:
+        try:
+            async with self._client(self.timeout) as client:
+                resp = await client.get(f"{self.base_url}/api/tags")
+            if resp.status_code != 200:
+                self._models = []
+                self._detail = f"ollama server responded HTTP {resp.status_code}"
+                return False, self._detail
+            models = [m.get("name", "") for m in resp.json().get("models", [])]
+            self._models = [m for m in models if m]
+            if not self._models:
+                self._detail = "ollama server reachable but no models installed"
+                return False, self._detail
+            self._detail = f"ollama available with {len(self._models)} model(s)"
+            return True, self._detail
+        except Exception as exc:
+            self._models = []
+            self._detail = f"ollama unavailable: {type(exc).__name__}: {exc}"
+            return False, self._detail
 
     async def list_models(self) -> list[str]:
-        """Model identifiers this provider can serve."""
+        if not self._models:
+            await self.probe()
+        return list(self._models)
 
-    async def get_capabilities(self, model_id: str) -> ModelCapabilities | None:
-        """Declared capabilities, or None if the model is unknown."""
+    async def generate_plan_raw(self, mission_text: str, tools: list[dict],
+                                model_id: str) -> dict:
+        if not model_id:
+            raise ProviderUnavailable(
+                "no model_id configured in the model profile (owner has not "
+                "selected a local model yet)")
+        available, detail = await self.probe()
+        if not available:
+            raise ProviderUnavailable(detail)
+        if model_id not in self._models:
+            raise ProviderUnavailable(
+                f"model '{model_id}' is not installed on the ollama server")
+        prompt = _PLAN_PROMPT.format(
+            tools=json.dumps(tools, default=str), mission=mission_text)
+        try:
+            async with self._client(60.0) as client:
+                resp = await client.post(f"{self.base_url}/api/chat", json={
+                    "model": model_id, "stream": False, "format": "json",
+                    "messages": [{"role": "user", "content": prompt}],
+                })
+        except Exception as exc:
+            raise ProviderError(f"ollama chat request failed: {type(exc).__name__}: {exc}")
+        if resp.status_code != 200:
+            raise ProviderError(f"ollama chat responded HTTP {resp.status_code}")
+        content = resp.json().get("message", {}).get("content", "")
+        try:
+            parsed = json.loads(content)
+        except Exception as exc:
+            raise ProviderError(f"model output is not valid JSON: {exc}")
+        if not isinstance(parsed, dict):
+            raise ProviderError("model output is not a JSON object")
+        return parsed
 
 
-class NoRuntimeProvider:
-    """Adapter for a host with no local inference runtime installed.
+class FakeProvider(ModelProvider):
+    """Deterministic test double. ``raw_output`` is returned verbatim from
+    generate_plan_raw so tests can feed valid, impermissible, or garbage
+    model output through the real validation path."""
 
-    This is the actual state of the P-02 development workspace: no `ollama`, no
-    `llama-server`, no GPU, and the model-download hosts are unreachable. Rather
-    than pretending otherwise, this provider reports itself permanently
-    unhealthy and raises on generation, so the router takes its documented
-    "no permitted model available" path (§6.4) and the owner sees a truthful
-    resource limitation instead of an invented answer.
-    """
+    name = "fake"
 
-    name = "none"
+    def __init__(self, raw_output: dict | None = None, available: bool = True,
+                 delay_seconds: float = 0.0):
+        self.raw_output = raw_output
+        self._available = available
+        self.delay_seconds = delay_seconds
+        self.calls: list[dict] = []
 
-    def __init__(self, reason: str) -> None:
-        self.reason = reason
+    async def probe(self) -> tuple[bool, str]:
+        return self._available, "fake provider (test double)"
 
-    async def generate(self, request: GenerationRequest, model_id: str) -> GenerationResult:
-        raise ModelUnavailableError(
-            f"no local inference runtime is installed ({self.reason})", tried=[model_id]
-        )
+    async def list_models(self) -> list[str]:
+        return ["fake-1"] if self._available else []
 
-    async def check_health(self) -> ModelHealth:
-        return ModelHealth(
-            healthy=False,
-            checked_at=_now(),
-            detail=f"no inference runtime available: {self.reason}",
-        )
+    async def generate_plan_raw(self, mission_text: str, tools: list[dict],
+                                model_id: str) -> dict:
+        self.calls.append({"mission_text": mission_text, "model_id": model_id})
+        if self.delay_seconds:
+            await asyncio.sleep(self.delay_seconds)
+        if not self._available:
+            raise ProviderUnavailable("fake provider is unavailable")
+        if self.raw_output is None:
+            raise ProviderError("fake provider has no configured raw output")
+        return copy.deepcopy(self.raw_output)
+
+
+class CloudProviderStub(ModelProvider):
+    """Optional cloud path (ADR-001): exists so the router has a real
+    branch to refuse. No vendor is wired in P-02."""
+
+    name = "cloud"
+
+    def __init__(self, enabled: bool):
+        self.enabled = enabled
+
+    async def probe(self) -> tuple[bool, str]:
+        if not self.enabled:
+            return False, "cloud AI not enabled (AUTONOMUS_CLOUD_AI_ENABLED is off)"
+        return False, "cloud AI enabled by owner but no cloud provider is configured in P-02"
 
     async def list_models(self) -> list[str]:
         return []
 
-    async def get_capabilities(self, model_id: str) -> ModelCapabilities | None:
-        return None
-
-
-class OllamaProvider:
-    """Adapter for a local Ollama server (§6.1).
-
-    Talks to Ollama's documented HTTP API over loopback. It is written against
-    the real endpoints, but **it has not been verified against a live server in
-    this workspace**, because no Ollama binary exists here and the download host
-    is unreachable. That is recorded as a known limitation rather than claimed as
-    working.
-
-    Deliberate omissions:
-      * No `keep_alive` tuning or model pulling. Loading and unloading models is
-        a host-capacity decision the owner must make (§18), and silently
-        downloading multi-gigabyte weights would exceed the machine's 3.85 GiB.
-      * No streaming. Bounded, timeout-enforced single responses keep inference
-        from blocking the Core OS (§6.5, §18).
-    """
-
-    name = "ollama"
-
-    def __init__(
-        self,
-        base_url: str = "http://127.0.0.1:11434",
-        *,
-        connect_timeout: float = 5.0,
-        capabilities: dict[str, ModelCapabilities] | None = None,
-    ) -> None:
-        # Loopback by default: §13 requires local binding, and an inference
-        # endpoint on a public interface would leak prompts off the machine.
-        self.base_url = base_url.rstrip("/")
-        self.connect_timeout = connect_timeout
-        self._capabilities = dict(capabilities or {})
-
-    async def generate(self, request: GenerationRequest, model_id: str) -> GenerationResult:
-        payload: dict[str, Any] = {
-            "model": model_id,
-            "prompt": request.prompt,
-            "stream": False,
-            "options": {
-                "temperature": request.temperature,
-                "num_predict": request.max_tokens,
-            },
-        }
-        if request.system:
-            payload["system"] = request.system
-        started = time.perf_counter()
-        try:
-            async with httpx.AsyncClient(
-                timeout=httpx.Timeout(request.timeout_seconds, connect=self.connect_timeout)
-            ) as client:
-                response = await client.post(f"{self.base_url}/api/generate", json=payload)
-                response.raise_for_status()
-                body = response.json()
-        except httpx.TimeoutException as exc:
-            raise ModelTimeoutError(
-                f"model {model_id} exceeded its {request.timeout_seconds:.1f}s budget",
-                tried=[model_id],
-            ) from exc
-        except httpx.HTTPError as exc:
-            raise ModelUnavailableError(
-                f"ollama request failed for {model_id}: {exc.__class__.__name__}", tried=[model_id]
-            ) from exc
-
-        duration_ms = (time.perf_counter() - started) * 1000.0
-        text = body.get("response")
-        if not isinstance(text, str) or not text.strip():
-            # An empty or malformed body is an unusable answer, not an outage:
-            # §13 permits one bounded repair attempt for this case.
-            raise ModelOutputError(f"model {model_id} returned no usable text", tried=[model_id])
-
-        eval_count = body.get("eval_count")
-        prompt_count = body.get("prompt_eval_count")
-        return GenerationResult(
-            text=text,
-            model_id=model_id,
-            provider=self.name,
-            local=True,
-            duration_ms=duration_ms,
-            usage=TokenUsage(
-                prompt_tokens=int(prompt_count) if isinstance(prompt_count, int) else None,
-                completion_tokens=int(eval_count) if isinstance(eval_count, int) else None,
-            ),
-            truncated=bool(body.get("done_reason") == "length"),
-            correlation_id=request.correlation_id,
-        )
-
-    async def check_health(self) -> ModelHealth:
-        started = time.perf_counter()
-        try:
-            async with httpx.AsyncClient(
-                timeout=httpx.Timeout(self.connect_timeout, connect=self.connect_timeout)
-            ) as client:
-                response = await client.get(f"{self.base_url}/api/tags")
-                response.raise_for_status()
-        except httpx.TimeoutException:
-            return ModelHealth(healthy=False, checked_at=_now(), detail="ollama health check timed out")
-        except httpx.HTTPError as exc:
-            return ModelHealth(
-                healthy=False, checked_at=_now(), detail=f"ollama unreachable: {exc.__class__.__name__}"
-            )
-        return ModelHealth(
-            healthy=True,
-            checked_at=_now(),
-            detail="ollama responded",
-            latency_ms=(time.perf_counter() - started) * 1000.0,
-        )
-
-    async def list_models(self) -> list[str]:
-        try:
-            async with httpx.AsyncClient(
-                timeout=httpx.Timeout(self.connect_timeout, connect=self.connect_timeout)
-            ) as client:
-                response = await client.get(f"{self.base_url}/api/tags")
-                response.raise_for_status()
-                body = response.json()
-        except httpx.HTTPError:
-            return []
-        models = body.get("models") or []
-        return [m["name"] for m in models if isinstance(m, dict) and isinstance(m.get("name"), str)]
-
-    async def get_capabilities(self, model_id: str) -> ModelCapabilities | None:
-        return self._capabilities.get(model_id)
-
-
-def _now():
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc)
+    async def generate_plan_raw(self, mission_text: str, tools: list[dict],
+                                model_id: str) -> dict:
+        _, detail = await self.probe()
+        raise ProviderUnavailable(detail)

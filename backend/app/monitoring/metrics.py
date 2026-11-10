@@ -1,18 +1,19 @@
+"""Resource metrics via psutil (P-01 §10). Lightweight, on-demand reads."""
 from __future__ import annotations
 
-from collections import Counter
-from threading import Lock
+import psutil
 
 
-class Metrics:
-    def __init__(self):
-        self._counters: Counter[str] = Counter()
-        self._lock = Lock()
-
-    def increment(self, name: str, value: int = 1) -> None:
-        with self._lock:
-            self._counters[name] += value
-
-    def snapshot(self) -> dict[str, int]:
-        with self._lock:
-            return dict(self._counters)
+def resource_snapshot(disk_path: str = "/") -> dict:
+    vm = psutil.virtual_memory()
+    disk = psutil.disk_usage(disk_path)
+    return {
+        "cpu_percent": psutil.cpu_percent(interval=None),
+        "memory_percent": vm.percent,
+        "memory_available_mb": round(vm.available / (1024 * 1024), 1),
+        "memory_total_mb": round(vm.total / (1024 * 1024), 1),
+        "disk_percent": disk.percent,
+        "disk_free_gb": round(disk.free / (1024 ** 3), 2),
+        "disk_total_gb": round(disk.total / (1024 ** 3), 2),
+        "process_count": len(psutil.pids()),
+    }

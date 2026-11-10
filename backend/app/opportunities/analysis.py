@@ -1,558 +1,182 @@
-"""P-03 §10 market, §11 competitor, §12 business-model and §14 distribution
-analysis.
+"""Market, competitor and distribution analysis (P-03 §10, §11, §14).
 
-These four builders share one discipline, which is the discipline of the whole
-phase: **they describe evidence, they do not produce it.**
-
-Each takes a body of :class:`SourceEvidence` and returns an assessment.  When the
-evidence does not support a conclusion the assessment says so - ``insufficient_data``,
-``unknown``, or an explicit entry in ``data_gaps`` - rather than reaching for a
-plausible number.  In particular:
-
-* A TAM/SAM/SOM figure is only constructed when an evidence record actually
-  carries one, with provenance, a stated basis and a citation.  The schema refuses
-  a value without all three, so there is no path by which an invented market size
-  can enter the pipeline.
-* A problem-importance rating requires a stated basis and is derived from counted
-  observations, not from the tone of a description.
-* Competitor price ranges are the min and max of *quoted* prices, never an
-  estimate of what a competitor "probably" charges.
+Everything here is a deterministic derivation over stored opportunity
+fields, evidence records and competitor rows. Where the stored data
+cannot support a conclusion, the output says so — market size in
+particular is reported as "cannot be established" unless a VERIFIED or
+CORROBORATED market-size evidence record carries a figure (§10.4).
 """
-
 from __future__ import annotations
 
-from collections import Counter
-from collections.abc import Sequence
-from datetime import datetime, timezone
-from decimal import Decimal
-from typing import Any
+import re
 
-from app.intelligence.schemas import EvidenceReliability
-from app.opportunities.schemas import (
-    ADMISSIBLE_CLASSIFICATIONS,
-    BusinessModelAnalysis,
-    BusinessModelType,
-    CompetitorAssessment,
-    CompetitorProfile,
-    DistributionAssessment,
-    DistributionChannel,
-    EvidenceClassification,
-    EvidenceType,
-    MarketAssessment,
-    MarketSignal,
-    MarketSizing,
-    Provenance,
-    RiskSeverity,
-    SizedMarket,
-    SourceEvidence,
-)
+from .constants import CLASSIFICATION_STRENGTH, INSUFFICIENT_EVIDENCE
 
-__all__ = [
-    "BusinessModelAnalyser",
-    "CompetitorAnalyser",
-    "DistributionAnalyser",
-    "MarketAnalyser",
-    "PROVENANCE_FROM_RELIABILITY",
-]
+_SUPPORTING = CLASSIFICATION_STRENGTH["SUPPORTING"]
+_CORROBORATED = CLASSIFICATION_STRENGTH["CORROBORATED"]
 
-#: How a source's reliability maps onto the provenance of a figure taken from it.
-#: Note what is missing: nothing maps to VERIFIED.  A figure is only VERIFIED by
-#: explicit confirmation, never by virtue of where it came from.
-PROVENANCE_FROM_RELIABILITY: dict[EvidenceReliability, Provenance] = {
-    EvidenceReliability.AUTHORITATIVE: Provenance.QUOTED,
-    EvidenceReliability.TRUSTED: Provenance.QUOTED,
-    EvidenceReliability.PLAUSIBLE: Provenance.ESTIMATE,
-    EvidenceReliability.UNTRUSTED: Provenance.ESTIMATE,
-    EvidenceReliability.MODEL_GENERATED: Provenance.UNKNOWN,
+
+def _strength(record) -> float:
+    return CLASSIFICATION_STRENGTH.get(record.classification, 0.0)
+
+
+def demand_stage(records: list) -> str:
+    """The strongest demand stage the evidence actually justifies (§10.3).
+    Attention is not purchasing intent; only owner payment evidence can
+    produce 'verified_transactions'."""
+    if any(r.evidence_kind == "owner_payment" and r.classification == "VERIFIED" for r in records):
+        return "verified_transactions"
+    if any(r.category == "purchasing_intent" and _strength(r) >= _SUPPORTING for r in records):
+        return "purchase_consideration"
+    if any(r.category in ("demand", "problem") and _strength(r) >= _SUPPORTING for r in records):
+        return "active_problem_awareness"
+    if any(r.category in ("demand", "problem") for r in records):
+        return "general_interest"
+    return "none"
+
+
+def market_size_from_evidence(records: list) -> dict:
+    """TAM/SAM/SOM only from VERIFIED/CORROBORATED market-size evidence
+    whose claim itself states a figure and a basis. Otherwise each level
+    is explicitly 'cannot be established' (§10.4)."""
+    out: dict = {}
+    usable = [r for r in records
+              if r.category == "market_size" and _strength(r) >= _CORROBORATED]
+    for level in ("tam", "sam", "som"):
+        match = None
+        for record in usable:
+            if level in record.topic_key.lower() or level in record.claim.lower()[:12]:
+                figure = re.search(r"[$₹€£]?\s?(\d[\d,]*(?:\.\d+)?)\s*(billion|million|crore|lakh|bn|m)?",
+                                   record.claim, re.IGNORECASE)
+                if figure:
+                    match = {"value_text": figure.group(0),
+                             "methodology": ("Figure stated by an independently corroborated "
+                                             "market-size source; basis: " + record.claim),
+                             "evidence_id": record.id}
+                    break
+        out[level] = match or {
+            "value_text": None,
+            "methodology": None,
+            "note": f"{INSUFFICIENT_EVIDENCE}: a reliable {level.upper()} estimate cannot be established from the available evidence.",
+        }
+    return out
+
+
+def saturation_assessment(competitors: list, records: list) -> dict:
+    """Saturation from recorded competitors + competitor evidence (§10,
+    §29F). Zero recorded competitors means 'unknown', never 'empty market'."""
+    direct = [c for c in competitors if c.competitor_type == "direct"]
+    crowding = any(r.topic_key.endswith("crowding") or "crowded" in r.claim.lower()
+                   or "saturated" in r.claim.lower() for r in records if r.category == "competitor")
+    if not competitors and not crowding:
+        return {"level": "unknown", "direct_competitors_recorded": 0,
+                "note": "No competitor evidence recorded: saturation cannot be assessed. "
+                        "Absence of recorded competitors is not evidence of an empty market."}
+    count = len(direct)
+    if count >= 6 or (count >= 3 and crowding):
+        level = "high"
+    elif count >= 3 or crowding:
+        level = "moderate"
+    else:
+        level = "low"
+    return {
+        "level": level, "direct_competitors_recorded": count,
+        "crowding_signal": crowding,
+        "note": ("Saturation is assessed from recorded competitors and competitor "
+                 "evidence only; customer-acquisition difficulty rises with saturation "
+                 "and no differentiation may mean rejection (§29F)."),
+    }
+
+
+def build_market_analysis(opportunity, records: list, competitors: list) -> dict:
+    problem_records = [r for r in records if r.category == "problem"]
+    problem_analysis = {
+        "statement": opportunity.problem_statement or "",
+        "affected_group": opportunity.target_customer or "",
+        "evidence_count": len(problem_records),
+        "strongest_classification": max((r.classification for r in problem_records),
+                                        key=lambda c: CLASSIFICATION_STRENGTH.get(c, 0), default=None),
+        "note": ("Frequency, severity and current-workaround cost are only stated "
+                 "where evidence records support them; they are not assumed."),
+    }
+    stage = demand_stage(records)
+    return {
+        "customer_segment": opportunity.target_customer or "",
+        "geographic_market": opportunity.geography,
+        "problem_analysis": problem_analysis,
+        "demand_indicators": {
+            "stage": stage,
+            "demand_records": sum(1 for r in records if r.category == "demand"),
+            "purchasing_intent_records": sum(1 for r in records if r.category == "purchasing_intent"),
+            "note": ("Stages: none < general_interest < active_problem_awareness < "
+                     "purchase_consideration < verified_transactions. Search volume, "
+                     "views and likes can justify at most 'general_interest' (§10.3, §18.3)."),
+        },
+        "market_size": market_size_from_evidence(records),
+        "saturation": saturation_assessment(competitors, records),
+    }
+
+
+def build_competitor_analysis(opportunity, competitors: list) -> dict:
+    matrix = [{
+        "name": c.name, "type": c.competitor_type, "product": c.product,
+        "pricing": c.pricing_claim,  # verbatim claim or None — never invented (§11.2)
+        "pricing_evidence_id": c.pricing_evidence_id,
+        "features": c.features, "strengths": c.strengths, "weaknesses": c.weaknesses,
+        "positioning": c.positioning,
+    } for c in competitors]
+    gaps = []
+    for c in competitors:
+        for weakness in c.weaknesses:
+            gaps.append({"competitor": c.name, "gap": weakness,
+                         "commercial_significance": "unassessed — a weakness is not by itself "
+                                                    "evidence customers will switch (§7.3)"})
+    return {
+        "competitors": matrix,
+        "comparison_note": ("Prices appear only where a pricing claim was recorded with "
+                            "evidence; competitor revenue, customer counts and market share "
+                            "are never estimated (§11.2)."),
+        "identified_gaps": gaps,
+        "differentiation_candidates": (
+            ["More focused product for the stated segment",
+             "Better localisation for the stated geography",
+             "Simpler workflow than recorded alternatives"]
+            if competitors else []),
+        "differentiation_note": ("A recommendation must explain why customers would switch; "
+                                 "'competitors are expensive' is not sufficient (§11.4)."),
+    }
+
+
+# Candidate distribution channels per category: CANDIDATES ONLY. Listing a
+# channel here never asserts it will work (§14).
+CANDIDATE_CHANNELS: dict[str, list[str]] = {
+    "digital_products": ["authorized_marketplace", "search_engines", "educational_content"],
+    "software_services": ["search_engines", "partnerships", "b2b_outreach_authorized"],
+    "content": ["search_engines", "social_media", "email_with_consent"],
+    "freelance_services": ["authorized_marketplace", "partnerships", "b2b_outreach_authorized"],
+    "online_education": ["authorized_marketplace", "educational_content", "social_media"],
+    "ecommerce_digital": ["authorized_marketplace", "social_media", "search_engines"],
+    "b2b_services": ["b2b_outreach_authorized", "partnerships", "search_engines"],
 }
 
-DEMAND_TYPES: frozenset[EvidenceType] = frozenset(
-    {
-        EvidenceType.SEARCH_VOLUME,
-        EvidenceType.KEYWORD_TREND,
-        EvidenceType.MARKETPLACE_LISTING,
-        EvidenceType.OFFICIAL_STATISTIC,
-        EvidenceType.SOCIAL_SIGNAL,
+PROHIBITED_CHANNELS = {"spam", "fake_reviews", "unsolicited_bulk_messaging",
+                       "platform_manipulation", "misleading_endorsements"}
+
+
+def build_distribution_analysis(opportunity, records: list,
+                                proposed_channels: list[str] | None = None) -> dict:
+    proposed = proposed_channels or CANDIDATE_CHANNELS.get(opportunity.category, [])
+    legitimate = [c for c in proposed if c not in PROHIBITED_CHANNELS]
+    prohibited = [c for c in proposed if c in PROHIBITED_CHANNELS]
+    supported = {r.topic_key for r in records
+                 if r.category == "distribution" and _strength(r) >= _SUPPORTING}
+    return {
+        "candidate_channels": legitimate,
+        "prohibited_channels_rejected": prohibited,
+        "channels_with_supporting_evidence": sorted(supported),
+        "organic_traffic_assumption": "not assumed — organic traffic must be earned and is not forecast (§14)",
+        "paid_advertising_assumption": "not assumed profitable — no ad economics are claimed without cost evidence (§14)",
+        "legitimate_channel_count": len(legitimate),
+        "note": ("Channel availability does not imply acquisition success; conversion "
+                 "requirements and acquisition cost remain unproven until real evidence exists."),
     }
-)
-PROBLEM_TYPES: frozenset[EvidenceType] = frozenset(
-    {EvidenceType.FORUM_POST, EvidenceType.MARKETPLACE_REVIEW, EvidenceType.COMPETITOR_REVIEW}
-)
-PRICING_TYPES: frozenset[EvidenceType] = frozenset(
-    {EvidenceType.COMPETITOR_PRICING, EvidenceType.VENDOR_PRICE_QUOTE}
-)
-
-
-def _best_classification(evidence: Sequence[SourceEvidence]) -> EvidenceClassification | None:
-    admissible = [e for e in evidence if e.classification in ADMISSIBLE_CLASSIFICATIONS]
-    if not admissible:
-        return None
-    order = {
-        EvidenceClassification.VERIFIED: 0,
-        EvidenceClassification.CORROBORATED: 1,
-        EvidenceClassification.SUPPORTING: 2,
-        EvidenceClassification.TENTATIVE: 3,
-    }
-    return min(admissible, key=lambda e: order[e.classification]).classification
-
-
-class MarketAnalyser:
-    """§10 market and customer analysis."""
-
-    def sizing_from_evidence(
-        self,
-        evidence: Sequence[SourceEvidence],
-        *,
-        geography: Sequence[str] = (),
-        segments: Sequence[str] = (),
-        buying_trigger: str | None = None,
-        alternatives: Sequence[str] = (),
-    ) -> MarketSizing:
-        """Build TAM/SAM/SOM only from evidence that actually carries a figure.
-
-        A record qualifies when it is an OFFICIAL_STATISTIC or a marketplace
-        observation with a numeric value, an admissible classification and a named
-        source.  Anything else leaves that level unset and records a data gap -
-        an unknown market size is a legitimate finding.
-        """
-        gaps: list[str] = []
-        levels: dict[str, SizedMarket | None] = {"tam": None, "sam": None, "som": None}
-
-        for label, wanted_types in (
-            ("tam", {EvidenceType.OFFICIAL_STATISTIC}),
-            ("sam", {EvidenceType.OFFICIAL_STATISTIC, EvidenceType.MARKETPLACE_LISTING}),
-            ("som", {EvidenceType.MARKETPLACE_LISTING}),
-        ):
-            candidates = [
-                e
-                for e in evidence
-                if e.evidence_type in wanted_types
-                and e.numeric_value is not None
-                and e.classification in ADMISSIBLE_CLASSIFICATIONS
-                and e.source_id is not None
-                and label.upper() in (e.claim or "").upper()
-            ]
-            if not candidates:
-                gaps.append(
-                    f"{label.upper()} could not be sized: no admissible evidence "
-                    f"record carries a {label.upper()} figure"
-                )
-                continue
-            best = candidates[0]
-            levels[label] = SizedMarket(
-                label=label,  # type: ignore[arg-type]
-                value=best.numeric_value,
-                unit="currency_per_year" if (best.unit or "").lower() in {"usd", "eur", "gbp", "inr", "currency"} else "customers",
-                provenance=PROVENANCE_FROM_RELIABILITY[best.reliability],
-                basis=best.claim[:400],
-                evidence_ids=(best.evidence_id,),
-                as_of=best.collected_at,
-                region=geography[0] if geography else None,
-            )
-
-        return MarketSizing(
-            tam=levels["tam"],
-            sam=levels["sam"],
-            som=levels["som"],
-            geography=tuple(geography),
-            customer_segments=tuple(segments),
-            buying_trigger=buying_trigger,
-            existing_alternatives=tuple(alternatives),
-            data_gaps=tuple(gaps),
-        )
-
-    def signals_from_evidence(self, evidence: Sequence[SourceEvidence]) -> tuple[MarketSignal, ...]:
-        out: list[MarketSignal] = []
-        for item in evidence:
-            if item.evidence_type not in DEMAND_TYPES:
-                continue
-            if item.classification not in ADMISSIBLE_CLASSIFICATIONS:
-                continue
-            out.append(
-                MarketSignal(
-                    signal=item.claim,
-                    metric_name=item.evidence_type.value,
-                    metric_value=item.numeric_value,
-                    unit=item.unit,
-                    observed_at=item.collected_at,
-                    evidence_id=item.evidence_id,
-                    provenance=(
-                        Provenance.UNKNOWN
-                        if item.numeric_value is None
-                        else PROVENANCE_FROM_RELIABILITY[item.reliability]
-                    ),
-                )
-            )
-        return tuple(out)
-
-    def importance_from_evidence(
-        self, evidence: Sequence[SourceEvidence]
-    ) -> tuple[str, str | None]:
-        """Rate problem importance from counted problem observations.
-
-        The rating is a function of how many admissible problem records exist and
-        how well they are classified - not of how emphatic their wording is.  With
-        no problem evidence the answer is ``unknown``, which is a valid result.
-        """
-        problem_records = [
-            e
-            for e in evidence
-            if e.evidence_type in PROBLEM_TYPES and e.classification in ADMISSIBLE_CLASSIFICATIONS
-        ]
-        if not problem_records:
-            return "unknown", None
-        strong = sum(
-            1
-            for e in problem_records
-            if e.classification in {EvidenceClassification.VERIFIED, EvidenceClassification.CORROBORATED}
-        )
-        count = len(problem_records)
-        if strong >= 2:
-            rating, why = "acute", f"{strong} strongly classified problem observations among {count}"
-        elif strong == 1:
-            rating, why = "significant", f"1 strongly classified problem observation among {count}"
-        elif count >= 3:
-            rating, why = "moderate", f"{count} weakly classified problem observations"
-        elif count == 2:
-            rating, why = "minor", f"2 weakly classified problem observations"
-        else:
-            rating, why = "trivial", "a single weakly classified problem observation"
-        return rating, why
-
-    def analyse(
-        self,
-        evidence: Sequence[SourceEvidence],
-        *,
-        geography: Sequence[str] = (),
-        segments: Sequence[str] = (),
-        buying_trigger: str | None = None,
-        alternatives: Sequence[str] = (),
-    ) -> MarketAssessment:
-        demand_evidence = [e for e in evidence if e.evidence_type in DEMAND_TYPES]
-        admissible_demand = [
-            e for e in demand_evidence if e.classification in ADMISSIBLE_CLASSIFICATIONS
-        ]
-        contradicted = [
-            e for e in demand_evidence if e.classification is EvidenceClassification.CONTRADICTED
-        ]
-        best = _best_classification(admissible_demand)
-        importance, importance_basis = self.importance_from_evidence(evidence)
-        sizing = self.sizing_from_evidence(
-            evidence,
-            geography=geography,
-            segments=segments,
-            buying_trigger=buying_trigger,
-            alternatives=alternatives,
-        )
-        signals = self.signals_from_evidence(evidence)
-        gaps = list(sizing.data_gaps)
-
-        if contradicted and not admissible_demand:
-            verdict = "demand_contradicted"
-            reasons = tuple(
-                f"demand is contradicted: {c.claim[:160]}" for c in contradicted[:3]
-            )
-        elif not admissible_demand:
-            verdict = "insufficient_data"
-            reasons = (
-                "no admissible demand evidence was collected; demand is neither "
-                "demonstrated nor refuted",
-            )
-            gaps.append("no admissible demand evidence")
-        elif best in {EvidenceClassification.VERIFIED, EvidenceClassification.CORROBORATED}:
-            verdict = "demand_demonstrated"
-            reasons = tuple(
-                f"demand evidenced at {best.value}: {e.claim[:160]}" for e in admissible_demand[:3]
-            )
-        elif best is EvidenceClassification.SUPPORTING:
-            verdict = "demand_plausible"
-            reasons = tuple(
-                f"demand supported but not corroborated: {e.claim[:160]}"
-                for e in admissible_demand[:3]
-            )
-        else:
-            verdict = "demand_unproven"
-            reasons = ("demand evidence is only tentative",)
-            gaps.append("demand evidence is tentative and needs corroboration")
-
-        if not geography:
-            gaps.append("no target geography was supplied")
-
-        return MarketAssessment(
-            sizing=sizing,
-            signals=signals,
-            demand_evidence_level=best or EvidenceClassification.UNVERIFIED,
-            problem_importance=importance,  # type: ignore[arg-type]
-            problem_importance_basis=importance_basis,
-            customer_description="; ".join(segments) if segments else None,
-            willingness_indicators=tuple(
-                e.claim[:160]
-                for e in evidence
-                if e.evidence_type is EvidenceType.TRANSACTION_RECORD
-                and e.classification in ADMISSIBLE_CLASSIFICATIONS
-            ),
-            data_gaps=tuple(dict.fromkeys(gaps)),
-            verdict=verdict,  # type: ignore[arg-type]
-            reasons=reasons,
-        )
-
-
-class CompetitorAnalyser:
-    """§11 competitor intelligence."""
-
-    def profiles_from_evidence(
-        self, evidence: Sequence[SourceEvidence]
-    ) -> tuple[CompetitorProfile, ...]:
-        """Build one profile per distinct source-identified competitor claim.
-
-        A profile is only created when there is something observed.  Prices are
-        attached only from COMPETITOR_PRICING records with a numeric value, and
-        carry the provenance implied by the source's reliability.
-        """
-        prices: dict[str, list[SourceEvidence]] = {}
-        for item in evidence:
-            if item.evidence_type is EvidenceType.COMPETITOR_PRICING and (
-                item.numeric_value is not None
-            ) and item.classification in ADMISSIBLE_CLASSIFICATIONS:
-                prices.setdefault(item.source_id or "unattributed", []).append(item)
-        out: list[CompetitorProfile] = []
-        for source_id, items in prices.items():
-            values = [i.numeric_value for i in items if i.numeric_value is not None]
-            out.append(
-                CompetitorProfile(
-                    name=items[0].claim[:120] or source_id,
-                    price_points=tuple(sorted(set(values))),
-                    pricing_provenance=PROVENANCE_FROM_RELIABILITY[items[0].reliability],
-                    evidence_ids=tuple(i.evidence_id for i in items),
-                    observed_at=items[0].collected_at,
-                    inspected=True,
-                )
-            )
-        return tuple(out)
-
-    def analyse(
-        self,
-        evidence: Sequence[SourceEvidence],
-        *,
-        competitors: Sequence[CompetitorProfile] = (),
-        gaps: Sequence[str] = (),
-        differentiation_basis: str | None = None,
-    ) -> CompetitorAssessment:
-        observed = tuple(competitors) or self.profiles_from_evidence(evidence)
-        data_gaps: list[str] = []
-        if not observed:
-            data_gaps.append(
-                "no competitor was observed; the competitive landscape is unknown "
-                "rather than empty"
-            )
-            return CompetitorAssessment(
-                competitors=(),
-                market_saturation="unknown",
-                gaps_identified=tuple(gaps),
-                data_gaps=tuple(data_gaps),
-                verdict="insufficient_data",
-                reasons=("no competitor evidence was collected",),
-            )
-
-        count = len(observed)
-        inspected = sum(1 for c in observed if c.inspected)
-        if inspected < count:
-            data_gaps.append(f"{count - inspected} of {count} competitors were not inspected")
-
-        if count == 0:
-            saturation = "empty"
-        elif count <= 2:
-            saturation = "sparse"
-        elif count <= 5:
-            saturation = "moderate"
-        elif count <= 12:
-            saturation = "crowded"
-        else:
-            saturation = "saturated"
-
-        identified = list(gaps)
-        for competitor in observed:
-            identified.extend(competitor.identified_gaps)
-            identified.extend(competitor.complaint_themes)
-        identified = list(dict.fromkeys(identified))
-
-        if saturation == "saturated" and not identified:
-            verdict, reasons = "saturated_no_entry", (
-                f"{count} competitors observed and no gap identified",
-            )
-        elif saturation in {"saturated", "crowded"}:
-            verdict = "crowded_but_viable" if identified else "saturated_no_entry"
-            reasons = (
-                f"{count} competitors observed, saturation {saturation}"
-                + (f", {len(identified)} gap(s) identified" if identified else ", no gap identified"),
-            )
-        elif identified:
-            verdict = "differentiation_required"
-            reasons = (f"{count} competitors observed; {len(identified)} gap(s) to differentiate on",)
-        else:
-            verdict = "open_opportunity" if count == 0 else "differentiation_required"
-            reasons = (f"{count} competitors observed",)
-
-        if count > 0 and verdict == "open_opportunity":
-            # The schema forbids this combination; fall back rather than raise.
-            verdict = "differentiation_required"
-
-        return CompetitorAssessment(
-            competitors=observed,
-            market_saturation=saturation,  # type: ignore[arg-type]
-            gaps_identified=tuple(identified),
-            differentiation_available=bool(identified) and differentiation_basis is not None,
-            differentiation_basis=differentiation_basis,
-            data_gaps=tuple(data_gaps),
-            verdict=verdict,  # type: ignore[arg-type]
-            reasons=reasons,
-        )
-
-
-class BusinessModelAnalyser:
-    """§12 business-model analysis."""
-
-    def derive(
-        self,
-        evidence: Sequence[SourceEvidence],
-        *,
-        model_type: BusinessModelType | None = None,
-        revenue_mechanism: str | None = None,
-        billing_period: str = "once",
-        payment_processor: str | None = None,
-    ) -> BusinessModelAnalysis | None:
-        """Derive a model from observed competitor pricing.
-
-        Returns ``None`` when nothing is observed: the caller records that as a
-        data gap rather than inventing a plausible business model.
-        """
-        prices = [
-            e
-            for e in evidence
-            if e.evidence_type is EvidenceType.COMPETITOR_PRICING
-            and e.numeric_value is not None
-            and e.classification in ADMISSIBLE_CLASSIFICATIONS
-        ]
-        quotes = [
-            e
-            for e in evidence
-            if e.evidence_type is EvidenceType.VENDOR_PRICE_QUOTE and e.numeric_value is not None
-        ]
-        if not prices and not revenue_mechanism:
-            return None
-
-        price = None
-        provenance = Provenance.UNKNOWN
-        evidence_ids: list[str] = []
-        if prices:
-            values = sorted(p.numeric_value for p in prices if p.numeric_value is not None)
-            # The LOWER median, not the mean: a single outlier listing must not
-            # set the price of the whole model.  Taking the lower of the two
-            # middle values for an even count is deliberate - `len // 2` selects
-            # the upper one, which biases every price estimate upward and with it
-            # every revenue projection.  Biasing low is the conservative error,
-            # and this phase is supposed to be conservative.
-            price = values[(len(values) - 1) // 2]
-            provenance = PROVENANCE_FROM_RELIABILITY[prices[0].reliability]
-            evidence_ids.extend(p.evidence_id for p in prices)
-
-        processor_fee: Decimal | None = None
-        fee_provenance = Provenance.UNKNOWN
-        for quote in quotes:
-            if "processor" in (quote.claim or "").lower() or "fee" in (quote.claim or "").lower():
-                processor_fee = quote.numeric_value
-                fee_provenance = PROVENANCE_FROM_RELIABILITY[quote.reliability]
-                evidence_ids.append(quote.evidence_id)
-                break
-
-        weaknesses: list[str] = []
-        if provenance is Provenance.ESTIMATE:
-            weaknesses.append("the price point rests on an estimate rather than a quote")
-        if not prices:
-            weaknesses.append("no competitor price was observed; the mechanism is asserted, not evidenced")
-
-        return BusinessModelAnalysis(
-            model_type=model_type or BusinessModelType.ONE_TIME_SALE,
-            revenue_mechanism=revenue_mechanism
-            or (f"selling at an observed competitor price point of {price}" if price else "unspecified"),
-            price_point=price,
-            price_provenance=provenance if price is not None else Provenance.UNKNOWN,
-            billing_period=billing_period,  # type: ignore[arg-type]
-            payment_processor=payment_processor,
-            processor_fee_pct=processor_fee,
-            fee_provenance=fee_provenance if processor_fee is not None else Provenance.UNKNOWN,
-            weaknesses=tuple(weaknesses),
-            evidence_ids=tuple(dict.fromkeys(evidence_ids)),
-        )
-
-
-class DistributionAnalyser:
-    """§14 distribution and customer acquisition."""
-
-    def channels_from_evidence(
-        self, evidence: Sequence[SourceEvidence]
-    ) -> tuple[DistributionChannel, ...]:
-        out: list[DistributionChannel] = []
-        seen: set[str] = set()
-        for item in evidence:
-            if item.evidence_type not in {
-                EvidenceType.MARKETPLACE_LISTING,
-                EvidenceType.SOCIAL_SIGNAL,
-            }:
-                continue
-            if item.classification not in ADMISSIBLE_CLASSIFICATIONS:
-                continue
-            name = (item.claim or "")[:100]
-            if not name or name.lower() in seen:
-                continue
-            seen.add(name.lower())
-            kind = "marketplace" if item.evidence_type is EvidenceType.MARKETPLACE_LISTING else "social_organic"
-            out.append(
-                DistributionChannel(
-                    channel=name,
-                    kind=kind,  # type: ignore[arg-type]
-                    platform_controlled=True,
-                    dependency_risk="medium",
-                    feasible_without_ad_spend=True,
-                    evidence_ids=(item.evidence_id,),
-                    notes=f"observed via {item.evidence_type.value}",
-                )
-            )
-        return tuple(out)
-
-    def analyse(
-        self,
-        evidence: Sequence[SourceEvidence],
-        *,
-        channels: Sequence[DistributionChannel] = (),
-    ) -> DistributionAssessment:
-        observed = tuple(channels) or self.channels_from_evidence(evidence)
-        if not observed:
-            return DistributionAssessment(
-                channels=(),
-                data_gaps=("no distribution channel was observed or supplied",),
-                verdict="insufficient_data",
-                reasons=("no route to customers could be identified from the evidence",),
-            )
-        organic = [c for c in observed if c.feasible_without_ad_spend]
-        if organic:
-            verdict = "clear_path" if len(organic) >= 2 else "plausible_path"
-            reasons = (
-                f"{len(organic)} channel(s) reachable without advertising spend: "
-                + ", ".join(c.channel[:40] for c in organic[:3]),
-            )
-        else:
-            verdict = "requires_ad_spend"
-            reasons = ("every observed channel requires advertising spend",)
-        return DistributionAssessment(
-            channels=observed,
-            verdict=verdict,  # type: ignore[arg-type]
-            reasons=reasons,
-            data_gaps=(
-                "channel costs were not observed; acquisition cost is unknown"
-                if all(c.cost_provenance is Provenance.UNKNOWN for c in observed)
-                else None,
-            )
-            if any(c.cost_provenance is Provenance.UNKNOWN for c in observed)
-            else (),
-        )
