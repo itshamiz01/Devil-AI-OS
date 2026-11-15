@@ -457,3 +457,76 @@ def test_finance_employees_have_no_financial_execution(client):
         profile = client.get(f"{WF}/employees/{eid}").json()["data"]
         assert "financial.execute" not in profile["tool_access"]
         assert "spending.authorize" not in profile["tool_access"]
+
+
+# --------------------------------------------------------------------------- #
+# Stage 11: the full cycle, end to end
+# --------------------------------------------------------------------------- #
+def test_full_cycle_owner_to_ceo_to_mgr_to_emp_to_review_to_report(client):
+    """The whole governed cycle, walked through the API in order:
+
+    OWNER submits an objective -> CEO delegates it to a department ->
+    the manager assigns a work order -> the employee accepts, works and
+    submits for review -> the manager reviews and completes it with
+    evidence -> the CEO's end-of-day report reflects the verified outcome
+    -> the owner reads the report and the employee's KPI.
+
+    Every step is a real backend record; nothing is asserted that was not
+    actually written.
+    """
+    # 1. OWNER submits an objective to the CEO office.
+    obj = client.post(f"{WF}/objectives", json={
+        "objective": "Launch a validated research-backed product",
+        "departments": ["RES", "TECH"],
+    }).json()["data"]
+    oid = obj["objective"]["id"]
+    assert obj["objective"]["status"] == "DELEGATED"
+
+    # 2. CEO delegates the objective to the department managers.
+    delegation = client.post(f"{WF}/objectives/{oid}/delegate",
+                             json={"departments": ["RES", "TECH"]}).json()["data"]
+    assert delegation["status"] == "DELEGATED"
+    assert set(delegation["departments"]) == {"RES", "TECH"}
+
+    # 3. The manager assigns a work order to a specialist employee.
+    order = client.post(f"{WF}/work-orders", json={
+        "employee_id": "DEV-RES-001",
+        "title": "Compile the research findings",
+        "instructions": "Synthesize the research into a findings brief.",
+        "verification_requirements": ["findings_present"],
+        "expected_deliverable": {"type": "brief"},
+    }).json()["data"]
+    order_id = order["id"]
+    assert order["status"] == "TASK_ASSIGNED"
+
+    # 4. The employee accepts, works, and submits for review.
+    assert client.post(f"{WF}/work-orders/{order_id}/advance",
+                       json={"action": "accept"}).json()["data"]["status"] == "TASK_ACCEPTED"
+    assert client.post(f"{WF}/work-orders/{order_id}/advance",
+                       json={"action": "start"}).json()["data"]["status"] == "WORKING"
+    assert client.post(f"{WF}/work-orders/{order_id}/advance",
+                       json={"action": "submit_review"}).json()["data"]["status"] == "REVIEW_PENDING"
+
+    # 5. The manager reviews and completes it, with evidence and a satisfied
+    #    verification requirement.
+    completed = client.post(f"{WF}/work-orders/{order_id}/advance", json={
+        "action": "complete",
+        "result": {"findings_present": True},
+        "evidence": ["source A", "source B"],
+    }).json()["data"]
+    assert completed["status"] == "COMPLETED"
+
+    # 6. The CEO's end-of-day report reflects the verified outcome.
+    report = client.get(f"{WF}/ceo/end-of-day").json()["data"]
+    assert report["tasks_completed"] >= 1
+    assert report["note"], "the report must distinguish actual outcomes from estimates"
+
+    # 7. The owner reads the employee's KPI, computed from the verified outcome.
+    client.post(f"{WF}/performance/recompute")
+    kpis = client.get(f"{WF}/employees/DEV-RES-001/kpis").json()["data"]
+    assert kpis, "the employee should have a KPI record from the completed work"
+    assert kpis[0]["verified_success_rate"] > 0
+
+    # The organization overview still reports the intact 111-employee baseline.
+    overview = client.get(f"{WF}/overview").json()["data"]
+    assert overview["total_employees"] == 111
