@@ -42,6 +42,8 @@ from app.opportunities.schemas import (
     ADMISSIBLE_CLASSIFICATIONS,
     CLASSIFICATION_TO_UNCERTAINTY,
     EvidenceClassification,
+    RetrievedContent,
+    SourceDescriptor,
     SourceEvidence,
 )
 

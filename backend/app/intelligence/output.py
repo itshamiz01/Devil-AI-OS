@@ -171,9 +171,18 @@ class StructuredOutputParser:
         schema — never the raw output echoed back at length, which would waste
         context budget on a host with very little of it.
         """
+        # `except ... as first` deletes `first` when the block exits, so the
+        # error details must be read here, inside the block, and carried out.
+        # Referencing `first` after the block raised NameError - which broke
+        # every structured-output repair attempt (a latent crash on the fallback
+        # path, never exercised by the suite).
+        validation_errors = ""
         try:
             return self.parse(text, model_type)
         except StructuredOutputError as first:
+            validation_errors = (
+                chr(10).join('- ' + e for e in first.errors) or '- ' + first.detail
+            )
             if self.router is None or self.repair_attempts >= MAX_REPAIR_ATTEMPTS:
                 raise
             self.repair_attempts += 1
@@ -181,7 +190,7 @@ class StructuredOutputParser:
         repair_prompt = (
             "Your previous response could not be validated. Return ONLY a JSON "
             "object matching the required schema, with no prose and no code fence.\n\n"
-            f"Validation errors:\n{chr(10).join('- ' + e for e in first.errors) or '- ' + first.detail}\n\n"
+            f"Validation errors:\n{validation_errors}\n\n"
             f"Required schema:\n{json.dumps(model_type.model_json_schema(), indent=2)[:2000]}"
         )
         repair_request = request.model_copy(update={
