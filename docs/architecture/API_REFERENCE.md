@@ -306,3 +306,92 @@ Deliberate behaviours:
 * **`AUTONOMUS_EXECUTION_ENABLED=false` answers `409 execution_disabled`** naming
   the setting, rather than a 500 from a half-built engine.
 
+
+### Workforce endpoints (P-WORKFORCE: 111-employee virtual organization)
+
+All routes are under `/api/v1/workforce`, permission-gated through the P-01
+engine, and return the standard envelope. The subsystem is reached through
+`services.workforce`; when `AUTONOMUS_WORKFORCE_ENABLED=false`, every route
+except `/status` returns `409 workforce_disabled`.
+
+**Organization**
+
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| GET | `/workforce/overview` | `workforce.read` | Real employee/department/work-order counts from the database |
+| GET | `/workforce/structure` | `workforce.read` | The full CEO → manager → specialist hierarchy |
+| GET | `/workforce/status` | `workforce.read` | What the subsystem has assembled (also answers when disabled) |
+
+**Departments and employees**
+
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| GET | `/workforce/departments` | `workforce.read` | Department list with manager and employee counts |
+| GET | `/workforce/departments/{code}/performance` | `workforce.performance` | Department KPI aggregation |
+| GET | `/workforce/employees` | `workforce.read` | Employee list (optional `department_code`, `status` filters) |
+| GET | `/workforce/employees/{employee_id}` | `workforce.read` | One employee profile (identity, role, instructions, memory scope, permissions) |
+| PATCH | `/workforce/employees/{employee_id}/status` | `workforce.manage` | Change an employee's status (recorded in status history) |
+
+**CEO office**
+
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| POST | `/workforce/objectives` | `workforce.ceo` | Submit an executive objective (keyword → department mapping) |
+| GET | `/workforce/objectives` | `workforce.read` | List objectives |
+| POST | `/workforce/objectives/{id}/delegate` | `workforce.ceo` | Delegate an objective to department managers |
+| GET | `/workforce/ceo/briefing` | `workforce.ceo` | Morning briefing from real records |
+| GET | `/workforce/ceo/end-of-day` | `workforce.ceo` | End-of-day report (distinguishes actual outcomes from estimates) |
+| GET | `/workforce/ceo/weekly-review` | `workforce.ceo` | Weekly review |
+
+**Work orders**
+
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| POST | `/workforce/work-orders` | `workforce.assign` | Assign a work order (hierarchy-enforced: only the employee's own manager or the CEO) |
+| GET | `/workforce/work-orders` | `workforce.read` | List work orders (optional `status` filter) |
+| POST | `/workforce/work-orders/{id}/advance` | `workforce.assign` | Advance the state machine (accept/start/submit_review/complete) |
+
+**Collaboration**
+
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| POST | `/workforce/handoffs` | `workforce.communicate` | Create a cross-department handoff (same-department refused) |
+| GET | `/workforce/handoffs` | `workforce.read` | List handoffs |
+| POST | `/workforce/messages` | `workforce.communicate` | Send an internal message |
+| GET | `/workforce/messages/{a}/{b}` | `workforce.read` | A two-party conversation |
+
+**Performance and memory**
+
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| GET | `/workforce/employees/{employee_id}/kpis` | `workforce.performance` | An employee's computed KPIs |
+| POST | `/workforce/performance/recompute` | `workforce.performance` | Recompute all KPIs from verified outcomes |
+| POST | `/workforce/employees/{employee_id}/memory` | `workforce.memory` | Record scoped memory (credentials refused) |
+| GET | `/workforce/employees/{employee_id}/memory` | `workforce.memory` | Read an employee's own memory |
+
+**Command Center (§18), NL commands (§19), Finance (§22)**
+
+| Method | Path | Permission | Purpose |
+|---|---|---|---|
+| GET | `/workforce/command-center` | `workforce.read` | Backend-only dashboard aggregated from real records |
+| POST | `/workforce/commands` | `workforce.ceo` | Interpret one natural-language command (deterministic; unsupported commands refused) |
+| GET | `/workforce/finance/report` | `workforce.performance` | Finance analysis/reporting only — no spending authority |
+
+**Governance notes**
+
+* **The 111-employee baseline is idempotent.** Seeding is keyed on stable
+  employee IDs (`DEV-CEO-001`, `DEV-MGR-001..010`, `DEV-<DEPT>-001..010`); a
+  restart never duplicates an employee.
+* **Baseline employees are excluded from the agent-factory registry and
+  capability-grant counts** (portable `COALESCE` predicate on
+  `metadata_json["employee_id"]`), so the organization does not pollute factory
+  counts or catalog reconciliation.
+* **Completion is judged, not accepted**: a work order reaches `COMPLETED` only
+  when its deliverable satisfies the verification requirements and carries
+  evidence.
+* **The Finance Office holds no spending authority** (ADR-0020); the
+  `financial.execute` and `spending.authorize` capabilities are in the catalog's
+  PROHIBITED set and never appear in any employee's tool access.
+* **NL commands are deterministic keyword matching**, not an inference call; an
+  unrecognized command is refused with the supported vocabulary rather than
+  guessed at.

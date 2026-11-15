@@ -289,3 +289,37 @@ async def read_memory(employee_id: str, request: Request,
                       principal=Depends(require_permission("workforce.memory"))):
     services = _require_workforce(request)
     return envelope(await services.memory.read(employee_id, category=category))
+
+
+# --------------------------------------------------------------------------- #
+# Command Center (§18) and natural-language commands (§19)
+# --------------------------------------------------------------------------- #
+@router.get("/command-center")
+async def command_center_dashboard(request: Request,
+                                   principal=Depends(require_permission("workforce.read"))):
+    services = _require_workforce(request)
+    return envelope(await services.command_center.dashboard())
+
+
+@router.post("/commands")
+async def interpret_command(request: Request, body: dict,
+                            principal=Depends(require_permission("workforce.ceo"))):
+    """Interpret one natural-language command and dispatch it (§19).
+
+    Deterministic keyword matching over a fixed vocabulary; an unrecognized
+    command is refused with the supported intents rather than guessed at.
+    """
+    services = _require_workforce(request)
+    command = body.get("command", "")
+    actor = principal.name if getattr(principal, "name", None) else "owner"
+    return envelope(await services.command.interpret(command, actor_id=actor))
+
+
+# --------------------------------------------------------------------------- #
+# Finance Office (§22): analysis and reporting only
+# --------------------------------------------------------------------------- #
+@router.get("/finance/report")
+async def finance_report(request: Request,
+                         principal=Depends(require_permission("workforce.performance"))):
+    services = _require_workforce(request)
+    return envelope(await services.finance.report())

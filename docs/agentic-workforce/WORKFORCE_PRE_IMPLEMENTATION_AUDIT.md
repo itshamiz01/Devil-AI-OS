@@ -188,15 +188,15 @@ list, permission-gated. New permission codes seeded into `PERMISSIONS`.
 | 6 | Employee execution: work orders, acceptance, processing, tool access, deliverables, manager review | Test: full lifecycle states; deliverable standards enforced |
 | 7 | Agentic collaboration: structured handoffs, cross-department collaboration, dependency management, verification | Test: handoff-gated access; unauthorized access refused |
 | 8 | Memory and performance: employee memory, KPI tracking, manager/CEO evaluation | Test: KPIs from verified outcomes; no self-edit |
-| 9 | Command Center: org dashboard APIs (backend-only), CEO office, department views, employee profiles, communication, approvals | Test: overview counts from real records |
-| 10 | Security and resource optimization: P-10 enforcement, business isolation, resource limits, emergency shutdown, recovery | Test: security scenarios from §25 |
-| 11 | Testing and final audit: all §25 tests, §27 docs, DEFINITION OF DONE | Full suite green + audits + doc report |
+| 9 | Command Center: org dashboard APIs (backend-only), CEO office, department views, employee profiles, communication, approvals, NL command interpreter (§19), Finance Office (§22) | Test: dashboard aggregates real records; NL commands dispatch or refuse; finance is analysis-only |
+| 10 | Security and resource optimization: P-10 enforcement, business isolation, resource limits, emergency shutdown, recovery; workforce security boundaries (no self-grant, no financial execution, memory isolation) | Test: security scenarios from §25 |
+| 11 | Testing and final audit: all §25 tests, §27 docs, DEFINITION OF DONE; full OWNER→CEO→MGR→EMP→review→report cycle tested end-to-end | Full suite green + audits + doc report |
 
 ## 8. Classification summary
 
 **IMPLEMENTED AND VERIFIED (reused):** Core OS, task queue, permissions/approvals/audit, Master Intelligence Engine, Opportunity Discovery, Agent Factory (registry, templates, creation engine, capability catalog, assignment ledger), Digital Execution (fs + code), event bus, API conventions, test harness.
 
-**NOT IMPLEMENTED (new):** Organization registry, 111-employee baseline, CEO, manager operating system, employee execution system, structured communication/handoffs, performance/KPI system, employee memory, organizational APIs, concurrency governance, Command Center backend.
+**IMPLEMENTED AND VERIFIED (new, this engagement):** Organization registry, 111-employee baseline (idempotent), CEO office, manager operating system, employee execution system, structured communication/handoffs, performance/KPI system, employee memory, organizational APIs, concurrency governance, Command Center backend (§18), NL command interpreter (§19), Finance Office (§22, analysis-only).
 
 **BLOCKED:** None architectural. The `agent_max_total` ceiling is a configuration change with a documented justification, not a blocker to the design.
 

@@ -19,6 +19,8 @@ from typing import Any
 from ..core.config import Settings
 from ..database.connection import Database
 from .ceo import CeoOffice
+from .command import CommandCenter, CommandInterpreter
+from .finance import FinanceOffice
 from .memory import MemoryStore
 from .performance import PerformanceEngine
 from .registry import ensure_baseline
@@ -33,6 +35,8 @@ class WorkforceServices:
     def __init__(self, *, settings: Settings, db: Database,
                  workforce: WorkforceService, ceo: CeoOffice,
                  performance: PerformanceEngine, memory: MemoryStore,
+                 command_center: CommandCenter, command: CommandInterpreter,
+                 finance: FinanceOffice,
                  notes: tuple[str, ...] = ()) -> None:
         self.settings = settings
         self.db = db
@@ -40,6 +44,9 @@ class WorkforceServices:
         self.ceo = ceo
         self.performance = performance
         self.memory = memory
+        self.command_center = command_center
+        self.command = command
+        self.finance = finance
         self.notes = list(notes)
 
     def status(self) -> dict[str, Any]:
@@ -56,6 +63,9 @@ class WorkforceServices:
             "communication": True,
             "performance": True,
             "memory": True,
+            "command_center": True,
+            "nl_commands": True,
+            "finance": True,
             "notes": tuple(self.notes),
         }
 
@@ -74,6 +84,12 @@ def build_workforce(settings: Settings, db: Database, *,
     ceo = CeoOffice(settings=settings, db=db, workforce=workforce)
     performance = PerformanceEngine(settings=settings, db=db)
     memory = MemoryStore(settings=settings, db=db)
+    command_center = CommandCenter(settings=settings, db=db,
+                                   workforce=workforce, performance=performance)
+    finance = FinanceOffice(settings=settings, db=db)
+    command = CommandInterpreter(settings=settings, db=db, workforce=workforce,
+                                 ceo=ceo, performance=performance,
+                                 command_center=command_center, finance=finance)
     notes = [
         "the 111-employee baseline is registered through the existing agent "
         "registry and capability catalog - no second registry, scheduler, "
@@ -90,10 +106,19 @@ def build_workforce(settings: Settings, db: Database, *,
         "employee memory is scoped and isolated; cross-department access occurs "
         "only through approved handoffs, and credentials are never stored in "
         "ordinary memory",
+        "the Command Center (§18) is a backend-only dashboard aggregated from "
+        "real records; the natural-language command interpreter (§19) is "
+        "deterministic keyword matching over a fixed vocabulary, with an honest "
+        "refusal for anything outside it - not an inference call",
+        "the Finance Office (§22) is analysis and reporting only: it holds no "
+        "spending authority, and no method of it can execute, authorize or move "
+        "money (ADR-0020, PROHIBITED capabilities)",
     ]
     return WorkforceServices(
         settings=settings, db=db, workforce=workforce, ceo=ceo,
-        performance=performance, memory=memory, notes=tuple(notes))
+        performance=performance, memory=memory,
+        command_center=command_center, command=command, finance=finance,
+        notes=tuple(notes))
 
 
 async def initialize(services: WorkforceServices, *,

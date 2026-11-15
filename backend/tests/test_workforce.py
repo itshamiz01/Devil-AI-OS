@@ -530,3 +530,111 @@ def test_full_cycle_owner_to_ceo_to_mgr_to_emp_to_review_to_report(client):
     # The organization overview still reports the intact 111-employee baseline.
     overview = client.get(f"{WF}/overview").json()["data"]
     assert overview["total_employees"] == 111
+
+
+# --------------------------------------------------------------------------- #
+# Stage 9+: Command Center (§18), NL commands (§19), Finance (§22)
+# --------------------------------------------------------------------------- #
+def test_command_center_dashboard_aggregates_real_records(client):
+    """§18: the dashboard is a read-only projection of real records."""
+    resp = client.get(f"{WF}/command-center")
+    assert resp.status_code == 200, resp.text
+    dash = resp.json()["data"]
+    health = dash["organization_health"]
+    assert health["total_employees"] == 111
+    assert health["ceo_count"] == 1
+    assert health["manager_count"] == 10
+    assert health["specialist_count"] == 100
+    assert health["department_count"] == 10
+    # the pipeline and objective buckets are present, even when empty
+    assert "work_order_pipeline" in dash
+    assert "objective_progress" in dash
+    assert dash["source"].startswith("real workforce records")
+
+
+def test_nl_command_dashboard_and_briefing(client):
+    """§19: recognized commands dispatch to real operations."""
+    r = client.post(f"{WF}/commands", json={"command": "show me the dashboard"})
+    assert r.status_code == 200, r.text
+    out = r.json()["data"]
+    assert out["outcome"] == "executed"
+    assert out["intent"] == "dashboard"
+    assert out["result"]["organization_health"]["total_employees"] == 111
+
+    r = client.post(f"{WF}/commands", json={"command": "give me the daily briefing"})
+    out = r.json()["data"]
+    assert out["outcome"] == "executed"
+    assert out["intent"] == "briefing"
+
+
+def test_nl_command_assign_creates_a_work_order(client):
+    """§19: an assign command parses an employee id and a task into a work order."""
+    r = client.post(f"{WF}/commands", json={
+        "command": "assign DEV-RES-001 to research the competitive landscape"})
+    assert r.status_code == 200, r.text
+    out = r.json()["data"]
+    assert out["outcome"] == "executed"
+    assert out["intent"] == "assign"
+    result = out["result"]["result"]
+    assert result["employee_id"] == "DEV-RES-001"
+    assert result["status"] == "TASK_ASSIGNED"
+
+
+def test_nl_command_delegate_creates_an_objective(client):
+    """§19: a delegate command creates a CEO objective."""
+    r = client.post(f"{WF}/commands", json={
+        "command": "delegate launch a validated research-backed product to RES and TECH"})
+    assert r.status_code == 200, r.text
+    out = r.json()["data"]
+    assert out["outcome"] == "executed"
+    assert out["intent"] == "delegate"
+    objective = out["result"]["result"]["objective"]
+    assert objective["status"] == "DELEGATED"
+
+
+def test_nl_command_refuses_unsupported_commands(client):
+    """§19: an unrecognized command is refused, not guessed at."""
+    r = client.post(f"{WF}/commands", json={"command": "buy a GPU cluster"})
+    assert r.status_code == 200, r.text
+    out = r.json()["data"]
+    assert out["outcome"] == "refused"
+    assert out["intent"] is None
+    assert out["supported"], "a refusal must list the supported intents"
+
+
+def test_nl_command_empty_is_refused(client):
+    r = client.post(f"{WF}/commands", json={"command": ""})
+    out = r.json()["data"]
+    assert out["outcome"] == "refused"
+
+
+def test_finance_report_is_analysis_only(client):
+    """§22: the finance office analyzes and reports, never executes."""
+    resp = client.get(f"{WF}/finance/report")
+    assert resp.status_code == 200, resp.text
+    report = resp.json()["data"]
+    assert report["mode"] == "analysis_and_reporting"
+    assert report["authority"] == "none"
+    assert "no authority" in report["boundary"].lower()
+    assert "work_order_economics" in report
+    # no spending surface is exposed
+    assert "spending" not in str(report).lower() or "prohibited" in str(report).lower()
+
+
+def test_finance_report_counts_real_work_orders(client):
+    """§22: the finance report counts real work-order activity."""
+    # create and complete a work order so the report has something to count
+    order = client.post(f"{WF}/work-orders", json={
+        "employee_id": "DEV-FIN-001", "title": "Budget analysis task",
+        "instructions": "Analyze the budget.", "verification_requirements": ["ok"],
+    }).json()["data"]
+    oid = order["id"]
+    client.post(f"{WF}/work-orders/{oid}/advance", json={"action": "accept"})
+    client.post(f"{WF}/work-orders/{oid}/advance", json={"action": "start"})
+    client.post(f"{WF}/work-orders/{oid}/advance", json={"action": "submit_review"})
+    client.post(f"{WF}/work-orders/{oid}/advance", json={
+        "action": "complete", "result": {"ok": True}, "evidence": ["ev1"]})
+    report = client.get(f"{WF}/finance/report").json()["data"]
+    eco = report["work_order_economics"]
+    assert eco["completed"] >= 1
+    assert eco["completion_rate"] > 0

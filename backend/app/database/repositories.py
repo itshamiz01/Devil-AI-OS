@@ -1086,6 +1086,14 @@ class WorkforceStatusHistoryRepo:
             .order_by(WorkforceStatusHistory.created_at.desc()))
         return list(r.scalars().all())
 
+    async def list_all(self) -> Sequence[Any]:
+        """Every status change, newest first (for the Command Center)."""
+        from .models import WorkforceStatusHistory
+        r = await self.session.execute(
+            select(WorkforceStatusHistory)
+            .order_by(WorkforceStatusHistory.created_at.desc()))
+        return list(r.scalars().all())
+
 
 class WorkforceMemoryRepo:
     """Scoped employee memory entries (§13)."""
