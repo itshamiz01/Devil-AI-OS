@@ -153,3 +153,41 @@ def test_the_stage_4_creation_request_changes_render_for_postgres(postgres_sql):
     assert ("ADD CONSTRAINT ck_agent_creation_requests_approval_status "
             "CHECK") in postgres_sql
     assert "ALTER COLUMN approval_status SET DEFAULT" in postgres_sql
+
+
+def test_no_foreign_key_references_a_table_created_later(postgres_sql):
+    """A FOREIGN KEY must reference a table that already exists.
+
+    Postgres rejects a CREATE TABLE whose FK points at a table created later
+    in the same transaction (SQLite defers the check, so this passes on the
+    tested SQLite path and only surfaces on a real Postgres host). This scans
+    the rendered DDL to make sure every referenced table is created before the
+    table that references it, so the ordering bug cannot reach a deployment.
+    """
+    import re
+
+    # Map each table to the character offset where its CREATE TABLE appears.
+    create_offsets: dict[str, int] = {}
+    for m in re.finditer(r"CREATE TABLE (\w+)", postgres_sql):
+        create_offsets[m.group(1)] = m.start()
+
+    # Split the SQL into individual CREATE TABLE blocks so each FK is checked
+    # against the table that actually declares it (a naive cross-block regex
+    # pairs the wrong referencing table with the referenced one).
+    for block in re.finditer(
+        r"CREATE TABLE (\w+)\s*\((.*?)\n\);",
+        postgres_sql,
+        re.DOTALL,
+    ):
+        referencing = block.group(1)
+        body = block.group(2)
+        for fk in re.finditer(r"FOREIGN KEY\([^)]*\)\s*REFERENCES (\w+)", body):
+            referenced = fk.group(1)
+            if referenced not in create_offsets:
+                continue  # cross-migration reference; created in an earlier revision
+            if referenced == referencing:
+                continue  # self-reference (e.g. a manager FK); valid in Postgres
+            assert create_offsets[referenced] < create_offsets[referencing], (
+                f"{referencing} references {referenced}, but {referenced} is created "
+                f"after it; Postgres would reject this FK at apply time"
+            )

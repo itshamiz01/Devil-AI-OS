@@ -54,21 +54,6 @@ _OBJECTIVE_STATES = ('OPEN', 'DELEGATED', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 
 
 def upgrade() -> None:
     op.create_table(
-        'workforce_departments',
-        sa.Column('id', sa.String(length=36), nullable=False),
-        sa.Column('code', sa.String(length=32), nullable=False),
-        sa.Column('name', sa.String(length=128), nullable=False),
-        sa.Column('manager_employee_id', sa.String(length=64), nullable=False),
-        sa.Column('mission', sa.Text(), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('code', name='uq_workforce_departments_code'),
-        sa.ForeignKeyConstraint(['manager_employee_id'], ['workforce_employees.employee_id']),
-    )
-    op.create_index('ix_workforce_departments_manager', 'workforce_departments', ['manager_employee_id'])
-
-    op.create_table(
         'workforce_employees',
         sa.Column('employee_id', sa.String(length=64), nullable=False),
         sa.Column('display_name', sa.String(length=128), nullable=False),
@@ -106,6 +91,21 @@ def upgrade() -> None:
     op.create_index('ix_workforce_employees_department', 'workforce_employees', ['department_code'])
     op.create_index('ix_workforce_employees_status', 'workforce_employees', ['status'])
     op.create_index('ix_workforce_employees_manager', 'workforce_employees', ['manager_employee_id'])
+
+    op.create_table(
+        'workforce_departments',
+        sa.Column('id', sa.String(length=36), nullable=False),
+        sa.Column('code', sa.String(length=32), nullable=False),
+        sa.Column('name', sa.String(length=128), nullable=False),
+        sa.Column('manager_employee_id', sa.String(length=64), nullable=False),
+        sa.Column('mission', sa.Text(), nullable=False),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('code', name='uq_workforce_departments_code'),
+        sa.ForeignKeyConstraint(['manager_employee_id'], ['workforce_employees.employee_id']),
+    )
+    op.create_index('ix_workforce_departments_manager', 'workforce_departments', ['manager_employee_id'])
 
     op.create_table(
         'workforce_objectives',
