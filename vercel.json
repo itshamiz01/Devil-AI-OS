@@ -1,0 +1,23 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": null,
+  "outputDirectory": null,
+  "healthCheck": {
+    "path": "/api/v1/health/live",
+    "timeout": 5,
+    "interval": 10,
+    "retries": 3
+  },
+  "checks": [
+    {
+      "type": "start",
+      "path": "/api/v1/health/live"
+    }
+  ],
+  "functions": {
+    "backend/app/**": {
+      "memory": 1024
+    }
+  }
+}

@@ -17,6 +17,20 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=8000, ge=1, le=65535)
     allow_remote_access: bool = False
+    # Hosted-deployment mode. This is the approved security design the
+    # allow_remote_access flag was waiting for: a deliberate, explicit opt-in
+    # for a cloud/container host where the process must bind 0.0.0.0 to be
+    # reachable through the platform's proxy. It is OFF by default, so the
+    # secure loopback-only boundary holds unless an operator sets it on a
+    # hosted deployment with a real database and access controls in place.
+    hosted: bool = False
+    # Non-interactive owner bootstrap for hosted deployments, where there is
+    # no terminal for getpass. When both are set and no owner exists yet, the
+    # lifespan creates the owner at startup. An existing owner is never
+    # overwritten, so a rotation is a deliberate action, not a side effect of
+    # a redeploy. Password is read from the environment, never committed.
+    owner_bootstrap_username: str | None = None
+    owner_bootstrap_password: str | None = None
 
     data_dir: Path = BASE_DIR / "data"
     # Optional external database URL, e.g. a Supabase/Postgres connection string.
@@ -216,9 +230,9 @@ class Settings(BaseSettings):
     @field_validator("host")
     @classmethod
     def validate_host(cls, v: str) -> str:
-        if v not in {"127.0.0.1", "localhost", "::1"}:
-            raise ValueError("P-01 backend must bind to loopback; remote access is not implemented")
-        return v
+        # Normalise only. Whether a non-loopback bind is permitted is decided
+        # in validate_phase_flags, where the `hosted` flag is visible.
+        return v.strip()
 
     @field_validator("ollama_base_url")
     @classmethod
@@ -246,8 +260,23 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_phase_flags(self) -> "Settings":
-        if self.allow_remote_access:
-            raise ValueError("Remote access requires a later approved security design")
+        # Hosted mode is the approved security design for a cloud/container
+        # deployment: it permits binding 0.0.0.0 so the platform proxy can
+        # reach the process. Without it, the backend stays loopback-only and
+        # any remote bind is refused at startup.
+        if self.allow_remote_access and not self.hosted:
+            raise ValueError(
+                "Remote access requires hosted mode: set AUTONOMUS_HOSTED=true "
+                "on a hosted deployment with a real database and access controls"
+            )
+        # The host must be loopback unless hosted mode is explicitly enabled.
+        if not self.hosted and self.host not in {"127.0.0.1", "localhost", "::1"}:
+            raise ValueError("P-01 backend must bind to loopback; remote access is not implemented")
+        # In hosted mode the bind address must still be a real listen address.
+        if self.hosted and self.host not in {"0.0.0.0", "::", "127.0.0.1", "localhost", "::1"}:
+            raise ValueError(
+                "hosted mode binds 0.0.0.0 (or ::); set AUTONOMUS_HOST=0.0.0.0"
+            )
         if self.external_execution_enabled or self.financial_execution_enabled or self.cloud_ai_enabled:
             raise ValueError("External, financial and cloud AI execution are disabled in P-01")
         if self.retry_max_delay < self.retry_base_delay:

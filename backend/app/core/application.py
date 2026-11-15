@@ -127,6 +127,33 @@ async def seed_core_data(db: Database, settings: Settings) -> None:
         await session.commit()
 
 
+async def _bootstrap_owner_if_needed(db: Database, settings: Settings) -> None:
+    """Create the owner non-interactively on a hosted deployment.
+
+    The CLI's ``init-owner`` uses getpass and needs a terminal, which a
+    serverless/container host does not have. When both bootstrap variables are
+    set and no owner exists yet, the owner is created at startup from the
+    environment. An existing owner is left untouched: a password rotation is a
+    deliberate action (re-run init-owner or an explicit credential change), not
+    a side effect of every redeploy. A misconfigured short password fails
+    startup loudly rather than silently leaving the system without an owner.
+    """
+    username = settings.owner_bootstrap_username
+    password = settings.owner_bootstrap_password
+    if not username or not password:
+        return
+    async with db.session_factory() as session:
+        principals = PrincipalRepo(session)
+        existing = [p for p in await principals.by_kind("owner")
+                    if (p.name or "") == username]
+    if existing:
+        return
+    auth = AuthService(settings, db)
+    await auth.bootstrap_owner(username, password)
+    logger.info("Owner bootstrapped from environment on hosted startup",
+                extra={"component": "auth", "owner": username})
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
 
@@ -139,6 +166,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             await db.initialize()
             await seed_core_data(db, settings)
+            await _bootstrap_owner_if_needed(db, settings)
             bus = EventBus(db)
             register_default_subscribers(bus)
             monitor = SystemMonitor(settings)

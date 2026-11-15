@@ -1,0 +1,20 @@
+# Keep the build context lean and never bake secrets or local state into the image.
+.git
+.github
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+backend/data
+backend/logs
+backend/backups
+backend/.env
+.env
+.env.*
+!.env.example
+node_modules
+docs
+*.md
+!backend/**/*.md
+.vercel

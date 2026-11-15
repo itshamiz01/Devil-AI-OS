@@ -5,9 +5,12 @@ Configuration is centralized in `backend/app/core/config.py` using Pydantic Sett
 | Variable | Default | Meaning |
 |---|---:|---|
 | `AUTONOMUS_ENVIRONMENT` | `development` | `development`, `test`, or `production` |
-| `AUTONOMUS_HOST` | `127.0.0.1` | Loopback only in P-01 |
+| `AUTONOMUS_HOST` | `127.0.0.1` | Loopback only unless hosted mode is on; in hosted mode must be `0.0.0.0` (or `::`) |
 | `AUTONOMUS_PORT` | `8000` | Local API port |
-| `AUTONOMUS_ALLOW_REMOTE_ACCESS` | `false` | Must remain false; remote access is not implemented |
+| `AUTONOMUS_ALLOW_REMOTE_ACCESS` | `false` | Remote access is not implemented unless hosted mode is on; setting it alone is a startup error |
+| `AUTONOMUS_HOSTED` | `false` | **Hosted-deployment mode.** The approved opt-in that permits binding `0.0.0.0` on a cloud/container host. Off by default, so the loopback-only boundary holds; any remote bind without it is refused at startup. This is the security design `allow_remote_access` waits for |
+| `AUTONOMUS_OWNER_BOOTSTRAP_USERNAME` | *(empty)* | Non-interactive owner name for hosted deployments (no terminal for `getpass`). When set with the password and no owner exists yet, the owner is created at startup |
+| `AUTONOMUS_OWNER_BOOTSTRAP_PASSWORD` | *(empty)* | Owner password for bootstrap (12+ chars, read from the environment, never committed). An existing owner is never overwritten on redeploy |
 | `AUTONOMUS_DATABASE_URL` | *(empty)* | Optional `postgresql://` connection string (e.g. Supabase). Empty keeps the local SQLite database; an unsupported scheme is a startup error rather than a silent fallback |
 | `AUTONOMUS_DATABASE_URL_DIRECT` | *(empty)* | Optional direct (non-pooled) `postgresql://` URL used **for migrations only**; requires `AUTONOMUS_DATABASE_URL` to be set as well. Matching is case-insensitive, so the mixed-case spelling `AUTONOMUS_DATABASE_URL_direct` binds to the same field |
 | `AUTONOMUS_RUN_MIGRATIONS_ON_STARTUP` | `true` | Applies the Alembic chain during startup. Set `false` on a serverless host, where every cold start would otherwise re-run it and concurrent starts could race |

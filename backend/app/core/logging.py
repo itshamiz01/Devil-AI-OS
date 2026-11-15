@@ -42,7 +42,6 @@ class JsonFormatter(logging.Formatter):
 
 
 def setup_logging(settings: Settings) -> None:
-    settings.log_dir.mkdir(parents=True, exist_ok=True)
     root = logging.getLogger()
     root.setLevel(settings.log_level)
     for handler in list(root.handlers):
@@ -50,12 +49,21 @@ def setup_logging(settings: Settings) -> None:
     formatter = JsonFormatter()
     stream = logging.StreamHandler()
     stream.setFormatter(formatter)
-    file_handler = RotatingFileHandler(
-        Path(settings.log_dir) / "autonomus.log",
-        maxBytes=settings.log_max_bytes,
-        backupCount=settings.log_backup_count,
-        encoding="utf-8",
-    )
-    file_handler.setFormatter(formatter)
     root.addHandler(stream)
-    root.addHandler(file_handler)
+    # A file handler is best-effort. On a hosted/serverless filesystem the
+    # log directory may be ephemeral or read-only; a logging setup that cannot
+    # create its log file must never crash application startup. Stream logs
+    # always go out, so the process is never silent.
+    try:
+        settings.log_dir.mkdir(parents=True, exist_ok=True)
+        file_handler = RotatingFileHandler(
+            Path(settings.log_dir) / "autonomus.log",
+            maxBytes=settings.log_max_bytes,
+            backupCount=settings.log_backup_count,
+            encoding="utf-8",
+        )
+        file_handler.setFormatter(formatter)
+        root.addHandler(file_handler)
+    except OSError:
+        root.warning("log file unavailable on this filesystem; streaming only",
+                     extra={"component": "logging"})

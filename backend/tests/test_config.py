@@ -1,7 +1,9 @@
+import asyncio
 import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
+from app.core.application import _bootstrap_owner_if_needed, seed_core_data
 
 
 def test_loopback_default():
@@ -17,6 +19,39 @@ def test_remote_host_rejected():
 def test_remote_access_flag_rejected():
     with pytest.raises(ValidationError):
         Settings(allow_remote_access=True)
+
+
+def test_hosted_mode_allows_wildcard_bind():
+    """Hosted mode is the approved opt-in that lets a container bind 0.0.0.0."""
+    s = Settings(environment="production", hosted=True, host="0.0.0.0")
+    assert s.host == "0.0.0.0"
+    assert s.hosted is True
+
+
+def test_hosted_mode_still_rejects_an_invalid_bind_address():
+    """Hosted mode permits wildcards, not arbitrary hosts."""
+    with pytest.raises(ValidationError):
+        Settings(environment="production", hosted=True, host="10.0.0.5")
+
+
+def test_hosted_mode_allows_remote_access_flag():
+    s = Settings(environment="production", hosted=True,
+                 allow_remote_access=True, host="0.0.0.0")
+    assert s.allow_remote_access is True
+
+
+def test_hosted_off_keeps_loopback_only():
+    """Without hosted mode the loopback boundary is unchanged."""
+    with pytest.raises(ValidationError):
+        Settings(environment="production", allow_remote_access=True)
+    with pytest.raises(ValidationError):
+        Settings(environment="production", host="0.0.0.0")
+
+
+def test_owner_bootstrap_defaults_are_unset():
+    s = Settings(environment="test")
+    assert s.owner_bootstrap_username is None
+    assert s.owner_bootstrap_password is None
 
 
 def test_phase_execution_flags_rejected():
@@ -115,3 +150,74 @@ def test_the_direct_url_must_also_be_postgres():
             database_url="postgresql://u:p@h:6543/d",
             database_url_direct="mysql://u:p@h/d",
         )
+
+
+def test_hosted_owner_bootstrap_creates_owner_when_absent(tmp_path):
+    """A hosted deployment with bootstrap env vars creates the owner at startup."""
+    from app.core.auth import AuthService
+    from app.database.connection import Database
+
+    s = Settings(
+        environment="production",
+        hosted=True,
+        host="0.0.0.0",
+        data_dir=tmp_path / "data",
+        log_dir=tmp_path / "logs",
+        backup_dir=tmp_path / "backups",
+        owner_bootstrap_username="owner",
+        owner_bootstrap_password="correct horse battery staple",
+    )
+    db = Database(s)
+    try:
+        asyncio.run(db.initialize())
+        asyncio.run(seed_core_data(db, s))
+        asyncio.run(_bootstrap_owner_if_needed(db, s))
+    finally:
+        asyncio.run(db.dispose())
+
+    # A second startup must NOT overwrite the existing owner (redeploy safety).
+    db2 = Database(s)
+    try:
+        asyncio.run(db2.initialize())
+        asyncio.run(_bootstrap_owner_if_needed(db2, s))
+    finally:
+        asyncio.run(db2.dispose())
+
+    # The owner exists and can authenticate.
+    db3 = Database(s)
+    try:
+        asyncio.run(db3.initialize())
+        auth = AuthService(s, db3)
+        async def _check():
+            async with db3.session_factory() as session:
+                from app.database.repositories import PrincipalRepo
+                p = await PrincipalRepo(session).by_name("owner")
+                assert p is not None and p.kind == "owner"
+            # login() proves the bootstrapped password actually authenticates.
+            token, _ = await auth.login("owner", "correct horse battery staple", "hosted-test")
+            return token
+        token = asyncio.run(_check())
+        assert token
+    finally:
+        asyncio.run(db3.dispose())
+
+
+def test_hosted_owner_bootstrap_skips_when_no_env(tmp_path):
+    """Without bootstrap vars, startup does not create an owner."""
+    from app.database.connection import Database
+
+    s = Settings(
+        environment="production",
+        hosted=True,
+        host="0.0.0.0",
+        data_dir=tmp_path / "data",
+        log_dir=tmp_path / "logs",
+        backup_dir=tmp_path / "backups",
+    )
+    db = Database(s)
+    try:
+        asyncio.run(db.initialize())
+        asyncio.run(seed_core_data(db, s))
+        asyncio.run(_bootstrap_owner_if_needed(db, s))  # must not raise
+    finally:
+        asyncio.run(db.dispose())
