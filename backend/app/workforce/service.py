@@ -99,7 +99,36 @@ class WorkforceService:
                 "open_handoffs": len([h for h in await handoffs.list_all()
                                       if h.status == "pending"]),
                 "by_status": by_status,
+                "concurrency": await self._concurrency_view(session),
             }
+
+    async def _concurrency_view(self, session) -> dict[str, Any]:
+        """Current active-work utilization against the configured ceilings.
+
+        Reported so the Command Center and an operator can see how close the
+        organization, each department and each employee are to their §10
+        concurrency limits. Read-only; it does not change any state.
+        """
+        global_active, by_dept, by_emp = await self._concurrency_index(session)
+        emp = WorkforceEmployeeRepo(session)
+        employees = await emp.list_all()
+        return {
+            "global": {"active": global_active,
+                       "ceiling": self.settings.workforce_max_global_concurrency},
+            "by_department": {
+                code: {"active": n,
+                       "ceiling": self.settings.workforce_max_department_concurrency}
+                for code, n in sorted(by_dept.items())
+            },
+            "by_employee": {
+                e.employee_id: {"active": by_emp.get(e.employee_id, 0),
+                                "ceiling": self.settings.workforce_max_employee_concurrency,
+                                "department": e.department_code}
+                for e in employees
+                if by_emp.get(e.employee_id, 0) > 0
+            },
+            "resource_profile_ram_mib": self.settings.workforce_low_resource_ram_mib,
+        }
 
     async def structure(self) -> dict[str, Any]:
         """The full organizational hierarchy: CEO → managers → specialists."""
@@ -200,6 +229,66 @@ class WorkforceService:
     # ------------------------------------------------------------------ #
     # Work orders (§7, §10)
     # ------------------------------------------------------------------ #
+    # Work orders in these states hold a concurrency slot: they are active,
+    # not finished. COMPLETED / FAILED / CANCELLED release the slot.
+    _ACTIVE_STATUSES = ("TASK_ASSIGNED", "TASK_ACCEPTED", "WORKING",
+                        "REVIEW_PENDING", "BLOCKED")
+
+    async def _concurrency_index(self, session) -> tuple[int, dict[str, int], dict[str, int]]:
+        """(global_active, active_by_department, active_by_employee).
+
+        Counts non-terminal work orders, grouped by the owning employee's
+        department. Used for §10 concurrency admission control: the configured
+        ceilings bound how many active orders the organization, a department
+        and an individual employee may hold at once.
+        """
+        emp = WorkforceEmployeeRepo(session)
+        orders = WorkforceWorkOrderRepo(session)
+        employees = await emp.list_all()
+        dept_of = {e.employee_id: e.department_code for e in employees}
+        active = await orders.list_all()
+        active_active = [o for o in active if o.status in self._ACTIVE_STATUSES]
+        by_dept: dict[str, int] = {}
+        by_emp: dict[str, int] = {}
+        for o in active_active:
+            by_emp[o.employee_id] = by_emp.get(o.employee_id, 0) + 1
+            code = dept_of.get(o.employee_id)
+            if code:
+                by_dept[code] = by_dept.get(code, 0) + 1
+        return len(active_active), by_dept, by_emp
+
+    async def _check_concurrency(self, session, employee_id: str) -> None:
+        """Refuse a new work order if any concurrency ceiling is already full.
+
+        The ceilings are the configured workforce_max_*_concurrency values. A
+        refusal here is a resource-governance decision, recorded like any other
+        refusal - the organization admits work rather than overloading.
+        """
+        global_active, by_dept, by_emp = await self._concurrency_index(session)
+        emp = WorkforceEmployeeRepo(session)
+        target = await emp.get(employee_id)
+        dept_code = target.department_code if target else None
+        ceilings = {
+            "global": self.settings.workforce_max_global_concurrency,
+            "department": self.settings.workforce_max_department_concurrency,
+            "employee": self.settings.workforce_max_employee_concurrency,
+        }
+        if global_active >= ceilings["global"]:
+            raise ConflictError(
+                f"the organization is at its concurrency ceiling "
+                f"({global_active}/{ceilings['global']} active work orders); "
+                f"refusing new work until a slot frees")
+        if dept_code and by_dept.get(dept_code, 0) >= ceilings["department"]:
+            raise ConflictError(
+                f"department {dept_code} is at its concurrency ceiling "
+                f"({by_dept.get(dept_code, 0)}/{ceilings['department']} active "
+                f"work orders); refusing new work for {employee_id}")
+        if by_emp.get(employee_id, 0) >= ceilings["employee"]:
+            raise ConflictError(
+                f"employee {employee_id} is at its concurrency ceiling "
+                f"({by_emp.get(employee_id, 0)}/{ceilings['employee']} active "
+                f"work orders); refusing additional work")
+
     async def create_work_order(self, order: WorkOrderCreate,
                                 *, manager_employee_id: str) -> dict[str, Any]:
         """Assign a structured work order, validating the reporting hierarchy.
@@ -236,6 +325,10 @@ class WorkforceService:
                     raise ConflictError(
                         f"employee {order.employee_id} already has an open work "
                         f"order titled '{order.title}'")
+
+            # Concurrency admission (§10): refuse if the organization, the
+            # department or the employee is already at its active-work ceiling.
+            await self._check_concurrency(session, order.employee_id)
 
             row = await WorkforceWorkOrderRepo(session).create(
                 employee_id=order.employee_id,

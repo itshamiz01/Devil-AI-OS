@@ -638,3 +638,55 @@ def test_finance_report_counts_real_work_orders(client):
     eco = report["work_order_economics"]
     assert eco["completed"] >= 1
     assert eco["completion_rate"] > 0
+
+
+# --------------------------------------------------------------------------- #
+# Stage 10: concurrency admission control (§10 resource limits)
+# --------------------------------------------------------------------------- #
+def test_overview_reports_concurrency_utilization(client):
+    """The configured concurrency ceilings and current utilization are visible."""
+    resp = client.get(f"{WF}/overview")
+    assert resp.status_code == 200, resp.text
+    ov = resp.json()["data"]
+    conc = ov["concurrency"]
+    assert conc["global"]["ceiling"] == 4
+    assert conc["global"]["active"] == 0
+    assert conc["resource_profile_ram_mib"] == 256
+
+
+def test_concurrency_ceiling_refuses_additional_active_work(client):
+    """§10: an employee at its active-work ceiling is refused more work, and
+    completing an order frees the slot."""
+    # Two active orders for one employee (different titles) are allowed.
+    for i in (1, 2):
+        r = client.post(f"{WF}/work-orders", json={
+            "employee_id": "DEV-RES-001", "title": f"concurrency task {i}",
+            "instructions": "do the work", "verification_requirements": []})
+        assert r.status_code == 200, r.text
+
+    # A third active order is refused by the concurrency ceiling.
+    r = client.post(f"{WF}/work-orders", json={
+        "employee_id": "DEV-RES-001", "title": "concurrency task 3",
+        "instructions": "do the work", "verification_requirements": []})
+    assert r.status_code == 409, r.text
+    assert "concurrency ceiling" in r.json()["error"]["message"]
+
+    # The overview now shows the employee at its ceiling.
+    ov = client.get(f"{WF}/overview").json()["data"]
+    emp_view = ov["concurrency"]["by_employee"]["DEV-RES-001"]
+    assert emp_view["active"] == 2
+    assert emp_view["ceiling"] == 2
+
+    # Complete one order: the slot frees and new work is admitted again.
+    orders = client.get(f"{WF}/work-orders?status=TASK_ASSIGNED").json()["data"]
+    target = next(o for o in orders if o["employee_id"] == "DEV-RES-001")
+    oid = target["id"]
+    client.post(f"{WF}/work-orders/{oid}/advance", json={"action": "accept"})
+    client.post(f"{WF}/work-orders/{oid}/advance", json={"action": "start"})
+    client.post(f"{WF}/work-orders/{oid}/advance", json={"action": "submit_review"})
+    client.post(f"{WF}/work-orders/{oid}/advance", json={
+        "action": "complete", "result": {}, "evidence": ["ev1"]})
+    r = client.post(f"{WF}/work-orders", json={
+        "employee_id": "DEV-RES-001", "title": "concurrency task after free",
+        "instructions": "do the work", "verification_requirements": []})
+    assert r.status_code == 200, r.text
