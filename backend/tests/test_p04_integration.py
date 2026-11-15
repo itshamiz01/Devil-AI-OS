@@ -88,8 +88,9 @@ def test_p04_migration_cycle_and_legacy_row_preserved(tmp_path):
     # 85b7a9805207); same update, same strictness.
     # Expansion F03 disclosure: head/count advanced by the additive Expansion Feature 3 migration (c41f7a9d03e6 revises 3f7a1c9e52b4; +4 voice tables); same update, same strictness.
     # Expansion F06 disclosure: head/count advanced by the additive Expansion Feature 6 migration (af39baad9c40 revises c41f7a9d03e6; +3 knowledge tables); same update, same strictness.
+    # Workforce disclosure: head advanced again by the additive Agentic Workforce migration (cb34dbb7a7c9 revises af39baad9c40; +4 workforce tables); same update, same strictness.
     assert con.execute("SELECT version_num FROM alembic_version").fetchone()[0] \
-        == "af39baad9c40"
+        == "cb34dbb7a7c9"
     con.close()
 
     command.downgrade(cfg, "a8ddb3e7260d")
@@ -125,8 +126,9 @@ def test_p04_migration_cycle_and_legacy_row_preserved(tmp_path):
     # 85b7a9805207); same update, same strictness.
     # Expansion F03 disclosure: head/count advanced by the additive Expansion Feature 3 migration (c41f7a9d03e6 revises 3f7a1c9e52b4; +4 voice tables); same update, same strictness.
     # Expansion F06 disclosure: head/count advanced by the additive Expansion Feature 6 migration (af39baad9c40 revises c41f7a9d03e6; +3 knowledge tables); same update, same strictness.
+    # Workforce disclosure: head advanced again by the additive Agentic Workforce migration (cb34dbb7a7c9 revises af39baad9c40; +4 workforce tables); same update, same strictness.
     assert con.execute("SELECT version_num FROM alembic_version").fetchone()[0] \
-        == "af39baad9c40"
+        == "cb34dbb7a7c9"
     con.close()
 
 

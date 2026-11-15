@@ -21,6 +21,7 @@ export const NAV_ITEMS: NavItem[] = [
   { name: "approvals", label: "Approvals", section: "Command" },
   { name: "opportunities", label: "Opportunities", section: "Operations" },
   { name: "agents", label: "Agents", section: "Operations" },
+  { name: "workforce", label: "Workforce", section: "Operations" },
   { name: "execution", label: "Execution", section: "Operations" },
   { name: "autonomy", label: "Autonomous Ops", section: "Operations" },
   { name: "businesses", label: "Businesses", section: "Portfolio" },

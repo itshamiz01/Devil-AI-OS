@@ -15,6 +15,7 @@ import { IntelligenceView } from "./views/Intelligence";
 import { IntegrationsView } from "./views/Integrations";
 import { KnowledgeView } from "./views/Knowledge";
 import { VoiceView } from "./views/Voice";
+import { WorkforceView } from "./views/Workforce";
 import { LoginView } from "./views/Login";
 import { MemoryView } from "./views/Memory";
 import { OperationsView } from "./views/Operations";
@@ -53,6 +54,8 @@ function RoutedContent(): React.ReactElement {
       );
     case "agents":
       return route.param ? <AgentDetailView agentId={route.param} /> : <AgentsView />;
+    case "workforce":
+      return <WorkforceView />;
     case "execution":
       return <ExecutionView />;
     case "autonomy":

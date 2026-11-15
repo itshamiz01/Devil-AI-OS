@@ -1,0 +1,52 @@
+/* ShinyText.css — base rules as fetched from the React Bits registry
+   item ShinyText-TS-CSS (MIT + Commons Clause; use inside this app
+   only, never redistribute the component onward). The sweep keyframes
+   are this project's adaptation in its dark + gold identity. */
+.shiny-text {
+  position: relative;
+  display: inline-block;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.shiny-text__glow {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: blur(0.14em);
+  pointer-events: none;
+  user-select: none;
+}
+
+.shiny-sweep {
+  background-image: linear-gradient(
+    120deg,
+    var(--shiny-base) 40%,
+    var(--shiny-shine) 50%,
+    var(--shiny-base) 60%
+  );
+  background-size: 220% 100%;
+  animation: shiny-sweep var(--shiny-speed, 3.5s) linear infinite;
+}
+
+@keyframes shiny-sweep {
+  from {
+    background-position: 130% 0;
+  }
+  to {
+    background-position: -90% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shiny-sweep {
+    animation: none;
+    background-image: linear-gradient(var(--shiny-base), var(--shiny-base));
+  }
+}

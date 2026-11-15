@@ -53,6 +53,7 @@ class Application:
         self.integrations = None  # IntegrationService (Expansion F02), at startup
         self.voice = None  # VoiceService (Expansion F03), built at startup
         self.knowledge = None  # KnowledgeService (Expansion F06), at startup
+        self.workforce = None  # WorkforceService (Agentic Workforce Transformation), at startup
         self._operations_loop = None
         self._reliability_loop = None
         self.execution_recovery: dict = {}
@@ -155,6 +156,8 @@ class Application:
             self.agents.seed_capabilities()
             self.agents.seed_templates()
 
+
+
             # P-05 Universal Digital Execution Engine: service over the
             # P-01 substrate, capability validation via the P-04 factory's
             # CapabilityService (the same instance). Seeds settings,
@@ -256,6 +259,19 @@ class Application:
                 financial=self.financial, bus=self.bus)
             self.security.seed_settings()
             self.security.seed_threat_register()
+
+            # Agentic Workforce Transformation: organizational layer
+            # over the P-01 registry / P-04 factory / P-01 task engine.
+            # Built after P-10 so dispatch can read the live security
+            # mode (a global emergency stop blocks new work orders).
+            # Construction only — the 111-employee seed runs through
+            # the owner-gated /workforce/seed endpoint (or service
+            # call), so startup behaviour of prior phases is unchanged.
+            from ..workforce.service import WorkforceService
+            self.workforce = WorkforceService(
+                self.session_factory, self.tasks, self.approvals,
+                self.permissions,
+                security_mode_getter=lambda: self.security.emergency.current_mode())
             self.auth.login_guard = self.security.login_guard
             # Expansion Feature 1 (Identity & Device Security):
             # wire the device hook into P-01 auth, following the

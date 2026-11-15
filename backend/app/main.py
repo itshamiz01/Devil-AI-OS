@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from .api.routes import (
     agent_factory, agents, approvals, auth, business, dashboard, economy,
     events, experience, growth, integrations, knowledge, voice,
-    operations, portfolio,
+    operations, portfolio, workforce,
     execution, financial, health, intelligence, memory, opportunities,
     security, survival, system, tasks, reliability,
 )
@@ -76,7 +76,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                    security.router, dashboard.router, operations.router,
                    portfolio.router, reliability.router, economy.router,
                    growth.router, experience.router, integrations.router,
-                   voice.router, knowledge.router):
+                   voice.router, knowledge.router, workforce.router):
         app.include_router(router, prefix=API_PREFIX)
 
     # Expansion Feature 2: publish each operation's required

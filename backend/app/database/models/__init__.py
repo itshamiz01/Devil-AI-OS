@@ -273,6 +273,12 @@ from .knowledge import (
     KnowledgeCollection,
     KnowledgeDocument,
 )
+from .workforce import (
+    WorkforceDeliverable,
+    WorkforceDepartment,
+    WorkforceObjective,
+    WorkforceProfile,
+)
 
 __all__ = [
     "Base", "Agent", "AppSession", "Approval", "AuditEvent", "Permission",
@@ -329,4 +335,6 @@ __all__ = [
     "IntegrationConnector", "IntegrationInvocation",
     "VoiceAudio", "VoiceCommand", "VoiceSession", "VoiceTranscript",
     "KnowledgeChunk", "KnowledgeCollection", "KnowledgeDocument",
+    "WorkforceDeliverable", "WorkforceDepartment", "WorkforceObjective",
+    "WorkforceProfile",
 ]
