@@ -34,7 +34,7 @@ def postgres_sql() -> str:
 def test_the_whole_chain_renders_without_dialect_errors(postgres_sql):
     """A TypeError here means a shim call Postgres cannot execute."""
     assert "CREATE TABLE alembic_version" in postgres_sql
-    assert postgres_sql.count("CREATE TABLE ") == 53   # 52 tables + version
+    assert postgres_sql.count("CREATE TABLE ") == 62   # 61 tables + version
 
 
 def test_no_sqlite_only_statements_reach_postgres(postgres_sql):
@@ -97,9 +97,19 @@ def test_the_chain_is_nine_revisions_deep(postgres_sql):
     `agent_assignments.status`, added `ck_agent_assignments_status` with the
     default the model already declared, and added a nullable `task_id`
     reference with its foreign key and index to `agent_creation_requests`.
+
+    Reviewed again for `a117e3f0b9c2` (P-WORKFORCE: the 111-employee virtual
+    organization schema): nine new tables (`workforce_departments`,
+    `workforce_employees`, `workforce_objectives`, `workforce_work_orders`,
+    `workforce_handoffs`, `workforce_messages`,
+    `workforce_employee_performance`, `workforce_status_history`,
+    `workforce_memory`), no existing table touched and no data normalized,
+    because none of the nine existed before. All nine carry their named CHECK
+    constraints by hand (the L-56 / ADR-0024 omission), and the JSON columns
+    are plain `JSON` so they render identically on SQLite and PostgreSQL.
     """
     assert postgres_sql.count("INSERT INTO alembic_version") == 1
-    assert postgres_sql.count("UPDATE alembic_version") == 9
+    assert postgres_sql.count("UPDATE alembic_version") == 10
 
 
 def test_the_shim_implements_every_batch_method_the_chain_uses():

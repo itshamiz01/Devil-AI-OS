@@ -128,6 +128,35 @@ Added by P-04 (Dynamic Agent Factory), Stage 4. All five are validated at config
 | `AUTONOMUS_EXECUTION_CODE_TIMEOUT_SECONDS` | `20` | Wall-clock timeout for one code run. An overrun is terminated and the whole process group is killed (§30 rule 22: a run that lingers after its request was recorded done can still touch the workspace). |
 | `AUTONOMUS_EXECUTION_CODE_OUTPUT_CAP_BYTES` | `65536` | Maximum bytes of stdout+stderr captured from one code run; a larger run is recorded `COMPLETED_WITH_WARNINGS` with the truncation stated, so a result is never silently partial. | When false, `Services.execution` is None and every `/api/v1/execution` route returns 409 naming this setting. Stage 3 runs filesystem requests: they are policy-checked, then drained synchronously by the scheduler, which executes them and records the run. Requests for adapters that do not exist yet (code, api) stay queued. External execution remains locked off by `AUTONOMUS_EXTERNAL_EXECUTION_ENABLED`, which the settings validator still refuses to enable |
 
+## Workforce: the 111-employee virtual organization
+
+The workforce subsystem embeds a persistent virtual organization of exactly
+111 employees (1 CEO, 10 department managers, 100 specialists) under the
+OWNER→CEO→MGR→EMP hierarchy. These settings govern seeding, resource limits,
+execution concurrency and the §14 KPI weights. When `AUTONOMUS_WORKFORCE_ENABLED`
+is false, `Services.workforce` is None and every `/api/v1/workforce` route
+returns 409 naming this setting.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `AUTONOMUS_WORKFORCE_ENABLED` | `true` | Assemble the workforce subsystem and mount its API routes. Off means the entire organization surface is absent. |
+| `AUTONOMUS_WORKFORCE_SEED_BASELINE` | `true` | Seed the 111-employee baseline on first start. Seed is keyed on stable employee IDs, so a restart never duplicates; an existing baseline is left as-is. |
+| `AUTONOMUS_WORKFORCE_MAX_GLOBAL_CONCURRENCY` | `4` | Ceiling on work orders advanced simultaneously across the whole organization. A busy system admits work rather than overloading. |
+| `AUTONOMUS_WORKFORCE_MAX_DEPARTMENT_CONCURRENCY` | `2` | Ceiling on work orders advanced simultaneously within one department. |
+| `AUTONOMUS_WORKFORCE_MAX_EMPLOYEE_CONCURRENCY` | `2` | Ceiling on work orders advanced simultaneously by one employee. |
+| `AUTONOMUS_WORKFORCE_LOW_RESOURCE_RAM_MIB` | `256` | Memory ceiling (MiB) treated as the low-resource profile for a workforce employee; employees that exceed it are reported, not silently throttled. |
+| `AUTONOMUS_WORKFORCE_MAX_OBJECTIVE_DEPARTMENTS` | `6` | Ceiling on how many departments a single CEO objective may fan out to. Keeps one objective from touching the whole organization at once. |
+| `AUTONOMUS_WORKFORCE_KPI_WEIGHT_QUALITY` | `25.0` | Weight of the quality KPI component in the §14 weighted composite. |
+| `AUTONOMUS_WORKFORCE_KPI_WEIGHT_SUCCESS` | `20.0` | Weight of the verified-success KPI component. |
+| `AUTONOMUS_WORKFORCE_KPI_WEIGHT_DEADLINE` | `15.0` | Weight of the deadline KPI component. |
+| `AUTONOMUS_WORKFORCE_KPI_WEIGHT_RELIABILITY` | `15.0` | Weight of the reliability KPI component. |
+| `AUTONOMUS_WORKFORCE_KPI_WEIGHT_RESOURCE` | `10.0` | Weight of the resource-use KPI component. |
+| `AUTONOMUS_WORKFORCE_KPI_WEIGHT_COLLABORATION` | `10.0` | Weight of the collaboration KPI component. |
+| `AUTONOMUS_WORKFORCE_KPI_WEIGHT_COMPLIANCE` | `5.0` | Weight of the compliance KPI component. **A compliance violation is not averaged away**: if an employee has any denied action (policy_compliance < 100), the composite collapses to this component alone. |
+
+The seven KPI weights are validated to sum to 100 on startup; a configuration
+that does not is refused rather than silently normalized.
+
 ### The ceilings bound creation, they do not schedule it
 
 None of these settings starts work. A queued creation request stays queued until an owner calls `POST /api/v1/agent-factory/queue/drain`, because autonomous scheduling is P-12. Raising `AUTONOMUS_AGENT_MAX_CREATION_QUEUE` therefore changes how many requests are *held*, not how many are *acted on*.

@@ -30,6 +30,12 @@ def settings(tmp_path: Path) -> Settings:
         scheduler_poll_interval=0.01,
         shutdown_timeout=1,
         login_rate_limit=20,
+        # The workforce baseline is an organizational layer, not part of the
+        # agent-factory or capability surfaces most tests exercise. Seeding it
+        # here would add 111 agents and 1010 grants to every test's database,
+        # breaking tests that count agents or manipulate the capability catalog
+        # directly. The workforce tests opt in by overriding this fixture.
+        workforce_seed_baseline=False,
     )
 
 

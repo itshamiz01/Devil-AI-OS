@@ -21,6 +21,20 @@ from .models import (
 )
 
 
+def _not_baseline_workforce() -> Any:
+    """SQL predicate: exclude baseline workforce employees from a query.
+
+    The P-WORKFORCE baseline registers its 111 employees as Agent rows (so
+    they share the identity, principal and parent-hierarchy registry) with a
+    non-empty ``metadata_json["employee_id"]``. They are an organizational
+    layer, not agent-factory creations, so the factory's visible registry,
+    its ceilings, and the capability-grant counts exclude them. ``COALESCE``
+    makes the predicate portable: a missing ``employee_id`` key yields NULL,
+    which ``COALESCE`` maps to the empty string, matching ordinary agents.
+    """
+    return func.coalesce(Agent.metadata_json["employee_id"].as_string(), "") == ""
+
+
 class PrincipalRepo:
     def __init__(self, session: AsyncSession): self.session = session
     async def get(self, principal_id: str) -> Principal | None: return await self.session.get(Principal, principal_id)
@@ -144,8 +158,17 @@ class EventRepo:
 
 class AgentRepo:
     def __init__(self, session: AsyncSession): self.session = session
-    async def list(self, limit: int, offset: int) -> Sequence[Agent]:
-        return (await self.session.execute(select(Agent).order_by(Agent.created_at.desc()).limit(limit).offset(offset))).scalars().all()
+
+    @staticmethod
+    def _not_baseline_workforce() -> Any:
+        """See the module-level ``_not_baseline_workforce`` predicate."""
+        return _not_baseline_workforce()
+
+    async def list(self, limit: int, offset: int, *, include_baseline: bool = False) -> Sequence[Agent]:
+        q = select(Agent).order_by(Agent.created_at.desc()).limit(limit).offset(offset)
+        if not include_baseline:
+            q = q.where(self._not_baseline_workforce())
+        return (await self.session.execute(q)).scalars().all()
     async def get(self, agent_id: str) -> Agent | None: return await self.session.get(Agent, agent_id)
 
     # ---- P-04 Stage 4: the registry becomes writable ------------------------
@@ -154,9 +177,14 @@ class AgentRepo:
                      template_version: int | None = None,
                      configuration_version: int = 1,
                      parent_agent_id: str | None = None,
-                     business_id: str | None = None) -> Agent:
+                     business_id: str | None = None,
+                     agent_id: str | None = None) -> Agent:
+        # P-WORKFORCE: `agent_id` lets a caller supply a stable identity (the
+        # employee ID, e.g. "DEV-CEO-001") instead of the default UUID. The
+        # workforce baseline registers its 111 employees through this same
+        # registry, keyed on stable IDs, so restarts never duplicate them.
         agent = Agent(
-            principal_id=principal_id, name=name, role=role, status=status,
+            id=agent_id, principal_id=principal_id, name=name, role=role, status=status,
             metadata_json=metadata_json or {}, template_id=template_id,
             template_version=template_version, configuration_version=configuration_version,
             parent_agent_id=parent_agent_id, business_id=business_id,
@@ -178,10 +206,12 @@ class AgentRepo:
         return (await self.session.execute(q)).scalars().all()
 
     async def count(self, statuses: Sequence[str] | None = None,
-                    template_id: str | None = None) -> int:
+                    template_id: str | None = None, *,
+                    include_baseline: bool = False) -> int:
         q = select(func.count()).select_from(Agent)
         if statuses is not None: q = q.where(Agent.status.in_(list(statuses)))
         if template_id is not None: q = q.where(Agent.template_id == template_id)
+        if not include_baseline: q = q.where(self._not_baseline_workforce())
         return int((await self.session.execute(q)).scalar_one())
 
     async def set_status(self, agent_id: str, status: str,
@@ -488,14 +518,22 @@ class AgentPermissionRepo:
         if status: q = q.where(AgentPermission.status == status)
         return int((await self.session.execute(q)).scalar_one())
 
-    async def count_by_status(self) -> dict[str, int]:
+    async def count_by_status(self, *, include_baseline: bool = False) -> dict[str, int]:
         """Every grant in the system, grouped by status, in one query.
 
         Deliberately not ``for_agent("")``: an empty agent id matches no row, so
         counting per status through it reports zero for the whole system while
         looking as though it had asked the right question.
+
+        Baseline workforce grants are excluded by default: they are the P-WORKFORCE
+        organization's capability scope, not agent-factory grants, and counting
+        them would inflate the factory's view of what it has granted.
         """
-        q = select(AgentPermission.status, func.count()).group_by(AgentPermission.status)
+        q = (select(AgentPermission.status, func.count())
+             .join(Agent, Agent.id == AgentPermission.agent_id)
+             .group_by(AgentPermission.status))
+        if not include_baseline:
+            q = q.where(_not_baseline_workforce())
         return {status: int(number)
                 for status, number in (await self.session.execute(q)).all()}
 
@@ -787,4 +825,292 @@ class ExecutionWorkspaceRepo:
             select(ExecutionWorkspace).where(
                 ExecutionWorkspace.owner_id == owner_id)
             .order_by(ExecutionWorkspace.created_at))
+        return list(r.scalars().all())
+
+
+# --------------------------------------------------------------------------- #
+# P-WORKFORCE repositories
+# --------------------------------------------------------------------------- #
+class WorkforceDepartmentRepo:
+    """The ten baseline departments."""
+
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, **kwargs: Any) -> Any:
+        from .models import WorkforceDepartment
+        row = WorkforceDepartment(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def by_code(self, code: str) -> Any | None:
+        from .models import WorkforceDepartment
+        r = await self.session.execute(
+            select(WorkforceDepartment).where(WorkforceDepartment.code == code))
+        return r.scalars().first()
+
+    async def list_all(self) -> Sequence[Any]:
+        from .models import WorkforceDepartment
+        r = await self.session.execute(
+            select(WorkforceDepartment).order_by(WorkforceDepartment.code))
+        return list(r.scalars().all())
+
+
+class WorkforceEmployeeRepo:
+    """The employee profile overlay (the registry is the `agents` table)."""
+
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, **kwargs: Any) -> Any:
+        from .models import WorkforceEmployee
+        row = WorkforceEmployee(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def get(self, employee_id: str) -> Any | None:
+        from .models import WorkforceEmployee
+        return await self.session.get(WorkforceEmployee, employee_id)
+
+    async def by_manager(self, manager_employee_id: str) -> Sequence[Any]:
+        from .models import WorkforceEmployee
+        r = await self.session.execute(
+            select(WorkforceEmployee).where(
+                WorkforceEmployee.manager_employee_id == manager_employee_id)
+            .order_by(WorkforceEmployee.employee_id))
+        return list(r.scalars().all())
+
+    async def by_department(self, department_code: str) -> Sequence[Any]:
+        from .models import WorkforceEmployee
+        r = await self.session.execute(
+            select(WorkforceEmployee).where(
+                WorkforceEmployee.department_code == department_code)
+            .order_by(WorkforceEmployee.employee_id))
+        return list(r.scalars().all())
+
+    async def list_all(self) -> Sequence[Any]:
+        from .models import WorkforceEmployee
+        r = await self.session.execute(
+            select(WorkforceEmployee).order_by(WorkforceEmployee.employee_id))
+        return list(r.scalars().all())
+
+    async def count(self, *, status: str | None = None,
+                    is_baseline: bool | None = None) -> int:
+        from .models import WorkforceEmployee
+        q = select(func.count()).select_from(WorkforceEmployee)
+        if status is not None:
+            q = q.where(WorkforceEmployee.status == status)
+        if is_baseline is not None:
+            q = q.where(WorkforceEmployee.is_baseline.is_(is_baseline))
+        return int((await self.session.execute(q)).scalar_one())
+
+    async def set_status(self, employee_id: str, status: str) -> None:
+        from .models import WorkforceEmployee, utcnow
+        await self.session.execute(
+            update(WorkforceEmployee).where(
+                WorkforceEmployee.employee_id == employee_id)
+            .values(status=status, last_activity=utcnow(), updated_at=utcnow()))
+        await self.session.flush()
+
+
+class WorkforceObjectiveRepo:
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, **kwargs: Any) -> Any:
+        from .models import WorkforceObjective
+        row = WorkforceObjective(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def get(self, objective_id: str) -> Any | None:
+        from .models import WorkforceObjective
+        return await self.session.get(WorkforceObjective, objective_id)
+
+    async def list_all(self) -> Sequence[Any]:
+        from .models import WorkforceObjective
+        r = await self.session.execute(
+            select(WorkforceObjective).order_by(WorkforceObjective.created_at.desc()))
+        return list(r.scalars().all())
+
+    async def set_status(self, objective_id: str, status: str,
+                         completed_at: Any = None) -> None:
+        from .models import WorkforceObjective, utcnow
+        await self.session.execute(
+            update(WorkforceObjective).where(
+                WorkforceObjective.id == objective_id)
+            .values(status=status, completed_at=completed_at or utcnow(),
+                    updated_at=utcnow()))
+        await self.session.flush()
+
+
+class WorkforceWorkOrderRepo:
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, **kwargs: Any) -> Any:
+        from .models import WorkforceWorkOrder
+        row = WorkforceWorkOrder(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def get(self, order_id: str) -> Any | None:
+        from .models import WorkforceWorkOrder
+        return await self.session.get(WorkforceWorkOrder, order_id)
+
+    async def by_employee(self, employee_id: str) -> Sequence[Any]:
+        from .models import WorkforceWorkOrder
+        r = await self.session.execute(
+            select(WorkforceWorkOrder).where(
+                WorkforceWorkOrder.employee_id == employee_id)
+            .order_by(WorkforceWorkOrder.created_at.desc()))
+        return list(r.scalars().all())
+
+    async def by_status(self, status: str) -> Sequence[Any]:
+        from .models import WorkforceWorkOrder
+        r = await self.session.execute(
+            select(WorkforceWorkOrder).where(
+                WorkforceWorkOrder.status == status)
+            .order_by(WorkforceWorkOrder.priority.desc(),
+                      WorkforceWorkOrder.created_at))
+        return list(r.scalars().all())
+
+    async def list_all(self) -> Sequence[Any]:
+        from .models import WorkforceWorkOrder
+        r = await self.session.execute(
+            select(WorkforceWorkOrder).order_by(WorkforceWorkOrder.created_at.desc()))
+        return list(r.scalars().all())
+
+    async def set_status(self, order_id: str, status: str,
+                         result: Any = None, evidence: Any = None,
+                         completed_at: Any = None) -> None:
+        from .models import WorkforceWorkOrder, utcnow
+        await self.session.execute(
+            update(WorkforceWorkOrder).where(
+                WorkforceWorkOrder.id == order_id)
+            .values(status=status, result=result, evidence=evidence,
+                    completed_at=completed_at or utcnow(), updated_at=utcnow()))
+        await self.session.flush()
+
+
+class WorkforceHandoffRepo:
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, **kwargs: Any) -> Any:
+        from .models import WorkforceHandoff
+        row = WorkforceHandoff(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def get(self, handoff_id: str) -> Any | None:
+        from .models import WorkforceHandoff
+        return await self.session.get(WorkforceHandoff, handoff_id)
+
+    async def by_to_employee(self, employee_id: str) -> Sequence[Any]:
+        from .models import WorkforceHandoff
+        r = await self.session.execute(
+            select(WorkforceHandoff).where(
+                WorkforceHandoff.to_employee_id == employee_id)
+            .order_by(WorkforceHandoff.created_at.desc()))
+        return list(r.scalars().all())
+
+    async def list_all(self) -> Sequence[Any]:
+        from .models import WorkforceHandoff
+        r = await self.session.execute(
+            select(WorkforceHandoff).order_by(WorkforceHandoff.created_at.desc()))
+        return list(r.scalars().all())
+
+    async def set_status(self, handoff_id: str, status: str) -> None:
+        from .models import WorkforceHandoff, utcnow
+        await self.session.execute(
+            update(WorkforceHandoff).where(
+                WorkforceHandoff.id == handoff_id)
+            .values(status=status, updated_at=utcnow()))
+        await self.session.flush()
+
+
+class WorkforceMessageRepo:
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, **kwargs: Any) -> Any:
+        from .models import WorkforceMessage
+        row = WorkforceMessage(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def by_channel(self, from_employee_id: str,
+                         to_employee_id: str) -> Sequence[Any]:
+        from .models import WorkforceMessage
+        r = await self.session.execute(
+            select(WorkforceMessage)
+            .where(WorkforceMessage.from_employee_id == from_employee_id,
+                   WorkforceMessage.to_employee_id == to_employee_id)
+            .order_by(WorkforceMessage.created_at))
+        return list(r.scalars().all())
+
+    async def list_all(self) -> Sequence[Any]:
+        from .models import WorkforceMessage
+        r = await self.session.execute(
+            select(WorkforceMessage).order_by(WorkforceMessage.created_at.desc()))
+        return list(r.scalars().all())
+
+
+class WorkforcePerformanceRepo:
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, **kwargs: Any) -> Any:
+        from .models import WorkforcePerformance
+        row = WorkforcePerformance(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def by_employee(self, employee_id: str) -> Sequence[Any]:
+        from .models import WorkforcePerformance
+        r = await self.session.execute(
+            select(WorkforcePerformance).where(
+                WorkforcePerformance.employee_id == employee_id)
+            .order_by(WorkforcePerformance.period.desc()))
+        return list(r.scalars().all())
+
+    async def by_period(self, period: str) -> Sequence[Any]:
+        from .models import WorkforcePerformance
+        r = await self.session.execute(
+            select(WorkforcePerformance).where(
+                WorkforcePerformance.period == period)
+            .order_by(WorkforcePerformance.composite_score.desc()))
+        return list(r.scalars().all())
+
+
+class WorkforceStatusHistoryRepo:
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, **kwargs: Any) -> Any:
+        from .models import WorkforceStatusHistory
+        row = WorkforceStatusHistory(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def by_employee(self, employee_id: str) -> Sequence[Any]:
+        from .models import WorkforceStatusHistory
+        r = await self.session.execute(
+            select(WorkforceStatusHistory).where(
+                WorkforceStatusHistory.employee_id == employee_id)
+            .order_by(WorkforceStatusHistory.created_at.desc()))
+        return list(r.scalars().all())
+
+
+class WorkforceMemoryRepo:
+    """Scoped employee memory entries (§13)."""
+
+    def __init__(self, session: AsyncSession): self.session = session
+
+    async def create(self, **kwargs: Any) -> Any:
+        from .models import WorkforceMemory
+        row = WorkforceMemory(**kwargs)
+        self.session.add(row); await self.session.flush(); return row
+
+    async def by_employee(self, employee_id: str) -> Sequence[Any]:
+        from .models import WorkforceMemory
+        r = await self.session.execute(
+            select(WorkforceMemory).where(
+                WorkforceMemory.employee_id == employee_id)
+            .order_by(WorkforceMemory.created_at.desc()))
+        return list(r.scalars().all())
+
+    async def by_employee_category(self, employee_id: str,
+                                   category: str) -> Sequence[Any]:
+        from .models import WorkforceMemory
+        r = await self.session.execute(
+            select(WorkforceMemory).where(
+                WorkforceMemory.employee_id == employee_id,
+                WorkforceMemory.category == category)
+            .order_by(WorkforceMemory.created_at.desc()))
         return list(r.scalars().all())

@@ -114,6 +114,20 @@ PERMISSIONS: list[tuple[str, str, str]] = [
     ("execution.api.call", "execution", "Call approved external APIs through the API execution adapter"),
     ("execution.workflows.write", "execution", "Create and run multi-step execution workflows"),
     ("execution.admin", "execution", "Register, validate and disable execution tools; administer the execution engine"),
+    # ---- P-WORKFORCE: 111-employee virtual organization ----
+    # OWNER_PERMISSIONS is derived from this list, so the owner receives all of
+    # them automatically. SYSTEM_PERMISSIONS is enumerated explicitly and
+    # includes none of them, so the application can never manage the
+    # organization, assign work, or change an employee's status on its own
+    # authority. The CEO acts through the same governed surfaces, not through a
+    # system permission.
+    ("workforce.read", "workforce", "Read the organization, departments, employees and workforce status"),
+    ("workforce.manage", "workforce", "Manage departments, employee status and the organization structure"),
+    ("workforce.assign", "workforce", "Assign work orders to employees and advance their state"),
+    ("workforce.ceo", "workforce", "Submit executive objectives and operate the CEO office"),
+    ("workforce.communicate", "workforce", "Send internal messages and create cross-department handoffs"),
+    ("workforce.performance", "workforce", "Read and recompute employee and department performance KPIs"),
+    ("workforce.memory", "workforce", "Read and write scoped employee memory"),
 ]
 
 OWNER_PERMISSIONS = [code for code, _, _ in PERMISSIONS]

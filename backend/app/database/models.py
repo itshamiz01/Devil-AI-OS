@@ -16,6 +16,12 @@ from app.execution.schemas import (
     WORKFLOW_RUN_STATES as _WORKFLOW_RUN_STATES,
     WORKFLOW_STEP_STATES as _WORKFLOW_STEP_STATES,
 )
+from app.workforce.schemas import (
+    WORKFORCE_EMPLOYEE_STATUSES as _WORKFORCE_EMPLOYEE_STATUSES,
+    WORKFORCE_HANDOFF_STATES as _WORKFORCE_HANDOFF_STATES,
+    WORKFORCE_OBJECTIVE_STATES as _WORKFORCE_OBJECTIVE_STATES,
+    WORKFORCE_WORK_ORDER_STATES as _WORKFORCE_WORK_ORDER_STATES,
+)
 from app.agents.schemas import (
     AGENT_PERMISSION_STATUSES,
     ASSIGNMENT_STATUSES,
@@ -1215,3 +1221,250 @@ class WorkflowStepRun(TimestampMixin, Base):
         UniqueConstraint("workflow_run_id", "step_id",
                          name="uq_workflow_step_runs_run_step"),)
 
+
+
+# --------------------------------------------------------------------------- #
+# P-WORKFORCE: the 111-employee virtual organization
+#
+# The workforce is a coordination layer over the existing agent registry (the
+# `agents` table is the employee registry - `workforce_employees.employee_id`
+# is a stable employee ID that doubles as the agent's registry key), the
+# existing task queue, capability catalog and permission system. These tables
+# carry the organizational state the registry deliberately does not: the
+# reporting hierarchy, profiles, work orders, handoffs, messages and the
+# performance record. No second agent registry, task scheduler or financial
+# ledger is created anywhere in this layer.
+# --------------------------------------------------------------------------- #
+
+
+class WorkforceDepartment(TimestampMixin, Base):
+    """One of the ten baseline departments (§5).
+
+    ``manager_employee_id`` points at the department manager's employee row,
+    which is the reporting anchor for the department's ten specialists.
+    """
+
+    __tablename__ = "workforce_departments"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    code: Mapped[str] = mapped_column(String(32), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    manager_employee_id: Mapped[str] = mapped_column(
+        ForeignKey("workforce_employees.employee_id"), nullable=False, index=True)
+    mission: Mapped[str] = mapped_column(Text, default="", nullable=False)
+
+
+class WorkforceEmployee(TimestampMixin, Base):
+    """The employee profile (§6).
+
+    ``employee_id`` is the stable identity (``DEV-CEO-001``, ``DEV-MGR-001``,
+    ``DEV-STR-001``, ...) and is also the key into the existing `agents`
+    registry - the workforce does not keep a second registry. ``is_baseline``
+    marks one of the 111 seeded employees; expansion employees are labelled
+    ``is_expansion`` and reported separately (§15), so the baseline headcount
+    can never be silently altered.
+    """
+
+    __tablename__ = "workforce_employees"
+    employee_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    department_code: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    department_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    job_title: Mapped[str] = mapped_column(String(128), nullable=False)
+    role_description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    primary_responsibilities: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    secondary_responsibilities: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    manager_employee_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workforce_employees.employee_id"), index=True)
+    seniority: Mapped[int] = mapped_column(
+        Integer, CheckConstraint("seniority >= 0", name="ck_workforce_employees_seniority"),
+        default=1, server_default="1", nullable=False)
+    skills: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    tool_access: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    memory_scope: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    system_instructions: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    communication_style: Mapped[str] = mapped_column(String(128), default="professional", nullable=False)
+    autonomy_level: Mapped[str] = mapped_column(String(64), default="supervised", nullable=False)
+    permission_scope: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("status %s" % _in_list(_WORKFORCE_EMPLOYEE_STATUSES),
+                        name="ck_workforce_employees_status"),
+        default="ACTIVE", server_default="ACTIVE", nullable=False, index=True)
+    is_baseline: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", nullable=False)
+    is_expansion: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False)
+    current_assignments: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    last_activity: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    configuration_version: Mapped[int] = mapped_column(
+        Integer, CheckConstraint("configuration_version >= 1", name="ck_workforce_employees_config_version"),
+        default=1, server_default="1", nullable=False)
+
+
+class WorkforceObjective(TimestampMixin, Base):
+    """An executive objective (§4, §8). Submitted by the owner or the CEO,
+    delegated to the identified departments, and closed with a verified
+    outcome."""
+
+    __tablename__ = "workforce_objectives"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    objective: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(String(32), default="owner", nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("status %s" % _in_list(_WORKFORCE_OBJECTIVE_STATES),
+                        name="ck_workforce_objectives_status"),
+        default="OPEN", server_default="OPEN", nullable=False, index=True)
+    departments: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    expected_outcome: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String(64))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class WorkforceWorkOrder(TimestampMixin, Base):
+    """A structured work order (§7, §10). The unit of delegated work: one
+    accountable employee, defined deliverable, deadline, priority,
+    dependencies and verification requirements."""
+
+    __tablename__ = "workforce_work_orders"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    employee_id: Mapped[str] = mapped_column(
+        ForeignKey("workforce_employees.employee_id"), nullable=False, index=True)
+    manager_employee_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    objective_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workforce_objectives.id"), index=True)
+    task_id: Mapped[str | None] = mapped_column(ForeignKey("tasks.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    instructions: Mapped[str] = mapped_column(Text, nullable=False)
+    required_inputs: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    expected_deliverable: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    priority: Mapped[int] = mapped_column(
+        Integer, CheckConstraint("priority >= 1 AND priority <= 10", name="ck_workforce_work_orders_priority"),
+        default=5, server_default="5", nullable=False)
+    dependencies: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    available_tools: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    permission_scope: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    budget_constraints: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    verification_requirements: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("status %s" % _in_list(_WORKFORCE_WORK_ORDER_STATES),
+                        name="ck_workforce_work_orders_status"),
+        default="TASK_ASSIGNED", server_default="TASK_ASSIGNED", nullable=False, index=True)
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    evidence: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class WorkforceHandoff(TimestampMixin, Base):
+    """A cross-department handoff (§7). The only authorized channel for
+    cross-department collaboration: scoped access, traceable, with defined
+    completion criteria."""
+
+    __tablename__ = "workforce_handoffs"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    from_department: Mapped[str] = mapped_column(String(32), nullable=False)
+    to_department: Mapped[str] = mapped_column(String(32), nullable=False)
+    from_employee_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    to_employee_id: Mapped[str] = mapped_column(
+        ForeignKey("workforce_employees.employee_id"), nullable=False, index=True)
+    source_work_order_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workforce_work_orders.id"), index=True)
+    objective: Mapped[str] = mapped_column(Text, nullable=False)
+    deliverable: Mapped[str] = mapped_column(Text, nullable=False)
+    context: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    references: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    required_action: Mapped[str] = mapped_column(Text, nullable=False)
+    access_scope: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(32),
+        CheckConstraint("status %s" % _in_list(_WORKFORCE_HANDOFF_STATES),
+                        name="ck_workforce_handoffs_status"),
+        default="pending", server_default="pending", nullable=False, index=True)
+    completion_criteria: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+
+
+class WorkforceMessage(TimestampMixin, Base):
+    """An internal message (§17). Always associated with a task, handoff or
+    channel; never a hidden execution channel."""
+
+    __tablename__ = "workforce_messages"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    from_employee_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    to_employee_id: Mapped[str] = mapped_column(
+        ForeignKey("workforce_employees.employee_id"), nullable=False, index=True)
+    channel_type: Mapped[str] = mapped_column(String(32), default="direct", nullable=False)
+    task_id: Mapped[str | None] = mapped_column(ForeignKey("tasks.id"), index=True)
+    handoff_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workforce_handoffs.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(64), default="message", nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class WorkforcePerformance(TimestampMixin, Base):
+    """One KPI record per employee per period (§14).
+
+    Computed from verified outcomes by the system - never written by an
+    employee, and never a self-report. ``source`` records what produced the
+    numbers so a score is auditable.
+    """
+
+    __tablename__ = "workforce_employee_performance"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    employee_id: Mapped[str] = mapped_column(
+        ForeignKey("workforce_employees.employee_id"), nullable=False, index=True)
+    period: Mapped[str] = mapped_column(String(32), nullable=False)
+    task_completion_rate: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    quality_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    deadline_adherence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    rework_rate: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    verified_success_rate: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    resource_efficiency: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    error_rate: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    collaboration_quality: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    policy_compliance: Mapped[float] = mapped_column(Float, default=100.0, nullable=False)
+    composite_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    weights: Mapped[dict[str, float]] = mapped_column(JSON, default=dict, nullable=False)
+    source: Mapped[str] = mapped_column(String(64), default="system", nullable=False)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    __table_args__ = (
+        UniqueConstraint("employee_id", "period",
+                         name="uq_workforce_performance_employee_period"),)
+
+
+class WorkforceStatusHistory(TimestampMixin, Base):
+    """Status transitions for employees (§6: employees must not disappear when
+    disabled - history and audit records are kept)."""
+
+    __tablename__ = "workforce_status_history"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    employee_id: Mapped[str] = mapped_column(
+        ForeignKey("workforce_employees.employee_id"), nullable=False, index=True)
+    from_status: Mapped[str | None] = mapped_column(String(32))
+    to_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    actor: Mapped[str] = mapped_column(String(64), default="system", nullable=False)
+
+
+class WorkforceMemory(TimestampMixin, Base):
+    """A scoped employee memory entry (§13).
+
+    Employees maintain relevant operational memory, scoped to their own
+    ``memory_scope``. Memory is isolated: an employee reads and writes only
+    its own entries, and cross-department access occurs only through approved
+    handoffs. Credentials, private keys, tokens and unrestricted secrets are
+    never stored in ordinary agent memory (§13, §21).
+
+    This store stands in for the P-09 Memory and Learning Engine, which is not
+    yet implemented; it is the workforce-scoped memory that P-09 would govern,
+    documented honestly rather than presented as an existing engine.
+    """
+
+    __tablename__ = "workforce_memory"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    employee_id: Mapped[str] = mapped_column(
+        ForeignKey("workforce_employees.employee_id"), nullable=False, index=True)
+    category: Mapped[str] = mapped_column(String(64), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    scope: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    source: Mapped[str] = mapped_column(String(64), default="employee", nullable=False)
+    shared_with: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)

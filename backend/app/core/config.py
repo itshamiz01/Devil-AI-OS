@@ -134,9 +134,16 @@ class Settings(BaseSettings):
     agents_enabled: bool = True
     # Ceiling on live (non-retired) agents. Reaching it queues a non-essential
     # creation request rather than rejecting it outright.
-    agent_max_total: int = Field(default=12, ge=1, le=64)
+    #
+    # The workforce baseline (P-WORKFORCE §3) registers 111 employees - one CEO,
+    # ten managers, one hundred specialists - in this same registry, so the
+    # ceiling must hold the baseline plus expansion headroom. Raised from the
+    # P-04 value (default 12, cap 64) with the workforce baseline as the stated
+    # justification; the bound is still enforced, so the registry cannot grow
+    # without bound.
+    agent_max_total: int = Field(default=128, ge=1, le=512)
     # Ceiling per template, so one template cannot occupy the whole registry.
-    agent_max_per_template: int = Field(default=4, ge=1, le=32)
+    agent_max_per_template: int = Field(default=32, ge=1, le=128)
     # Ceiling on creation requests held in QUEUE. A full queue rejects, because
     # queuing without bound is just refusing slowly and without telling anyone.
     agent_max_creation_queue: int = Field(default=20, ge=1, le=200)
@@ -173,6 +180,38 @@ class Settings(BaseSettings):
     execution_code_interpreter: Path = Path(sys.executable)
     execution_code_timeout_seconds: int = Field(default=20, ge=1, le=300)
     execution_code_output_cap_bytes: int = Field(default=65536, ge=1024, le=1_048_576)
+
+    # ---- P-WORKFORCE: the 111-employee virtual organization ----------------
+    # The workforce is a coordination layer over the existing agent registry,
+    # task queue, capability catalog and permission system - not a second
+    # registry or scheduler. One shared inference layer serves every employee
+    # (P-WORKFORCE §12): no per-employee model process is ever spawned.
+    workforce_enabled: bool = True
+    # Seed the 111-employee baseline (1 CEO + 10 managers + 100 specialists) on
+    # startup. Idempotent: seeding never duplicates, keyed on stable employee
+    # IDs (DEV-CEO-001, DEV-MGR-001, DEV-STR-001, ...).
+    workforce_seed_baseline: bool = True
+    # Concurrency governance for the shared inference layer (§12, §24). The
+    # organization queues rather than overloads: a busy system admits work
+    # within these limits and defers the rest.
+    workforce_max_global_concurrency: int = Field(default=4, ge=1, le=64)
+    workforce_max_department_concurrency: int = Field(default=2, ge=1, le=32)
+    workforce_max_employee_concurrency: int = Field(default=2, ge=1, le=16)
+    # Minimum headroom, in MiB, that must remain free before non-essential
+    # employee work is deferred (low-resource mode, §24).
+    workforce_low_resource_ram_mib: int = Field(default=256, ge=0, le=8192)
+    # CEO operating cycle: the maximum number of departments a single objective
+    # may be delegated to before the CEO must consolidate (bounds fan-out).
+    workforce_max_objective_departments: int = Field(default=6, ge=1, le=10)
+    # KPI scoring weights (§14). Percentages; the validator enforces they sum
+    # to 100. A critical security violation cannot be offset by productivity.
+    workforce_kpi_weight_quality: float = Field(default=25.0, ge=0.0, le=100.0)
+    workforce_kpi_weight_success: float = Field(default=20.0, ge=0.0, le=100.0)
+    workforce_kpi_weight_deadline: float = Field(default=15.0, ge=0.0, le=100.0)
+    workforce_kpi_weight_reliability: float = Field(default=15.0, ge=0.0, le=100.0)
+    workforce_kpi_weight_resource: float = Field(default=10.0, ge=0.0, le=100.0)
+    workforce_kpi_weight_collaboration: float = Field(default=10.0, ge=0.0, le=100.0)
+    workforce_kpi_weight_compliance: float = Field(default=5.0, ge=0.0, le=100.0)
 
     @field_validator("host")
     @classmethod
@@ -213,6 +252,22 @@ class Settings(BaseSettings):
             raise ValueError("External, financial and cloud AI execution are disabled in P-01")
         if self.retry_max_delay < self.retry_base_delay:
             raise ValueError("retry_max_delay must be >= retry_base_delay")
+        # P-WORKFORCE §14: the KPI weights are percentages and must total 100,
+        # or the scoring model silently scales every score to a different
+        # denominator and "transparent, configurable" stops being true.
+        kpi_total = (
+            self.workforce_kpi_weight_quality
+            + self.workforce_kpi_weight_success
+            + self.workforce_kpi_weight_deadline
+            + self.workforce_kpi_weight_reliability
+            + self.workforce_kpi_weight_resource
+            + self.workforce_kpi_weight_collaboration
+            + self.workforce_kpi_weight_compliance
+        )
+        if abs(kpi_total - 100.0) > 0.01:
+            raise ValueError(
+                f"workforce KPI weights must total 100; they total {kpi_total:g}"
+            )
         return self
 
     @property

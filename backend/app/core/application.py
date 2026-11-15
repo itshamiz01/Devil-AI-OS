@@ -28,6 +28,7 @@ from ..api.routes import (
     opportunities,
     system,
     tasks,
+    workforce,
 )
 from ..database.connection import Database
 from ..database.repositories import AuditRepo, ConfigRepo, PermissionRepo, PrincipalRepo
@@ -41,6 +42,7 @@ from ..intelligence.factory import build_intelligence, initialize as initialize_
 from ..opportunities.factory import build_opportunities, initialize as initialize_opportunities
 from ..agents.subsystem import build_agents, initialize as initialize_agents
 from ..execution.subsystem import build_execution, initialize as initialize_execution
+from ..workforce.subsystem import build_workforce, initialize as initialize_workforce
 from ..tasks.handlers import clear_research_backend, set_research_backend
 from ..permissions.policies import OWNER_PERMISSIONS, PERMISSIONS, SYSTEM_PERMISSIONS
 from ..tasks.manager import TaskManager
@@ -85,6 +87,12 @@ class Services:
     # it is built after agents; built without that authority it still
     # evaluates, and refuses what it cannot verify.
     execution: Any = None
+    # P-WORKFORCE 111-employee virtual organization. None when
+    # AUTONOMUS_WORKFORCE_ENABLED is false. Built after agents because it
+    # registers its employees through the agent registry and grants through the
+    # capability service; without them it still reports what the organization
+    # holds, but cannot register or grant.
+    workforce: Any = None
 
 
 async def seed_core_data(db: Database, settings: Settings) -> None:
@@ -211,6 +219,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
             if execution_services is not None:
                 await initialize_execution(execution_services)
+            # Built last. The workforce registers its 111-employee baseline
+            # through the agent registry and capability catalog; construction
+            # performs no I/O, and initialization is an idempotent seed that
+            # never duplicates an existing baseline employee.
+            workforce_services = (
+                build_workforce(settings, db,
+                                capabilities=(agent_services.capabilities
+                                              if agent_services is not None else None),
+                                bus=bus)
+                if settings.workforce_enabled else None
+            )
+            if workforce_services is not None:
+                await initialize_workforce(
+                    workforce_services,
+                    capabilities=(agent_services.capabilities
+                                  if agent_services is not None else None),
+                    bus=bus)
             services = Services(
                 settings=settings, db=db, bus=bus, permissions=permissions,
                 approvals=approval_service, auth=auth_service, monitor=monitor,
@@ -220,6 +245,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 opportunities=opportunity_services,
                 agents=agent_services,
                 execution=execution_services,
+                workforce=workforce_services,
             )
             services.health = HealthService(services)
             app.state.services = services
@@ -298,6 +324,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         execution_files.router, execution_code.router,
         events.router,
         intelligence.router, opportunities.router,
+        workforce.router,
     ):
         app.include_router(router, prefix="/api/v1")
     return app
