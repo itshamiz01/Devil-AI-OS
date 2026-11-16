@@ -1,0 +1,60 @@
+# Devil-AI-OS on Oracle Cloud — single-VM deployment.
+#
+# Runs the whole stack on one Oracle Cloud (OCI) free-tier VM: PostgreSQL
+# and the FastAPI app, side by side. No Supabase, no Vercel. The app connects
+# to Postgres over the compose network; migrations and the 111-employee
+# workforce seed run on app startup.
+#
+# Values come from the .env file in this directory (docker compose reads it
+# automatically). Copy .env.example to .env and fill in the values first.
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-devil}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme-strong-password}
+      POSTGRES_DB: ${POSTGRES_DB:-devil}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devil} -d ${POSTGRES_DB:-devil}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Postgres stays on the internal compose network; it is not published to
+    # the VM's public interface. The app reaches it by the service name `db`.
+    expose:
+      - "5432"
+
+  api:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      AUTONOMUS_ENVIRONMENT: production
+      # Hosted mode: the VM's public IP must reach the app, so bind 0.0.0.0.
+      AUTONOMUS_HOSTED: "true"
+      AUTONOMUS_HOST: 0.0.0.0
+      AUTONOMUS_PORT: "8000"
+      # Point at the compose Postgres service. Both URLs are the same here:
+      # there is no transaction pooler to separate runtime from migrations.
+      AUTONOMUS_DATABASE_URL: postgresql://${POSTGRES_USER:-devil}:${POSTGRES_PASSWORD:-changeme-strong-password}@db:5432/${POSTGRES_DB:-devil}
+      AUTONOMUS_DATABASE_URL_direct: postgresql://${POSTGRES_USER:-devil}:${POSTGRES_PASSWORD:-changeme-strong-password}@db:5432/${POSTGRES_DB:-devil}
+      # Migrations run on startup (single instance, so no race).
+      AUTONOMUS_RUN_MIGRATIONS_ON_STARTUP: "true"
+      # Non-interactive owner bootstrap.
+      AUTONOMUS_OWNER_BOOTSTRAP_USERNAME: ${OWNER_USERNAME:-owner}
+      AUTONOMUS_OWNER_BOOTSTRAP_PASSWORD: ${OWNER_PASSWORD:-correct-horse-battery-staple}
+      # Swagger UI stays on; set false to disable in production.
+      AUTONOMUS_DOCS_ENABLED: "true"
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
